@@ -11,6 +11,7 @@ const NIR_SHEETS = {
 // Abas (serão criadas se não existirem) para relatórios por turno
 const REL_ENF_SHEET = 'REL ENF';
 const REL_MED_SHEET = 'REL MED';
+const SHIFT_SHEET = 'PLANTAO ATUAL';
 
 
 /**
@@ -44,6 +45,23 @@ function getOrCreateSheet_(name) {
   var sheet = ss.getSheetByName(name);
   if (!sheet) {
     sheet = ss.insertSheet(name);
+  }
+  return sheet;
+}
+
+function getShiftSheet_() {
+  var sheet = getOrCreateSheet_(SHIFT_SHEET);
+  if (sheet.getLastRow() === 0) {
+    sheet.getRange(1, 1, 1, 8).setValues([[
+      'Data do Plantão',
+      'Dia da Semana',
+      'Turno',
+      'Médico(a)',
+      'Enfermeiro(a)',
+      'Enfermeiro(a) Sombra',
+      'Auxiliar Administrativo',
+      'Registrado em'
+    ]]);
   }
   return sheet;
 }
@@ -375,4 +393,286 @@ function getRelatoriosRecentes(limit) {
   });
 
   return out.slice(0, limit);
+}
+
+/**
+ * Retorna informações do plantão atual (última linha da aba de plantão)
+ */
+function getShiftInfo() {
+  var sheet = getShiftSheet_();
+  var lastRow = sheet.getLastRow();
+  if (lastRow <= 1) return {};
+
+  var values = sheet.getRange(lastRow, 1, 1, 8).getValues()[0];
+  return {
+    dataPlantao: values[0],
+    diaSemana: values[1],
+    turno: values[2],
+    medico: values[3],
+    enfermeiro: values[4],
+    enfermeiroSombra: values[5],
+    auxiliar: values[6],
+    registradoEm: values[7]
+  };
+}
+
+/**
+ * Salva/atualiza o registro do plantão atual
+ */
+function saveShift(payload) {
+  if (!payload) {
+    throw new Error('Dados do plantão não recebidos.');
+  }
+
+  if (!payload.dataPlantao || !payload.turno) {
+    throw new Error('Data do plantão e turno são obrigatórios.');
+  }
+
+  var sheet = getShiftSheet_();
+  var now = new Date();
+  sheet.appendRow([
+    payload.dataPlantao,
+    payload.diaSemana || '',
+    payload.turno || '',
+    payload.medico || '',
+    payload.enfermeiro || '',
+    payload.enfermeiroSombra || '',
+    payload.auxiliar || '',
+    now
+  ]);
+
+  return {
+    ok: true,
+    message: 'Plantão salvo/atualizado com sucesso.'
+  };
+}
+
+/**
+ * Retorna últimos 2 dias com as 2 ocorrências mais recentes de cada
+ */
+function getLatestOccurrencesDays(limitDays, perDayLimit) {
+  limitDays = limitDays || 2;
+  perDayLimit = perDayLimit || 2;
+
+  var occurrences = collectOccurrences_();
+  if (!occurrences.length) {
+    return { days: [] };
+  }
+
+  var grouped = {};
+  occurrences.forEach(function (occ) {
+    var diaKey = String(occ.dia || 'Sem dia');
+    if (!grouped[diaKey]) {
+      grouped[diaKey] = [];
+    }
+    grouped[diaKey].push(occ);
+  });
+
+  var days = Object.keys(grouped).map(function (key) {
+    var list = grouped[key];
+    list.sort(function (a, b) {
+      return (b.order || 0) - (a.order || 0);
+    });
+
+    var turnoResumo = list.find(function (i) { return i.turno; });
+
+    return {
+      dia: key,
+      turnoResumo: turnoResumo ? turnoResumo.turno : '',
+      occurrences: list.slice(0, perDayLimit).map(mapOccurrenceForClient_)
+    };
+  });
+
+  days.sort(function (a, b) {
+    var da = parseDateFlexible_(a.dia);
+    var db = parseDateFlexible_(b.dia);
+    if (da && db) {
+      return db.getTime() - da.getTime();
+    }
+    return (grouped[b.dia][0].order || 0) - (grouped[a.dia][0].order || 0);
+  });
+
+  return { days: days.slice(0, limitDays) };
+}
+
+/**
+ * Busca ocorrências por texto livre
+ */
+function searchOccurrences(query) {
+  if (!query || String(query).trim().length < 2) {
+    return [];
+  }
+
+  var term = String(query).toLowerCase();
+  var occurrences = collectOccurrences_();
+
+  var filtered = occurrences.filter(function (occ) {
+    var haystack = [
+      occ.category,
+      occ.paciente,
+      occ.especialidade,
+      occ.origem,
+      occ.status,
+      occ.dia,
+      occ.turno,
+      occ.observacao
+    ].join(' ').toLowerCase();
+    return haystack.indexOf(term) > -1;
+  });
+
+  filtered.sort(function (a, b) {
+    return (b.order || 0) - (a.order || 0);
+  });
+
+  return filtered.slice(0, 30).map(mapOccurrenceForClient_);
+}
+
+/**
+ * Coleta todas as ocorrências das abas NIR
+ */
+function collectOccurrences_() {
+  var ss = getSS();
+  var out = [];
+
+  Object.keys(NIR_SHEETS).forEach(function (categoryName) {
+    var sheetName = NIR_SHEETS[categoryName];
+    var sh = ss.getSheetByName(sheetName);
+    if (!sh) return;
+
+    var lastRow = sh.getLastRow();
+    var lastCol = sh.getLastColumn();
+    if (lastRow <= 1 || lastCol === 0) return;
+
+    var headersNorm = sh.getRange(1, 1, 1, lastCol).getValues()[0].map(function (h) {
+      return normalize_(h);
+    });
+
+    var values = sh.getRange(2, 1, lastRow - 1, lastCol).getValues();
+
+    values.forEach(function (row, idx) {
+      var dia = getValueByHeader_(headersNorm, row, ['dia']);
+      var turno = getValueByHeader_(headersNorm, row, ['turno']);
+      var paciente = getValueByHeader_(headersNorm, row, ['nome do paciente', 'paciente']);
+      var especialidade = getValueByHeader_(headersNorm, row, ['especialidade']);
+      var origem = getValueByHeader_(headersNorm, row, ['origem']);
+      var status = getValueByHeader_(headersNorm, row, ['status']);
+      var observacao = getValueByHeader_(headersNorm, row, ['observação', 'observacao']);
+      var dataReserva = getValueByHeader_(headersNorm, row, [
+        'data da reserva',
+        'data da confirmação da reserva',
+        'data do cancelamento da reserva',
+        'data de admissão'
+      ]);
+      var horaReserva = getValueByHeader_(headersNorm, row, [
+        'hora da reserva',
+        'hora da confirmação da reserva',
+        'hora do cancelamento da reserva',
+        'hora da admissão'
+      ]);
+
+      var timestamp = buildTimestamp_(dataReserva, horaReserva);
+      var order = timestamp || (lastRow - idx); // fallback usando posição
+
+      out.push({
+        category: categoryName,
+        dia: dia,
+        turno: turno,
+        paciente: paciente,
+        especialidade: especialidade,
+        origem: origem,
+        status: status,
+        observacao: observacao,
+        dataHora: timestamp,
+        order: order
+      });
+    });
+  });
+
+  out.sort(function (a, b) {
+    return (b.order || 0) - (a.order || 0);
+  });
+
+  return out;
+}
+
+function getValueByHeader_(headersNorm, row, keys) {
+  for (var i = 0; i < keys.length; i++) {
+    var idx = headersNorm.indexOf(normalize_(keys[i]));
+    if (idx > -1) {
+      var val = row[idx];
+      if (val !== undefined && val !== null && String(val).trim() !== '') {
+        return val;
+      }
+    }
+  }
+  return '';
+}
+
+function buildTimestamp_(dateValue, timeValue) {
+  var dateObj = parseDateFlexible_(dateValue);
+  if (!dateObj) return 0;
+
+  if (timeValue) {
+    var time = String(timeValue);
+    var parts = time.split(':');
+    if (parts.length >= 2) {
+      dateObj.setHours(Number(parts[0]) || 0, Number(parts[1]) || 0, 0, 0);
+    }
+  }
+  return dateObj.getTime();
+}
+
+function parseDateFlexible_(value) {
+  if (!value) return null;
+  if (value instanceof Date && !isNaN(value.getTime())) return value;
+
+  if (typeof value === 'string') {
+    var str = value.trim();
+    if (!str) return null;
+
+    var isoMatch = str.match(/^([0-9]{4})-([0-9]{2})-([0-9]{2})$/);
+    if (isoMatch) {
+      var y = Number(isoMatch[1]);
+      var m = Number(isoMatch[2]) - 1;
+      var d = Number(isoMatch[3]);
+      var dt = new Date(y, m, d);
+      return isNaN(dt.getTime()) ? null : dt;
+    }
+
+    var parts = str.split('/');
+    if (parts.length === 3) {
+      var dd = Number(parts[0]);
+      var mm = Number(parts[1]) - 1;
+      var yyyy = Number(parts[2]);
+      var dt2 = new Date(yyyy, mm, dd);
+      return isNaN(dt2.getTime()) ? null : dt2;
+    }
+  }
+  return null;
+}
+
+function mapOccurrenceForClient_(occ) {
+  return {
+    category: occ.category,
+    dia: occ.dia,
+    turno: occ.turno,
+    paciente: occ.paciente,
+    especialidade: occ.especialidade,
+    origem: occ.origem,
+    status: occ.status,
+    observacao: occ.observacao,
+    dataHora: occ.dataHora ? formatDateTime_(occ.dataHora) : ''
+  };
+}
+
+function formatDateTime_(timestamp) {
+  if (!timestamp) return '';
+  var d = new Date(timestamp);
+  if (isNaN(d.getTime())) return '';
+  var dd = ('0' + d.getDate()).slice(-2);
+  var mm = ('0' + (d.getMonth() + 1)).slice(-2);
+  var yyyy = d.getFullYear();
+  var hh = ('0' + d.getHours()).slice(-2);
+  var min = ('0' + d.getMinutes()).slice(-2);
+  return dd + '/' + mm + '/' + yyyy + ' ' + hh + ':' + min;
 }
