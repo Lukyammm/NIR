@@ -120,6 +120,123 @@
       gap: 18px;
     }
 
+    .board-shell {
+      border: 1px solid var(--border-subtle);
+      padding: 16px 18px;
+      background: linear-gradient(135deg, #eef2ff, #ffffff);
+    }
+
+    .board-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .board-title {
+      margin: 2px 0 0;
+      font-size: 1.3rem;
+      letter-spacing: 0.01em;
+    }
+
+    .board-kpis {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(90px, 1fr));
+      gap: 10px;
+      margin: 12px 0;
+    }
+
+    .board-kpi {
+      padding: 10px 12px;
+      background: #fff;
+      border-radius: 12px;
+      text-align: center;
+      border: 1px dashed var(--border-subtle);
+      font-weight: 700;
+      letter-spacing: 0.02em;
+    }
+
+    .board-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 12px;
+    }
+
+    .board-card {
+      background: #fff;
+      border-radius: 12px;
+      border: 1px solid var(--border-subtle);
+      padding: 12px 14px;
+      min-height: 120px;
+    }
+
+    .board-card-title {
+      margin: 0 0 8px;
+      font-weight: 700;
+      color: var(--text-main);
+    }
+
+    .board-list {
+      list-style: disc;
+      padding-left: 18px;
+      margin: 0;
+      display: grid;
+      gap: 6px;
+    }
+
+    .filter-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .chip {
+      border-radius: var(--radius-pill);
+      border: 1px solid var(--border-subtle);
+      padding: 6px 12px;
+      background: #f8fafc;
+      color: var(--text-main);
+      cursor: pointer;
+    }
+
+    .chip.active {
+      background: var(--accent-soft);
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    .table-wrapper {
+      width: 100%;
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.88rem;
+    }
+
+    th,
+    td {
+      text-align: left;
+      padding: 10px 8px;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    th {
+      font-size: 0.76rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.02em;
+    }
+
+    .occ-columns {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 16px;
+    }
+
     .card {
       background: var(--bg-card);
       border-radius: var(--radius-lg);
@@ -641,6 +758,59 @@
 </head>
 <body>
   <div class="app">
+    <section class="card full-width board-shell">
+      <div class="board-header">
+        <div>
+          <p class="muted" style="margin: 0; font-weight: 600; letter-spacing: 0.01em;">
+            Equipe do Plantão
+          </p>
+          <h2 id="board-shift-label" class="board-title">
+            Data • Turno • Assessor
+          </h2>
+        </div>
+        <button class="btn-primary" data-target="#nova-ocorrencia">
+          + Nova Ocorrência
+        </button>
+      </div>
+
+      <div id="board-kpis" class="board-kpis">
+        <div class="board-kpi">R1</div>
+        <div class="board-kpi">R2</div>
+        <div class="board-kpi">R3</div>
+        <div class="board-kpi">R4</div>
+        <div class="board-kpi">R5</div>
+        <div class="board-kpi">R6</div>
+        <div class="board-kpi">R7</div>
+      </div>
+
+      <div class="board-grid">
+        <div class="board-card" id="board-previous">
+          <p class="board-card-title">Visão do plantão anterior</p>
+          <ul id="board-previous-list" class="board-list">
+            <li class="muted">Carregando...</li>
+          </ul>
+        </div>
+        <div class="board-card" id="board-filters">
+          <p class="board-card-title">Filtros rápidos</p>
+          <div id="board-filter-buttons" class="filter-chips">
+            <button type="button" class="chip" data-type="RESERVA CONFIRMADA">
+              Reserva Conf.
+            </button>
+            <button type="button" class="chip" data-type="PROCEDIMENTO CONFIRMADO">
+              Procedimento
+            </button>
+            <button type="button" class="chip" data-type="RESERVA NEGADA">
+              Negada
+            </button>
+            <button type="button" class="chip" data-type="PLANTÃO ANTERIOR">
+              Plantão Ant.
+            </button>
+          </div>
+          <p class="muted" style="margin: 8px 0 0;">Aplica na Tabela Geral abaixo.</p>
+        </div>
+      </div>
+    </section>
+
     <header class="app-header">
       <div>
         <h1>NIR – Ocorrências</h1>
@@ -727,6 +897,49 @@
         <button class="btn-primary" id="btn-search">Pesquisar</button>
       </div>
       <div id="search-results" class="search-results"></div>
+    </section>
+
+    <section class="card full-width" id="tabela-geral">
+      <h2>
+        Tabela Geral
+        <span class="badge">Últimas entradas</span>
+      </h2>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>Tipo</th>
+              <th>Paciente</th>
+              <th>Origem</th>
+              <th>Status</th>
+              <th>Horário</th>
+              <th>Observação</th>
+            </tr>
+          </thead>
+          <tbody id="board-table-body">
+            <tr>
+              <td colspan="6" class="muted">Carregando dados...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="card full-width" id="quadro-ocorrencias">
+      <h2>
+        Ocorrências
+        <span class="badge">Enfermagem x Médica</span>
+      </h2>
+      <div class="occ-columns">
+        <div>
+          <p class="board-card-title">Enfermagem</p>
+          <ul id="occ-enfermagem" class="board-list"></ul>
+        </div>
+        <div>
+          <p class="board-card-title">Médica</p>
+          <ul id="occ-medica" class="board-list"></ul>
+        </div>
+      </div>
     </section>
 
     <main>
@@ -1190,6 +1403,18 @@
 
       let currentRelTipo = "ENF";
       let isSaving = false;
+      let generalTableData = [];
+      const activeFilters = new Set();
+
+      const elBoardShiftLabel = document.getElementById("board-shift-label");
+      const elBoardKpis = document.getElementById("board-kpis");
+      const elBoardPrevList = document.getElementById("board-previous-list");
+      const elBoardFilterButtons = document.getElementById(
+        "board-filter-buttons"
+      );
+      const elBoardTableBody = document.getElementById("board-table-body");
+      const elOccEnfermagem = document.getElementById("occ-enfermagem");
+      const elOccMedica = document.getElementById("occ-medica");
 
       const elCategory = document.getElementById("category");
       const elDynamicFields = document.getElementById("dynamic-fields");
@@ -1203,7 +1428,7 @@
       const elRelSegment = document.getElementById("rel-tipo-segment");
       const elBtnRelSave = document.getElementById("btn-rel-save");
       const elRelRecentes = document.getElementById("rel-recentes");
-      const elMenuButtons = document.querySelectorAll(".menu-btn");
+      const elTargetButtons = document.querySelectorAll("[data-target]");
       const elLatestDays = document.getElementById("latest-days");
       const elSearchInput = document.getElementById("search-query");
       const elSearchResults = document.getElementById("search-results");
@@ -1268,7 +1493,25 @@
 
         elBtnRelSave.addEventListener("click", handleSaveRelatorio);
 
-        elMenuButtons.forEach(function (btn) {
+        if (elBoardFilterButtons) {
+          const chips = elBoardFilterButtons.querySelectorAll(".chip");
+          chips.forEach(function (chip) {
+            chip.addEventListener("click", function () {
+              const type = this.dataset.type;
+              if (!type) return;
+              if (activeFilters.has(type)) {
+                activeFilters.delete(type);
+                this.classList.remove("active");
+              } else {
+                activeFilters.add(type);
+                this.classList.add("active");
+              }
+              renderGeneralTable();
+            });
+          });
+        }
+
+        elTargetButtons.forEach(function (btn) {
           btn.addEventListener("click", function () {
             const target = this.dataset.target;
             if (!target) return;
@@ -1328,6 +1571,8 @@
         if (elShiftTurno) elShiftTurno.textContent = safe(data.turno);
         if (elShiftUpdated)
           elShiftUpdated.textContent = formatDateTimeDisplay(data.registradoEm);
+
+        updateBoardShiftLabel(data);
 
         if (elShiftSubtitle) {
           elShiftSubtitle.textContent = data && data.dataPlantao
@@ -1467,7 +1712,7 @@
             console.log(err);
             elLatestDays.innerHTML = '<p class="muted">Não foi possível carregar as ocorrências.</p>';
           })
-          .getLatestOccurrencesDays(2, 2);
+          .getLatestOccurrencesDays(2, 4);
       }
 
       function renderLatestOccurrences(data) {
@@ -1479,6 +1724,8 @@
           elLatestDays.innerHTML = '<p class="muted">Sem registros recentes.</p>';
           return;
         }
+
+        updateGeneralTableFromLatest(days);
 
         days.forEach(function (day) {
           const card = document.createElement("div");
@@ -1550,6 +1797,69 @@
           }
 
           elLatestDays.appendChild(card);
+        });
+      }
+
+      function updateGeneralTableFromLatest(days) {
+        generalTableData = [];
+        (days || []).forEach(function (day) {
+          (day.occurrences || []).forEach(function (occ) {
+            generalTableData.push({
+              category: occ.category,
+              paciente: occ.paciente || "Paciente não informado",
+              origem: occ.origem || "—",
+              status: occ.status || "—",
+              horario: occ.dataHora || "—",
+              observacao: occ.observacao || "",
+            });
+          });
+        });
+
+        renderGeneralTable();
+      }
+
+      function renderGeneralTable() {
+        if (!elBoardTableBody) return;
+        elBoardTableBody.innerHTML = "";
+
+        const filtered = !activeFilters.size
+          ? generalTableData
+          : generalTableData.filter(function (row) {
+              return activeFilters.has(row.category);
+            });
+
+        if (!filtered.length) {
+          const tr = document.createElement("tr");
+          const td = document.createElement("td");
+          td.colSpan = 6;
+          td.className = "muted";
+          td.textContent = activeFilters.size
+            ? "Sem registros para os filtros selecionados."
+            : "Sem dados recentes.";
+          tr.appendChild(td);
+          elBoardTableBody.appendChild(tr);
+          return;
+        }
+
+        filtered.slice(0, 30).forEach(function (row) {
+          const tr = document.createElement("tr");
+
+          const fields = [
+            row.category,
+            row.paciente,
+            row.origem,
+            row.status,
+            row.horario,
+            row.observacao || "—",
+          ];
+
+          fields.forEach(function (val) {
+            const td = document.createElement("td");
+            td.textContent = val;
+            tr.appendChild(td);
+          });
+
+          elBoardTableBody.appendChild(tr);
         });
       }
 
@@ -1648,6 +1958,16 @@
         const hh = String(d.getHours()).padStart(2, "0");
         const min = String(d.getMinutes()).padStart(2, "0");
         return `${date} ${hh}:${min}`;
+      }
+
+      function updateBoardShiftLabel(data) {
+        if (!elBoardShiftLabel) return;
+        const date = formatDateDisplay(data && data.dataPlantao) || "Sem data";
+        const turno = (data && data.turno) || "Sem turno";
+        const assessor =
+          (data && (data.auxiliar || data.medico || data.enfermeiro)) ||
+          "Assessor não informado";
+        elBoardShiftLabel.textContent = `${date} • ${turno} • ${assessor}`;
       }
 
       function normalizeDateValue(value) {
@@ -1847,6 +2167,9 @@
           return;
         }
 
+        renderBoardKpis(data);
+        renderBoardPrevious(data);
+
         const categories = [
           "RESERVA CONFIRMADA",
           "PROCEDIMENTO CONFIRMADO",
@@ -1905,6 +2228,92 @@
 
           elDash.appendChild(card);
         });
+      }
+
+      function renderBoardKpis(data) {
+        if (!elBoardKpis) return;
+        const first = (data && data.shifts && data.shifts[0]) || null;
+        const counts = (first && first.counts) || {};
+
+        const items = [
+          {
+            label: "R1",
+            value: counts["RESERVA CONFIRMADA"] || 0,
+            subtitle: "Reserva Conf.",
+          },
+          {
+            label: "R2",
+            value: counts["PROCEDIMENTO CONFIRMADO"] || 0,
+            subtitle: "Procedimento",
+          },
+          {
+            label: "R3",
+            value: counts["RESERVA NEGADA"] || 0,
+            subtitle: "Negada",
+          },
+          {
+            label: "R4",
+            value: counts["PLANTÃO ANTERIOR"] || 0,
+            subtitle: "Plantão Ant.",
+          },
+          {
+            label: "R5",
+            value: first ? first.total || 0 : 0,
+            subtitle: "Total",
+          },
+          {
+            label: "R6",
+            value: (first && first.dia) || "—",
+            subtitle: "Dia",
+          },
+          {
+            label: "R7",
+            value: (first && first.turno) || "—",
+            subtitle: "Turno",
+          },
+        ];
+
+        elBoardKpis.innerHTML = "";
+        items.forEach(function (item) {
+          const div = document.createElement("div");
+          div.className = "board-kpi";
+          div.innerHTML =
+            `<div style="font-size:0.78rem;color:${"var(--text-muted)"}">${item.label}</div>` +
+            `<div style="font-size:1.4rem;font-weight:700;">${item.value}</div>` +
+            `<div style="font-size:0.78rem;color:var(--text-muted);">${item.subtitle}</div>`;
+          elBoardKpis.appendChild(div);
+        });
+      }
+
+      function renderBoardPrevious(data) {
+        if (!elBoardPrevList) return;
+        elBoardPrevList.innerHTML = "";
+        const prev = (data && data.shifts && data.shifts[1]) || null;
+        if (!prev) {
+          const li = document.createElement("li");
+          li.className = "muted";
+          li.textContent = "Sem plantão anterior registrado.";
+          elBoardPrevList.appendChild(li);
+          return;
+        }
+
+        const header = document.createElement("li");
+        header.textContent = `${prev.dia || "Sem dia"} • ${prev.turno || "Sem turno"}`;
+        elBoardPrevList.appendChild(header);
+
+        const total = document.createElement("li");
+        total.textContent = `Total de registros: ${prev.total || 0}`;
+        elBoardPrevList.appendChild(total);
+
+        Object.keys(prev.counts || {})
+          .filter(function (key) {
+            return (prev.counts && prev.counts[key]) > 0;
+          })
+          .forEach(function (key) {
+            const li = document.createElement("li");
+            li.textContent = `${key}: ${prev.counts[key]}`;
+            elBoardPrevList.appendChild(li);
+          });
       }
 
       function loadRelatorios() {
@@ -1970,6 +2379,46 @@
         });
 
         elRelRecentes.appendChild(ul);
+
+        renderOccurrenceColumns(lista);
+      }
+
+      function renderOccurrenceColumns(lista) {
+        if (!elOccEnfermagem || !elOccMedica) return;
+        elOccEnfermagem.innerHTML = "";
+        elOccMedica.innerHTML = "";
+
+        const grouped = { ENF: [], MED: [] };
+        (lista || []).forEach(function (item) {
+          if (item && (item.tipo === "ENF" || item.tipo === "MED")) {
+            grouped[item.tipo].push(item);
+          }
+        });
+
+        function fillList(listEl, items, emptyText) {
+          if (!items.length) {
+            const li = document.createElement("li");
+            li.className = "muted";
+            li.textContent = emptyText;
+            listEl.appendChild(li);
+            return;
+          }
+
+          items.slice(0, 6).forEach(function (r) {
+            const li = document.createElement("li");
+            li.innerHTML = `<strong>${r.dia || "Sem dia"}</strong> · ${
+              r.turno || "Sem turno"
+            } – ${r.texto || ""}`;
+            listEl.appendChild(li);
+          });
+        }
+
+        fillList(
+          elOccEnfermagem,
+          grouped.ENF,
+          "Sem ocorrências de enfermagem."
+        );
+        fillList(elOccMedica, grouped.MED, "Sem ocorrências médicas.");
       }
 
       let toastTimeout;
