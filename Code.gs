@@ -428,11 +428,22 @@ function saveShift(payload) {
     throw new Error('Data do plantão e turno são obrigatórios.');
   }
 
+  var dayName = payload.diaSemana;
+  if (!dayName) {
+    var parsedDate = payload.dataPlantao instanceof Date
+      ? payload.dataPlantao
+      : new Date(payload.dataPlantao);
+    if (!isNaN(parsedDate.getTime())) {
+      var weekdays = ['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado'];
+      dayName = weekdays[parsedDate.getDay()] || '';
+    }
+  }
+
   var sheet = getShiftSheet_();
   var now = new Date();
   sheet.appendRow([
     payload.dataPlantao,
-    payload.diaSemana || '',
+    dayName || payload.diaSemana || '',
     payload.turno || '',
     payload.medico || '',
     payload.enfermeiro || '',

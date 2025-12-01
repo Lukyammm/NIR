@@ -6,13 +6,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
     :root {
-      --bg-body: #f3f4f6;
+      --bg-body: #eef2ff;
       --bg-card: #ffffff;
       --accent: #2563eb;
       --accent-soft: rgba(37, 99, 235, 0.08);
       --accent-strong: #1d4ed8;
       --text-main: #0f172a;
-      --text-muted: #6b7280;
+      --text-muted: #475569;
       --border-subtle: #e5e7eb;
       --danger: #b91c1c;
       --warning: #b45309;
@@ -20,7 +20,8 @@
       --success: #15803d;
       --radius-lg: 18px;
       --radius-pill: 999px;
-      --shadow-soft: 0 14px 35px rgba(15, 23, 42, 0.12);
+      --shadow-soft: 0 16px 36px rgba(15, 23, 42, 0.14);
+      --shadow-card: 0 10px 24px rgba(15, 23, 42, 0.08);
     }
 
     * {
@@ -32,7 +33,7 @@
     body {
       margin: 0;
       padding: 24px;
-      background: radial-gradient(circle at top left, #e5edff, #f3f4f6 55%);
+      background: radial-gradient(circle at 10% 10%, #e0e7ff, #eef2ff 40%, #f8fafc);
       color: var(--text-main);
     }
 
@@ -122,8 +123,10 @@
 
     .board-shell {
       border: 1px solid var(--border-subtle);
-      padding: 16px 18px;
+      padding: 18px 20px;
       background: linear-gradient(135deg, #eef2ff, #ffffff);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-card);
     }
 
     .board-header {
@@ -142,19 +145,41 @@
 
     .board-kpis {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(90px, 1fr));
-      gap: 10px;
-      margin: 12px 0;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 12px;
+      margin: 14px 0 6px;
     }
 
     .board-kpi {
-      padding: 10px 12px;
+      padding: 14px 16px;
       background: #fff;
-      border-radius: 12px;
-      text-align: center;
-      border: 1px dashed var(--border-subtle);
-      font-weight: 700;
-      letter-spacing: 0.02em;
+      border-radius: 14px;
+      text-align: left;
+      border: 1px solid var(--border-subtle);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .board-kpi::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(37, 99, 235, 0.05), transparent 50%);
+      pointer-events: none;
+    }
+
+    .board-kpi small {
+      display: inline-block;
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      margin-bottom: 4px;
+    }
+
+    .board-kpi strong {
+      display: block;
+      font-size: 1.2rem;
+      font-weight: 800;
     }
 
     .board-grid {
@@ -773,15 +798,7 @@
         </button>
       </div>
 
-      <div id="board-kpis" class="board-kpis">
-        <div class="board-kpi">R1</div>
-        <div class="board-kpi">R2</div>
-        <div class="board-kpi">R3</div>
-        <div class="board-kpi">R4</div>
-        <div class="board-kpi">R5</div>
-        <div class="board-kpi">R6</div>
-        <div class="board-kpi">R7</div>
-      </div>
+      <div id="board-kpis" class="board-kpis"></div>
 
       <div class="board-grid">
         <div class="board-card" id="board-previous">
@@ -1064,8 +1081,7 @@
           <label for="shift-turno-input">Turno</label>
           <select id="shift-turno-input">
             <option value="">Selecione</option>
-            <option value="MANHÃ">Manhã</option>
-            <option value="NOITE">Noite</option>
+            <option value="MT">MT</option>
             <option value="SN">SN</option>
           </select>
         </div>
@@ -1405,6 +1421,15 @@
       let isSaving = false;
       let generalTableData = [];
       const activeFilters = new Set();
+      const weekdayLabels = [
+        "Domingo",
+        "Segunda-feira",
+        "Terça-feira",
+        "Quarta-feira",
+        "Quinta-feira",
+        "Sexta-feira",
+        "Sábado",
+      ];
 
       const elBoardShiftLabel = document.getElementById("board-shift-label");
       const elBoardKpis = document.getElementById("board-kpis");
@@ -1527,6 +1552,7 @@
         elBtnCancelShift.addEventListener("click", closeShiftModal);
         elBtnSaveShift.addEventListener("click", handleSaveShift);
         elShiftModalBackdrop.addEventListener("click", closeShiftModal);
+        elShiftDataInput.addEventListener("change", handleShiftDateChange);
 
         elSearchBtn.addEventListener("click", handleSearch);
         elSearchInput.addEventListener("keypress", function (ev) {
@@ -1655,9 +1681,11 @@
         if (!elShiftModal) return;
         elShiftModal.style.display = "block";
 
-        const d = normalizeDateValue(currentShiftData && currentShiftData.dataPlantao);
-        elShiftDataInput.value = d ? formatDateForInput(d) : "";
-        elShiftDiaInput.value = currentShiftData?.diaSemana || "";
+        const today = new Date();
+        const d =
+          normalizeDateValue(currentShiftData && currentShiftData.dataPlantao) || today;
+        elShiftDataInput.value = formatDateForInput(d);
+        elShiftDiaInput.value = currentShiftData?.diaSemana || getWeekdayLabel(d) || "";
         elShiftTurnoInput.value = currentShiftData?.turno || "";
         elShiftMedicoInput.value = currentShiftData?.medico || "";
         elShiftEnfermeiroInput.value = currentShiftData?.enfermeiro || "";
@@ -1685,6 +1713,11 @@
         if (!payload.dataPlantao || !payload.turno) {
           showToast("Data do plantão e turno são obrigatórios.", true);
           return;
+        }
+
+        if (!payload.diaSemana) {
+          const normalized = normalizeDateValue(payload.dataPlantao);
+          payload.diaSemana = normalized ? getWeekdayLabel(normalized) : "";
         }
 
         google.script.run
@@ -1970,6 +2003,17 @@
         elBoardShiftLabel.textContent = `${date} • ${turno} • ${assessor}`;
       }
 
+      function getWeekdayLabel(date) {
+        if (!(date instanceof Date)) return "";
+        return weekdayLabels[date.getDay()] || "";
+      }
+
+      function handleShiftDateChange() {
+        const normalized = normalizeDateValue(elShiftDataInput.value);
+        if (!normalized) return;
+        elShiftDiaInput.value = getWeekdayLabel(normalized);
+      }
+
       function normalizeDateValue(value) {
         if (!value) return null;
         if (value instanceof Date && !isNaN(value.getTime())) return value;
@@ -2237,39 +2281,44 @@
 
         const items = [
           {
-            label: "R1",
-            value: counts["RESERVA CONFIRMADA"] || 0,
-            subtitle: "Reserva Conf.",
-          },
-          {
-            label: "R2",
-            value: counts["PROCEDIMENTO CONFIRMADO"] || 0,
-            subtitle: "Procedimento",
-          },
-          {
-            label: "R3",
-            value: counts["RESERVA NEGADA"] || 0,
-            subtitle: "Negada",
-          },
-          {
-            label: "R4",
-            value: counts["PLANTÃO ANTERIOR"] || 0,
-            subtitle: "Plantão Ant.",
-          },
-          {
-            label: "R5",
+            label: "Número de Pacientes Alocados no Plantão",
             value: first ? first.total || 0 : 0,
-            subtitle: "Total",
+            subtitle: "Total geral registrado",
           },
           {
-            label: "R6",
-            value: (first && first.dia) || "—",
-            subtitle: "Dia",
+            label: "Reservas Pendentes de Chegada (Plantão Anterior)",
+            value: counts["PLANTÃO ANTERIOR"] || 0,
+            subtitle: "Plantão anterior",
           },
           {
-            label: "R7",
-            value: (first && first.turno) || "—",
-            subtitle: "Turno",
+            label: "Total de Reservas Confirmadas",
+            value: counts["RESERVA CONFIRMADA"] || 0,
+            subtitle: "Chegadas aguardadas",
+          },
+          {
+            label: "Número de Leitos Bloqueados por Isolamento",
+            value: 0,
+            subtitle: "Atualize conforme necessário",
+          },
+          {
+            label: "Total de Reservas Canceladas",
+            value: counts["RESERVA NEGADA"] || 0,
+            subtitle: "Cancelamentos",
+          },
+          {
+            label: "Número de Leitos Bloqueados para Manutenção",
+            value: 0,
+            subtitle: "Manutenção programada",
+          },
+          {
+            label: "Pacientes Admitidos na UIB",
+            value: 0,
+            subtitle: "Últimas 24h",
+          },
+          {
+            label: "Número de Pacientes Aguardando Transferência Externa",
+            value: 0,
+            subtitle: "Filas externas",
           },
         ];
 
@@ -2278,9 +2327,9 @@
           const div = document.createElement("div");
           div.className = "board-kpi";
           div.innerHTML =
-            `<div style="font-size:0.78rem;color:${"var(--text-muted)"}">${item.label}</div>` +
-            `<div style="font-size:1.4rem;font-weight:700;">${item.value}</div>` +
-            `<div style="font-size:0.78rem;color:var(--text-muted);">${item.subtitle}</div>`;
+            `<small>${item.label}</small>` +
+            `<strong>${item.value}</strong>` +
+            `<div style="font-size:0.8rem;color:var(--text-muted);">${item.subtitle}</div>`;
           elBoardKpis.appendChild(div);
         });
       }
