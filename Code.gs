@@ -1,6 +1,6 @@
-
 /*********** CONFIGURAÇÃO BÁSICA ***********/
 
+// Nome exato das abas que já existem na planilha
 const NIR_SHEETS = {
   'RESERVA CONFIRMADA': 'RESERVA CONFIRMADA',
   'PROCEDIMENTO CONFIRMADO': 'PROCEDIMENTO CONFIRMADO',
@@ -8,8 +8,13 @@ const NIR_SHEETS = {
   'PLANTÃO ANTERIOR': 'PLANTÃO ANTERIOR'
 };
 
+// Abas (serão criadas se não existirem) para relatórios por turno
+const REL_ENF_SHEET = 'REL ENF';
+const REL_MED_SHEET = 'REL MED';
+
+
 /**
- * Abre o WebApp (usa o arquivo Index.html)
+ * Abre o WebApp (usa o arquivo index.html)
  */
 function doGet(e) {
   return HtmlService
@@ -25,210 +30,349 @@ function getSS() {
 }
 
 /**
- * Utilitário: retorna aba pelo nome ou lança erro amigável
+ * Normaliza texto (para comparar cabeçalhos sem se importar com maiúscula/minúscula)
  */
-function getSheetByName_(name) {
-  const ss = getSS();
-  const sheet = ss.getSheetByName(name);
+function normalize_(value) {
+  return String(value || '').trim().toLowerCase();
+}
+
+/**
+ * Pega/Cria aba
+ */
+function getOrCreateSheet_(name) {
+  var ss = getSS();
+  var sheet = ss.getSheetByName(name);
   if (!sheet) {
-    throw new Error('Aba não encontrada: ' + name);
+    sheet = ss.insertSheet(name);
   }
   return sheet;
 }
 
 /**
- * Normaliza string (minúscula, sem acento, trim) para comparar
+ * Retorna a linha de cabeçalhos já normalizada
  */
-function normalize_(str) {
-  return String(str || '')
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .trim();
+function getHeaderNormalized_(sheet) {
+  var lastCol = sheet.getLastColumn();
+  if (lastCol === 0) return [];
+  var headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
+  return headers.map(function (h) { return normalize_(h); });
 }
 
 /**
- * Localiza índice (0-based) de uma coluna pelo texto do cabeçalho
+ * Mapeamento de campos do formulário → cabeçalhos de cada aba
+ * (usa o nome exato das colunas da sua planilha)
  */
-function findColIndexByHeader_(headers, target) {
-  const normalizedTarget = normalize_(target);
-  for (let i = 0; i < headers.length; i++) {
-    if (normalize_(headers[i]) === normalizedTarget) {
-      return i;
+function getFieldMappings_() {
+  return {
+    'RESERVA CONFIRMADA': {
+      tipo: 'TIPO',
+      fastmedic: 'Fastmedic',
+      nomePaciente: 'Nome do Paciente',
+      leitoReservado: 'Leito Reservado',
+      especialidade: 'Especialidade',
+      origem: 'Origem',
+      status: 'Status',
+      dataReserva: 'Data da Reserva',
+      horaReserva: 'Hora da Reserva',
+      dataConfirmacao: 'Data da Confirmação da Reserva',
+      horaConfirmacao: 'Hora da Confirmação da Reserva',
+      tempoEntre: 'Tempo entre Alocação e Aceite',
+      chegou: 'CHEGOU',
+      observacao: 'Observação',
+      dia: 'Dia',
+      turno: 'Turno'
+    },
+    'PROCEDIMENTO CONFIRMADO': {
+      tipo: 'TIPO',
+      fastmedic: 'Fastmedic',
+      nomePaciente: 'Nome do Paciente',
+      leitoReservado: 'Leito Reservado',
+      especialidade: 'Especialidade',
+      origem: 'Origem',
+      status: 'Status',
+      dataReserva: 'Data da Reserva',
+      horaReserva: 'Hora da Reserva',
+      dataConfirmacao: 'Data da Confirmação da Reserva',
+      horaConfirmacao: 'Hora da Confirmação da Reserva',
+      tempoEntre: 'Tempo entre Alocação e Aceite',
+      observacao: 'Observação',
+      dia: 'dia',
+      turno: 'turno'
+    },
+    'RESERVA NEGADA': {
+      tipo: 'TIPO',
+      fastmedic: 'FASTMEDIC',
+      nomePaciente: 'NOME DO PACIENTE',
+      origem: 'ORIGEM',
+      especialidade: 'ESPECIALIDADE',
+      justificativa: 'JUSTIFICATIVA',
+      dataReserva: 'Data da Reserva',
+      horaReserva: 'Hora da Reserva',
+      dataCancelamento: 'Data do Cancelamento da Reserva',
+      horaCancelamento: 'Hora do Cancelamento da Reserva',
+      tempoEntre: 'Tempo entre Alocação e Cancelamento',
+      justificativaComplementar: 'JUSTIFICATIVA COMPLEMENTAR',
+      dia: 'dia',
+      turno: 'turno'
+    },
+    'PLANTÃO ANTERIOR': {
+      tipo: 'TIPO',
+      fastmedic: 'Fastmedic',
+      nomePaciente: 'Nome do Paciente',
+      leitoReservado: 'Leito Reservado',
+      especialidade: 'Especialidade',
+      origem: 'Origem',
+      status: 'Status',
+      dataReserva: 'Data da Reserva',
+      horaReserva: 'Hora da Reserva',
+      dataAdmissao: 'Data de Admissão',
+      horaAdmissao: 'Hora da Admissão',
+      tempoDecorrido: 'Tempo Decorrido',
+      chegou: 'CHEGOU',
+      observacao: 'Observação',
+      dia: 'dia',
+      turno: 'turno'
     }
-  }
-  return -1;
+  };
 }
 
-/*********** API PRINCIPAL – GRAVAR OCORRÊNCIA ***********/
+/**
+ * Lança uma nova linha na aba correta, baseado na categoria e nos campos
+ */
+function appendOccurrence_(category, data) {
+  var sheetName = NIR_SHEETS[category];
+  if (!sheetName) {
+    throw new Error('Categoria inválida: ' + category);
+  }
+
+  var sheet = getOrCreateSheet_(sheetName);
+  var headerNorm = getHeaderNormalized_(sheet);
+
+  if (!headerNorm.length) {
+    throw new Error('A aba "' + sheetName + '" precisa ter o cabeçalho preenchido na Linha 1.');
+  }
+
+  var fieldMappings = getFieldMappings_();
+  var mapping = fieldMappings[category] || {};
+
+  var lastCol = headerNorm.length;
+  var newRow = new Array(lastCol).fill('');
+
+  Object.keys(mapping).forEach(function (fieldKey) {
+    var headerLabel = mapping[fieldKey];
+    var idx = headerNorm.indexOf(normalize_(headerLabel));
+    var value = data[fieldKey];
+
+    if (idx > -1 && value !== null && value !== undefined && value !== '') {
+      newRow[idx] = value;
+    }
+  });
+
+  sheet.appendRow(newRow);
+}
 
 /**
- * Salva uma ocorrência em uma das 4 abas do NIR.
- *
- * Espera receber do front-end um objeto payload:
- * {
- *   tipoGrupo: 'RESERVA CONFIRMADA' | 'PROCEDIMENTO CONFIRMADO' | 'RESERVA NEGADA' | 'PLANTÃO ANTERIOR',
- *   // opção 1 – linha como array, NA ORDEM das colunas da planilha:
- *   linha: [...],
- *
- *   // opção 2 – linha como objeto, com chaves que batem com os cabeçalhos
- *   // (ex.: "TIPO", "Fastmedic", "Nome do Paciente", "Dia", "Turno" etc.)
- *   // linha: { "TIPO": "RESERVA CONFIRMADA", "Fastmedic": "1234", ... }
- * }
+ * Função chamada pelo front-end para salvar uma ocorrência
  */
-function salvarOcorrencia(payload) {
-  if (!payload || typeof payload !== 'object') {
-    throw new Error('Payload inválido recebido em salvarOcorrencia.');
+function saveOccurrence(payload) {
+  if (!payload) {
+    throw new Error('Dados não recebidos.');
   }
 
-  const tipoGrupo = payload.tipoGrupo;
-  const linha = payload.linha;
+  var category = payload.category;
+  var fields = payload.fields || {};
 
-  if (!tipoGrupo || !NIR_SHEETS[tipoGrupo]) {
-    throw new Error('Tipo de grupo inválido: ' + tipoGrupo);
-  }
-  if (!linha) {
-    throw new Error('Nenhuma linha enviada para salvar.');
+  if (!category || !NIR_SHEETS[category]) {
+    throw new Error('Tipo de ocorrência inválido ou ausente.');
   }
 
-  const sheetName = NIR_SHEETS[tipoGrupo];
-  const sheet = getSheetByName_(sheetName);
-
-  const lastColumn = sheet.getLastColumn();
-  const headers = sheet.getRange(1, 1, 1, lastColumn).getValues()[0]; // linha 1 – cabeçalhos
-  const numCols = headers.length;
-
-  let rowToAppend = new Array(numCols).fill('');
-
-  // Caso 1: linha é array → cola direto na ordem
-  if (Array.isArray(linha)) {
-    for (let i = 0; i < Math.min(numCols, linha.length); i++) {
-      rowToAppend[i] = linha[i];
-    }
-  }
-  // Caso 2: linha é objeto → mapeia pelas chaves x cabeçalhos
-  else if (typeof linha === 'object') {
-    const normalizedData = {};
-    Object.keys(linha).forEach(function (key) {
-      normalizedData[normalize_(key)] = linha[key];
-    });
-
-    for (let col = 0; col < numCols; col++) {
-      const header = headers[col];
-      const normHeader = normalize_(header);
-      if (normalizedData.hasOwnProperty(normHeader)) {
-        rowToAppend[col] = normalizedData[normHeader];
-      } else {
-        // Se não tiver no objeto, fica em branco (ou você pode colocar algum default aqui)
-        rowToAppend[col] = '';
-      }
-    }
-  } else {
-    throw new Error('Formato de linha não suportado em salvarOcorrencia.');
-  }
-
-  sheet.appendRow(rowToAppend);
+  appendOccurrence_(category, fields);
 
   return {
     ok: true,
-    message: 'Ocorrência salva com sucesso em "' + sheetName + '".',
-    sheet: sheetName
+    message: 'Ocorrência salva em "' + category + '".'
   };
 }
 
-/*********** API PARA DASHBOARD – RESUMO POR DIA/TURNO ***********/
-
 /**
- * Retorna um resumo do total de ocorrências por aba para um dia/turno específico.
- *
- * Espera receber do front-end:
- *   dia   → string exatamente como está na coluna "dia" das abas (ex.: "01/12/2025")
- *   turno → string exatamente como está na coluna "turno" (ex.: "MATUTINO", "VESPERTINO", "NOTURNO")
- *
- * Retorno:
- * {
- *   filtros: { dia, turno },
- *   totais: [
- *     { tipoGrupo: 'RESERVA CONFIRMADA', sheet: 'RESERVA CONFIRMADA', total: 5 },
- *     { tipoGrupo: 'PROCEDIMENTO CONFIRMADO', sheet: 'PROCEDIMENTO CONFIRMADO', total: 2 },
- *     ...
- *   ]
- * }
+ * Monta o "dash" com os últimos 3 turnos encontrados
+ * (baseado nas colunas Dia/dia e Turno/turno das 4 abas)
  */
-function getResumoPorDiaTurno(dia, turno) {
-  if (!dia || !turno) {
-    throw new Error('Informe "dia" e "turno" para obter o resumo.');
-  }
+function getDashboardData() {
+  var ss = getSS();
+  var shiftMap = {};
 
-  const ss = getSS();
-  const result = [];
+  Object.keys(NIR_SHEETS).forEach(function (categoryName) {
+    var sheetName = NIR_SHEETS[categoryName];
+    var sh = ss.getSheetByName(sheetName);
+    if (!sh) return;
 
-  Object.keys(NIR_SHEETS).forEach(function (tipoGrupo) {
-    const sheetName = NIR_SHEETS[tipoGrupo];
-    const sheet = ss.getSheetByName(sheetName);
-    if (!sheet) return;
+    var lastRow = sh.getLastRow();
+    var lastCol = sh.getLastColumn();
+    if (lastRow <= 1 || lastCol === 0) return;
 
-    const lastRow = sheet.getLastRow();
-    const lastCol = sheet.getLastColumn();
-    if (lastRow < 2) {
-      // só cabeçalho, sem dados
-      result.push({
-        tipoGrupo: tipoGrupo,
-        sheet: sheetName,
-        total: 0
-      });
+    var headersNorm = sh.getRange(1, 1, 1, lastCol).getValues()[0].map(function (h) {
+      return normalize_(h);
+    });
+
+    var diaIdx = headersNorm.indexOf('dia');
+    var turnoIdx = headersNorm.indexOf('turno');
+
+    if (diaIdx === -1 && turnoIdx === -1) {
       return;
     }
 
-    const range = sheet.getRange(1, 1, lastRow, lastCol);
-    const values = range.getValues();
-    const headers = values[0];
+    var dataValues = sh.getRange(2, 1, lastRow - 1, lastCol).getValues();
 
-    const diaColIndex = findColIndexByHeader_(headers, 'dia');
-    const turnoColIndex = findColIndexByHeader_(headers, 'turno');
+    dataValues.forEach(function (row, i) {
+      var dia = diaIdx > -1 ? row[diaIdx] : '';
+      var turno = turnoIdx > -1 ? row[turnoIdx] : '';
 
-    if (diaColIndex === -1 || turnoColIndex === -1) {
-      // se não achar dia/turno nessa aba, ignora ou loga
-      result.push({
-        tipoGrupo: tipoGrupo,
-        sheet: sheetName,
-        total: 0
-      });
-      return;
-    }
+      if (!dia && !turno) return;
 
-    let count = 0;
-    for (let r = 1; r < values.length; r++) {
-      const row = values[r];
-      const diaVal = String(row[diaColIndex] || '').trim();
-      const turnoVal = String(row[turnoColIndex] || '').trim();
+      var key = String(dia) + ' | ' + String(turno);
 
-      if (diaVal === String(dia).trim() && turnoVal === String(turno).trim()) {
-        count++;
+      if (!shiftMap[key]) {
+        shiftMap[key] = {
+          key: key,
+          dia: dia,
+          turno: turno,
+          counts: {
+            'RESERVA CONFIRMADA': 0,
+            'PROCEDIMENTO CONFIRMADO': 0,
+            'RESERVA NEGADA': 0,
+            'PLANTÃO ANTERIOR': 0
+          },
+          lastRowIndex: 0
+        };
       }
-    }
 
-    result.push({
-      tipoGrupo: tipoGrupo,
-      sheet: sheetName,
-      total: count
+      shiftMap[key].counts[categoryName] =
+        (shiftMap[key].counts[categoryName] || 0) + 1;
+
+      var globalRowIndex = i + 2; // linha real na aba
+      if (globalRowIndex > shiftMap[key].lastRowIndex) {
+        shiftMap[key].lastRowIndex = globalRowIndex;
+      }
     });
   });
 
+  var shifts = Object.keys(shiftMap).map(function (k) {
+    return shiftMap[k];
+  });
+
+  // Ordena pelos "últimos registros" (mais recentes primeiro)
+  shifts.sort(function (a, b) {
+    return b.lastRowIndex - a.lastRowIndex;
+  });
+
+  var top3 = shifts.slice(0, 3).map(function (s) {
+    var total = Object.keys(s.counts).reduce(function (sum, k) {
+      return sum + (s.counts[k] || 0);
+    }, 0);
+
+    return {
+      key: s.key,
+      dia: s.dia,
+      turno: s.turno,
+      counts: s.counts,
+      total: total
+    };
+  });
+
   return {
-    filtros: { dia: dia, turno: turno },
-    totais: result
+    shifts: top3
   };
 }
 
-/*********** OPCIONAL – EXEMPLO DE HELPER PARA O FRONT ***********/
+/**
+ * Salva Relatório de Ocorrências de Enfermagem / Médicas por turno
+ * tipo: 'ENF' ou 'MED'
+ */
+function saveRelatorio(payload) {
+  if (!payload) {
+    throw new Error('Dados do relatório não recebidos.');
+  }
+
+  var tipo = payload.tipo;   // ENF ou MED
+  var texto = payload.texto;
+  var dia = payload.dia || '';
+  var turno = payload.turno || '';
+
+  if (!tipo || !texto) {
+    throw new Error('Tipo de relatório e texto são obrigatórios.');
+  }
+
+  var sheetName = tipo === 'ENF' ? REL_ENF_SHEET : REL_MED_SHEET;
+  var sheet = getOrCreateSheet_(sheetName);
+
+  // Se a aba estiver vazia, cria cabeçalho padrão
+  if (sheet.getLastRow() === 0) {
+    sheet.getRange(1, 1, 1, 6).setValues([[
+      'Data Registro',
+      'Dia',
+      'Turno',
+      'Tipo',
+      'Texto',
+      'Criado em'
+    ]]);
+  }
+
+  var now = new Date();
+
+  sheet.appendRow([
+    now,
+    dia,
+    turno,
+    tipo,
+    texto,
+    now
+  ]);
+
+  return {
+    ok: true,
+    message: 'Relatório salvo com sucesso.'
+  };
+}
 
 /**
- * Retorna configuração básica para o front montar selects, etc.
+ * Retorna últimos relatórios (misturando enfermagem e médico) para mostrar no painel
  */
-function getConfigNIR() {
-  return {
-    tiposGrupo: Object.keys(NIR_SHEETS),
-    sheets: NIR_SHEETS
-  };
+function getRelatoriosRecentes(limit) {
+  limit = limit || 10;
+  var ss = getSS();
+  var out = [];
+
+  [
+    { tipo: 'ENF', name: REL_ENF_SHEET },
+    { tipo: 'MED', name: REL_MED_SHEET }
+  ].forEach(function (conf) {
+    var sh = ss.getSheetByName(conf.name);
+    if (!sh) return;
+
+    var lastRow = sh.getLastRow();
+    var lastCol = sh.getLastColumn();
+    if (lastRow <= 1 || lastCol === 0) return;
+
+    var numRows = Math.min(lastRow - 1, limit * 2); // pega um pouco mais para misturar
+    var values = sh.getRange(lastRow - numRows + 1, 1, numRows, lastCol).getValues();
+
+    values.forEach(function (r) {
+      out.push({
+        tipo: conf.tipo,
+        data: r[0],
+        dia: r[1],
+        turno: r[2],
+        texto: r[4]
+      });
+    });
+  });
+
+  out.sort(function (a, b) {
+    var ta = a.data instanceof Date ? a.data.getTime() : 0;
+    var tb = b.data instanceof Date ? b.data.getTime() : 0;
+    return tb - ta;
+  });
+
+  return out.slice(0, limit);
 }
