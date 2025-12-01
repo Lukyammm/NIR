@@ -33,21 +33,56 @@
     body {
       margin: 0;
       padding: 24px;
-      background: radial-gradient(circle at 10% 10%, #e0e7ff, #eef2ff 40%, #f8fafc);
+      background: radial-gradient(circle at 10% 10%, #dce7ff, #eef2ff 45%, #f8fafc);
       color: var(--text-main);
+      position: relative;
+      overflow-x: hidden;
     }
 
+    body::before,
+    body::after {
+      content: "";
+      position: fixed;
+      width: 380px;
+      height: 380px;
+      filter: blur(100px);
+      opacity: 0.4;
+      z-index: 0;
+    }
+
+    body::before {
+      top: -120px;
+      right: 0;
+      background: radial-gradient(circle at 30% 30%, #93c5fd, transparent 70%);
+    }
+
+    body::after {
+      bottom: -160px;
+      left: -40px;
+      background: radial-gradient(circle at 50% 50%, #c7d2fe, transparent 65%);
+    }
+
+    .app-shell,
     .app {
       max-width: 1180px;
       margin: 0 auto;
+      position: relative;
+      z-index: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
     }
 
     .app-header {
-      display: flex;
+      display: grid;
+      grid-template-columns: minmax(0, 2fr) minmax(0, 1.4fr);
+      gap: 14px;
       align-items: center;
-      justify-content: space-between;
-      gap: 16px;
-      margin-bottom: 24px;
+      padding: 18px 20px;
+      background: linear-gradient(120deg, rgba(37, 99, 235, 0.1), #ffffff);
+      border-radius: var(--radius-lg);
+      border: 1px solid rgba(37, 99, 235, 0.12);
+      box-shadow: var(--shadow-card);
     }
 
     .app-header h1 {
@@ -57,47 +92,58 @@
     }
 
     .app-header p {
-      margin: 4px 0 0;
-      font-size: 0.9rem;
+      margin: 6px 0 0;
+      font-size: 0.95rem;
       color: var(--text-muted);
+      max-width: 620px;
+    }
+
+    .app-header .header-meta {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      align-items: flex-end;
     }
 
     .header-pill {
-      padding: 8px 14px;
+      padding: 10px 16px;
       border-radius: var(--radius-pill);
-      background: var(--accent-soft);
-      font-size: 0.8rem;
+      background: #0f172a;
+      font-size: 0.85rem;
       display: inline-flex;
       align-items: center;
       gap: 8px;
-      color: var(--accent);
+      color: #e0f2fe;
       white-space: nowrap;
+      box-shadow: 0 12px 30px rgba(15, 23, 42, 0.35);
     }
 
     .menu-actions {
-      display: flex;
-      flex-wrap: wrap;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
       gap: 10px;
-      margin-bottom: 16px;
     }
 
     .menu-actions .menu-btn {
-      border-radius: var(--radius-pill);
-      padding: 10px 14px;
+      border-radius: 14px;
+      padding: 12px 14px;
       background: #ffffff;
       border: 1px solid var(--border-subtle);
       color: var(--text-main);
-      box-shadow: 0 6px 18px rgba(15, 23, 42, 0.06);
+      box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
       cursor: pointer;
       display: inline-flex;
       align-items: center;
+      justify-content: center;
       gap: 8px;
-      font-weight: 600;
+      font-weight: 700;
+      letter-spacing: 0.01em;
     }
 
     .menu-actions .menu-btn:hover {
       border-color: var(--accent);
       color: var(--accent);
+      box-shadow: 0 12px 30px rgba(37, 99, 235, 0.2);
     }
 
     .header-pill span {
@@ -107,26 +153,75 @@
     }
 
     .dot {
-      width: 8px;
-      height: 8px;
+      width: 10px;
+      height: 10px;
       border-radius: 50%;
       background: #22c55e;
-      box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.25);
+      box-shadow: 0 0 0 6px rgba(34, 197, 94, 0.25);
+    }
+
+    .brand-mark {
+      width: 48px;
+      height: 48px;
+      border-radius: 16px;
+      display: grid;
+      place-items: center;
+      background: linear-gradient(135deg, #2563eb, #1d4ed8);
+      color: #fff;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      box-shadow: 0 12px 30px rgba(37, 99, 235, 0.35);
+    }
+
+    .eyebrow {
+      text-transform: uppercase;
+      font-size: 0.72rem;
+      letter-spacing: 0.1em;
+      color: var(--text-muted);
+      margin: 0;
     }
 
     main {
       display: grid;
-      grid-template-columns: minmax(0, 2fr) minmax(0, 2fr);
-      grid-template-rows: auto auto;
+      grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
       gap: 18px;
+    }
+
+    .content-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 16px;
+      align-items: start;
+    }
+
+    .content-grid.two {
+      grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
     }
 
     .board-shell {
       border: 1px solid var(--border-subtle);
-      padding: 18px 20px;
-      background: linear-gradient(135deg, #eef2ff, #ffffff);
+      padding: 20px 22px;
+      background: linear-gradient(135deg, #dbeafe, #ffffff);
       border-radius: var(--radius-lg);
       box-shadow: var(--shadow-card);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .board-shell::after {
+      content: "";
+      position: absolute;
+      right: -60px;
+      top: -60px;
+      width: 220px;
+      height: 220px;
+      background: radial-gradient(circle at 50% 50%, rgba(37, 99, 235, 0.16), transparent 65%);
+      z-index: 0;
+    }
+
+    .board-shell > * {
+      position: relative;
+      z-index: 1;
     }
 
     .board-header {
@@ -249,6 +344,15 @@
       border-bottom: 1px solid var(--border-subtle);
     }
 
+    tbody tr:nth-child(even) {
+      background: #f8fafc;
+    }
+
+    tbody tr:hover {
+      background: rgba(37, 99, 235, 0.06);
+      transition: background 0.15s ease;
+    }
+
     th {
       font-size: 0.76rem;
       color: var(--text-muted);
@@ -263,11 +367,12 @@
     }
 
     .card {
-      background: var(--bg-card);
+      background: linear-gradient(145deg, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.75));
       border-radius: var(--radius-lg);
       box-shadow: var(--shadow-soft);
       padding: 18px 20px;
-      border: 1px solid rgba(15, 23, 42, 0.03);
+      border: 1px solid rgba(15, 23, 42, 0.04);
+      backdrop-filter: blur(6px);
     }
 
     .card h2 {
@@ -767,7 +872,11 @@
       }
 
       .app-header {
-        flex-direction: column;
+        grid-template-columns: minmax(0, 1fr);
+        align-items: flex-start;
+      }
+
+      .app-header .header-meta {
         align-items: flex-start;
       }
 
@@ -782,7 +891,29 @@
   </style>
 </head>
 <body>
-  <div class="app">
+  <div class="app-shell">
+    <header class="app-header">
+      <div style="display: flex; gap: 14px; align-items: flex-start;">
+        <div class="brand-mark">NIR</div>
+        <div>
+          <p class="eyebrow">Central integrada</p>
+          <h1>NIR – Ocorrências</h1>
+          <p>Registro de reservas, procedimentos e relatórios por turno em uma interface única.</p>
+        </div>
+      </div>
+      <div class="header-meta">
+        <div class="header-pill">
+          <span><span class="dot"></span> WebApp conectado à planilha</span>
+        </div>
+        <div class="menu-actions">
+          <button class="menu-btn" data-target="#nova-ocorrencia">➕ Cadastrar ocorrência</button>
+          <button class="menu-btn" data-target="#relatorio-turno">🩺 Relatório do turno</button>
+          <button class="menu-btn" data-target="#pesquisa-ocorrencias">🔎 Pesquisar ocorrências</button>
+          <button class="menu-btn" data-target="#painel-plantao">📊 Painel de plantão</button>
+        </div>
+      </div>
+    </header>
+
     <section class="card full-width board-shell">
       <div class="board-header">
         <div>
@@ -828,93 +959,98 @@
       </div>
     </section>
 
-    <header class="app-header">
-      <div>
-        <h1>NIR – Ocorrências</h1>
-        <p>Registro de reservas, procedimentos e relatórios por turno.</p>
-      </div>
-      <div class="header-pill">
-        <span><span class="dot"></span> WebApp conectado à planilha</span>
-      </div>
-    </header>
+    <div class="content-grid two">
+      <section class="card" id="painel-plantao">
+        <div class="hero-card">
+          <div class="hero-title">
+            <h2>Plantão atual</h2>
+            <p class="muted" id="shift-subtitle">Carregando informações do plantão...</p>
+            <div class="hero-actions">
+              <button class="btn-primary" id="btn-open-shift">Abrir / Atualizar plantão</button>
+              <button class="btn-ghost" id="btn-refresh-shift">Recarregar dados</button>
+            </div>
+            <div id="shift-alert" class="alert-banner" style="display: none;"></div>
+          </div>
+          <div class="hero-grid" id="shift-grid">
+            <div class="hero-chip">
+              <span>Médico(a)</span>
+              <strong id="shift-medico">—</strong>
+            </div>
+            <div class="hero-chip">
+              <span>Enfermeiro(a)</span>
+              <strong id="shift-enfermeiro">—</strong>
+            </div>
+            <div class="hero-chip">
+              <span>Enfermeiro(a) Sombra</span>
+              <strong id="shift-sombra">—</strong>
+            </div>
+            <div class="hero-chip">
+              <span>Auxiliar Administrativo</span>
+              <strong id="shift-aux">—</strong>
+            </div>
+            <div class="hero-chip">
+              <span>Data do Plantão</span>
+              <strong id="shift-data">—</strong>
+            </div>
+            <div class="hero-chip">
+              <span>Dia da Semana</span>
+              <strong id="shift-dia">—</strong>
+            </div>
+            <div class="hero-chip">
+              <span>Turno</span>
+              <strong id="shift-turno">—</strong>
+            </div>
+            <div class="hero-chip">
+              <span>Última atualização</span>
+              <strong id="shift-updated">—</strong>
+            </div>
+          </div>
+        </div>
+      </section>
 
-    <div class="menu-actions">
-      <button class="menu-btn" data-target="#nova-ocorrencia">➕ Cadastrar ocorrência</button>
-      <button class="menu-btn" data-target="#relatorio-turno">🩺 Relatório do turno</button>
-      <button class="menu-btn" data-target="#pesquisa-ocorrencias">🔎 Pesquisar ocorrências</button>
-      <button class="menu-btn" data-target="#painel-plantao">📊 Painel de plantão</button>
+      <section class="card" id="ultimas-ocorrencias">
+        <h2>
+          Últimos 2 dias
+          <span class="badge">2 ocorrências mais recentes por dia</span>
+        </h2>
+        <p class="muted" style="margin-top: 0;">Visão rápida das movimentações mais recentes.</p>
+        <div id="latest-days" class="latest-grid">
+          <p class="muted">Carregando últimas ocorrências...</p>
+        </div>
+      </section>
     </div>
 
-    <section class="card full-width" id="painel-plantao">
-      <div class="hero-card">
-        <div class="hero-title">
-          <h2>Plantão atual</h2>
-          <p class="muted" id="shift-subtitle">Carregando informações do plantão...</p>
-          <div class="hero-actions">
-            <button class="btn-primary" id="btn-open-shift">Abrir / Atualizar plantão</button>
-            <button class="btn-ghost" id="btn-refresh-shift">Recarregar dados</button>
-          </div>
-          <div id="shift-alert" class="alert-banner" style="display: none;"></div>
+    <div class="content-grid two">
+      <section class="card" id="pesquisa-ocorrencias">
+        <h2>
+          Buscar ocorrências
+          <span class="badge">Filtro rápido</span>
+        </h2>
+        <div class="search-row">
+          <input id="search-query" type="text" placeholder="Digite nome do paciente, especialidade, turno ou categoria" />
+          <button class="btn-primary" id="btn-search">Pesquisar</button>
         </div>
-        <div class="hero-grid" id="shift-grid">
-          <div class="hero-chip">
-            <span>Médico(a)</span>
-            <strong id="shift-medico">—</strong>
+        <div id="search-results" class="search-results"></div>
+      </section>
+
+      <section class="card" id="quadro-ocorrencias">
+        <h2>
+          Ocorrências
+          <span class="badge">Enfermagem x Médica</span>
+        </h2>
+        <div class="occ-columns">
+          <div>
+            <p class="board-card-title">Enfermagem</p>
+            <ul id="occ-enfermagem" class="board-list"></ul>
           </div>
-          <div class="hero-chip">
-            <span>Enfermeiro(a)</span>
-            <strong id="shift-enfermeiro">—</strong>
-          </div>
-          <div class="hero-chip">
-            <span>Enfermeiro(a) Sombra</span>
-            <strong id="shift-sombra">—</strong>
-          </div>
-          <div class="hero-chip">
-            <span>Auxiliar Administrativo</span>
-            <strong id="shift-aux">—</strong>
-          </div>
-          <div class="hero-chip">
-            <span>Data do Plantão</span>
-            <strong id="shift-data">—</strong>
-          </div>
-          <div class="hero-chip">
-            <span>Dia da Semana</span>
-            <strong id="shift-dia">—</strong>
-          </div>
-          <div class="hero-chip">
-            <span>Turno</span>
-            <strong id="shift-turno">—</strong>
-          </div>
-          <div class="hero-chip">
-            <span>Última atualização</span>
-            <strong id="shift-updated">—</strong>
+          <div>
+            <p class="board-card-title">Médica</p>
+            <ul id="occ-medica" class="board-list"></ul>
           </div>
         </div>
-      </div>
-    </section>
+      </section>
 
-    <section class="card full-width" id="ultimas-ocorrencias">
-      <h2>
-        Últimos 2 dias
-        <span class="badge">2 ocorrências mais recentes por dia</span>
-      </h2>
-      <p class="muted" style="margin-top: 0;">Visão rápida das movimentações mais recentes.</p>
-      <div id="latest-days" class="latest-grid">
-        <p class="muted">Carregando últimas ocorrências...</p>
-      </div>
-    </section>
-
-    <section class="card full-width" id="pesquisa-ocorrencias">
-      <h2>
-        Buscar ocorrências
-        <span class="badge">Filtro rápido</span>
-      </h2>
-      <div class="search-row">
-        <input id="search-query" type="text" placeholder="Digite nome do paciente, especialidade, turno ou categoria" />
-        <button class="btn-primary" id="btn-search">Pesquisar</button>
-      </div>
-      <div id="search-results" class="search-results"></div>
-    </section>
+    </div>
 
     <section class="card full-width" id="tabela-geral">
       <h2>
@@ -925,7 +1061,7 @@
         <table>
           <thead>
             <tr>
-              <th>Tipo</th>
+              <th>Categoria</th>
               <th>Paciente</th>
               <th>Origem</th>
               <th>Status</th>
@@ -942,24 +1078,7 @@
       </div>
     </section>
 
-    <section class="card full-width" id="quadro-ocorrencias">
-      <h2>
-        Ocorrências
-        <span class="badge">Enfermagem x Médica</span>
-      </h2>
-      <div class="occ-columns">
-        <div>
-          <p class="board-card-title">Enfermagem</p>
-          <ul id="occ-enfermagem" class="board-list"></ul>
-        </div>
-        <div>
-          <p class="board-card-title">Médica</p>
-          <ul id="occ-medica" class="board-list"></ul>
-        </div>
-      </div>
-    </section>
-
-    <main>
+    <main class="content-grid two">
       <!-- FORMULÁRIO DE OCORRÊNCIAS -->
       <section class="card" id="nova-ocorrencia">
         <h2>
