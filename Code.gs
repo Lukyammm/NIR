@@ -13,7 +13,7 @@ const NIR_SHEETS = {
  */
 function doGet(e) {
   return HtmlService
-    .createHtmlOutputFromFile('Index')
+    .createHtmlOutputFromFile('index')
     .setTitle('NIR – Ocorrências');
 }
 
