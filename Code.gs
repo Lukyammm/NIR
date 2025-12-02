@@ -662,6 +662,46 @@ function parseDateFlexible_(value) {
   return null;
 }
 
+/**
+ * Retorna visão estilo aba por dia/turno/categoria
+ */
+function getSheetView(options) {
+  options = options || {};
+  var category = options.category || '';
+  var dia = normalize_(options.dia || '');
+  var turno = normalize_(options.turno || '');
+
+  var occurrences = collectOccurrences_();
+
+  var filtered = occurrences.filter(function (occ) {
+    if (category && category !== 'TODOS' && occ.category !== category) {
+      return false;
+    }
+
+    if (dia && normalize_(occ.dia) !== dia) {
+      return false;
+    }
+
+    if (turno && normalize_(occ.turno) !== turno) {
+      return false;
+    }
+
+    return true;
+  });
+
+  var mapped = filtered.slice(0, 120).map(function (occ) {
+    var base = mapOccurrenceForClient_(occ);
+    base.dia = occ.dia || '';
+    base.turno = occ.turno || '';
+    return base;
+  });
+
+  return {
+    total: filtered.length,
+    items: mapped
+  };
+}
+
 function mapOccurrenceForClient_(occ) {
   return {
     category: occ.category,

@@ -85,6 +85,42 @@
       box-shadow: var(--shadow-card);
     }
 
+    .page-tabs {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      padding: 0 4px;
+      flex-wrap: wrap;
+    }
+
+    .page-tab {
+      padding: 8px 14px;
+      border-radius: var(--radius-pill);
+      background: rgba(15, 23, 42, 0.06);
+      color: var(--text-muted);
+      border: 1px solid var(--border-subtle);
+      cursor: pointer;
+      font-weight: 600;
+      box-shadow: 0 6px 12px rgba(15, 23, 42, 0.1);
+      transition: all 0.15s ease;
+    }
+
+    .page-tab.active {
+      background: #0f172a;
+      color: #e0f2fe;
+      border-color: #0f172a;
+    }
+
+    .page {
+      display: none;
+    }
+
+    .page.active {
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
     .app-header h1 {
       margin: 0;
       font-size: 1.6rem;
@@ -206,6 +242,88 @@
       box-shadow: var(--shadow-card);
       position: relative;
       overflow: hidden;
+    }
+
+    .sheet-board {
+      display: grid;
+      gap: 14px;
+      background: linear-gradient(135deg, rgba(37, 99, 235, 0.1), #ffffff);
+      border: 1px solid rgba(37, 99, 235, 0.14);
+    }
+
+    .sheet-header {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .sheet-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .sheet-category button {
+      padding: 8px 12px;
+      border-radius: 12px;
+      border: 1px solid var(--border-subtle);
+      background: #fff;
+      color: var(--text-main);
+      box-shadow: 0 8px 16px rgba(15, 23, 42, 0.08);
+    }
+
+    .sheet-category button.active {
+      background: var(--accent);
+      color: #fff;
+      border-color: var(--accent);
+      box-shadow: 0 12px 24px rgba(37, 99, 235, 0.25);
+    }
+
+    .sheet-controls {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 10px;
+      align-items: end;
+    }
+
+    .sheet-summary {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 10px;
+    }
+
+    .pill {
+      border-radius: var(--radius-pill);
+      padding: 8px 12px;
+      border: 1px solid var(--border-subtle);
+      background: rgba(37, 99, 235, 0.06);
+      color: var(--text-main);
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-weight: 600;
+    }
+
+    .metric-card {
+      border: 1px solid var(--border-subtle);
+      border-radius: 12px;
+      padding: 10px 12px;
+      background: #fff;
+      box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
+    }
+
+    .metric-card small {
+      color: var(--text-muted);
+      font-size: 0.8rem;
+    }
+
+    .metric-card strong {
+      display: block;
+      font-size: 1.1rem;
+      margin-top: 4px;
     }
 
     .board-shell::after {
@@ -906,13 +1024,105 @@
           <span><span class="dot"></span> WebApp conectado à planilha</span>
         </div>
         <div class="menu-actions">
-          <button class="menu-btn" data-target="#nova-ocorrencia">➕ Cadastrar ocorrência</button>
-          <button class="menu-btn" data-target="#relatorio-turno">🩺 Relatório do turno</button>
-          <button class="menu-btn" data-target="#pesquisa-ocorrencias">🔎 Pesquisar ocorrências</button>
-          <button class="menu-btn" data-target="#painel-plantao">📊 Painel de plantão</button>
+          <button class="menu-btn" data-page-jump="page-analytics" data-target="#nova-ocorrencia">➕ Cadastrar ocorrência</button>
+          <button class="menu-btn" data-page-jump="page-analytics" data-target="#relatorio-turno">🩺 Relatório do turno</button>
+          <button class="menu-btn" data-page-jump="page-analytics" data-target="#pesquisa-ocorrencias">🔎 Pesquisar ocorrências</button>
+          <button class="menu-btn" data-page-jump="page-analytics" data-target="#painel-plantao">📊 Painel de plantão</button>
         </div>
       </div>
     </header>
+
+    <div class="page-tabs">
+      <button class="page-tab active" id="tab-main" data-page="page-main">
+        Página principal (Aba do dia)
+      </button>
+      <button class="page-tab" id="tab-analytics" data-page="page-analytics">
+        Painel e funcionalidades
+      </button>
+    </div>
+
+    <div id="page-main" class="page active">
+      <section class="card full-width sheet-board" id="aba-dia">
+        <div class="sheet-header">
+          <div>
+            <p class="muted" style="margin: 0; font-weight: 600; letter-spacing: 0.01em;">
+              Aba diária (Dia + Turno)
+            </p>
+            <h2 id="sheet-title" class="board-title" style="margin-top: 4px;">
+              Filtre o dia e o turno para ver a coluna da planilha
+            </h2>
+            <p class="muted" id="sheet-subtitle" style="margin: 6px 0 0;">
+              Escolha a categoria e o turno para montar a mesma visão da sua aba original.
+            </p>
+          </div>
+          <div class="sheet-actions">
+            <div class="sheet-category" id="sheet-category-group"></div>
+          </div>
+        </div>
+
+        <div class="sheet-controls">
+          <div class="field">
+            <label for="sheet-day">Dia (data)</label>
+            <input type="date" id="sheet-day" />
+          </div>
+          <div class="field">
+            <label for="sheet-turno">Turno</label>
+            <select id="sheet-turno">
+              <option value="">Todos</option>
+              <option value="Manhã">Manhã</option>
+              <option value="Tarde">Tarde</option>
+              <option value="Noite">Noite</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>&nbsp;</label>
+            <div style="display: flex; gap: 8px;">
+              <button class="btn-primary" id="btn-sheet-refresh">Atualizar visão</button>
+              <button class="btn-ghost" id="btn-sheet-today">Usar plantão atual</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="sheet-summary" id="sheet-summary">
+          <div class="metric-card">
+            <small>Total encontrado</small>
+            <strong id="sheet-total">0</strong>
+          </div>
+          <div class="metric-card">
+            <small>Categoria atual</small>
+            <strong id="sheet-category-label">—</strong>
+          </div>
+          <div class="metric-card">
+            <small>Turno escolhido</small>
+            <strong id="sheet-turno-label">—</strong>
+          </div>
+        </div>
+
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Categoria</th>
+                <th>Paciente</th>
+                <th>Especialidade</th>
+                <th>Origem</th>
+                <th>Status</th>
+                <th>Turno</th>
+                <th>Data/Hora</th>
+                <th>Observação</th>
+              </tr>
+            </thead>
+            <tbody id="sheet-table-body">
+              <tr>
+                <td colspan="8" class="muted">Selecione dia e turno para carregar.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+
+    <div id="page-analytics" class="page">
 
     <section class="card full-width board-shell">
       <div class="board-header">
@@ -1550,6 +1760,27 @@
         "Sábado",
       ];
 
+      const elTabMain = document.getElementById("tab-main");
+      const elTabAnalytics = document.getElementById("tab-analytics");
+      const elPageMain = document.getElementById("page-main");
+      const elPageAnalytics = document.getElementById("page-analytics");
+
+      const elSheetCategoryGroup = document.getElementById(
+        "sheet-category-group"
+      );
+      const elSheetDay = document.getElementById("sheet-day");
+      const elSheetTurno = document.getElementById("sheet-turno");
+      const elSheetTableBody = document.getElementById("sheet-table-body");
+      const elSheetTotal = document.getElementById("sheet-total");
+      const elSheetCategoryLabel = document.getElementById(
+        "sheet-category-label"
+      );
+      const elSheetTurnoLabel = document.getElementById("sheet-turno-label");
+      const elBtnSheetRefresh = document.getElementById("btn-sheet-refresh");
+      const elBtnSheetToday = document.getElementById("btn-sheet-today");
+      const elSheetSubtitle = document.getElementById("sheet-subtitle");
+      let currentSheetCategory = "RESERVA CONFIRMADA";
+
       const elBoardShiftLabel = document.getElementById("board-shift-label");
       const elBoardKpis = document.getElementById("board-kpis");
       const elBoardPrevList = document.getElementById("board-previous-list");
@@ -1606,8 +1837,12 @@
       let currentShiftData = null;
 
       document.addEventListener("DOMContentLoaded", function () {
+        buildSheetCategories();
         buildFieldsFor(elCategory.value);
+        bindPageTabs();
         bindEvents();
+        prefillSheetFiltersWithToday();
+        loadSheetView();
         loadShiftInfo();
         loadLatestOccurrences();
         loadDashboard();
@@ -1621,6 +1856,22 @@
 
         elBtnSave.addEventListener("click", handleSaveOccurrence);
         elBtnClear.addEventListener("click", clearForm);
+
+        if (elBtnSheetRefresh) {
+          elBtnSheetRefresh.addEventListener("click", loadSheetView);
+        }
+        if (elBtnSheetToday) {
+          elBtnSheetToday.addEventListener("click", function () {
+            applyShiftToSheetFilters();
+            loadSheetView();
+          });
+        }
+
+        if (elSheetTurno) {
+          elSheetTurno.addEventListener("change", function () {
+            elSheetTurnoLabel.textContent = this.value || "Todos";
+          });
+        }
 
         if (elRelSegment) {
           const buttons = elRelSegment.querySelectorAll(".segmented-btn");
@@ -1658,6 +1909,8 @@
         elTargetButtons.forEach(function (btn) {
           btn.addEventListener("click", function () {
             const target = this.dataset.target;
+            const pageJump = this.dataset.pageJump;
+            if (pageJump) switchPage(pageJump);
             if (!target) return;
             const el = document.querySelector(target);
             if (el) {
@@ -1726,6 +1979,8 @@
         }
 
         updateShiftAlert(data);
+        applyShiftToSheetFilters();
+        loadSheetView();
       }
 
       function updateShiftAlert(data) {
@@ -1852,6 +2107,154 @@
             showToast("Erro ao salvar plantão.", true);
           })
           .saveShift(payload);
+      }
+
+      function buildSheetCategories() {
+        if (!elSheetCategoryGroup) return;
+        elSheetCategoryGroup.innerHTML = "";
+        const cats = [
+          "TODOS",
+          "RESERVA CONFIRMADA",
+          "PROCEDIMENTO CONFIRMADO",
+          "RESERVA NEGADA",
+          "PLANTÃO ANTERIOR",
+        ];
+
+        cats.forEach(function (cat) {
+          const btn = document.createElement("button");
+          btn.textContent = cat;
+          btn.className = cat === currentSheetCategory ? "active" : "";
+          btn.addEventListener("click", function () {
+            currentSheetCategory = cat;
+            const allBtns = elSheetCategoryGroup.querySelectorAll("button");
+            allBtns.forEach(function (b) { b.classList.remove("active"); });
+            btn.classList.add("active");
+            elSheetCategoryLabel.textContent = cat;
+            loadSheetView();
+          });
+          elSheetCategoryGroup.appendChild(btn);
+        });
+
+        elSheetCategoryLabel.textContent = currentSheetCategory;
+      }
+
+      function switchPage(pageId) {
+        if (!pageId) return;
+        const tabs = [elTabMain, elTabAnalytics];
+        const pages = [elPageMain, elPageAnalytics];
+
+        tabs.forEach(function (tab) {
+          if (!tab) return;
+          tab.classList.toggle("active", tab.dataset.page === pageId);
+        });
+
+        pages.forEach(function (p) {
+          if (!p) return;
+          p.classList.toggle("active", p.id === pageId);
+        });
+      }
+
+      function bindPageTabs() {
+        [elTabMain, elTabAnalytics].forEach(function (tab) {
+          if (!tab) return;
+          tab.addEventListener("click", function () {
+            switchPage(this.dataset.page);
+          });
+        });
+      }
+
+      function prefillSheetFiltersWithToday() {
+        if (!elSheetDay) return;
+        const today = new Date();
+        elSheetDay.value = formatDateForInput(today);
+        elSheetTurnoLabel.textContent = "Todos";
+      }
+
+      function applyShiftToSheetFilters() {
+        if (!currentShiftData) {
+          prefillSheetFiltersWithToday();
+          if (elSheetSubtitle)
+            elSheetSubtitle.textContent =
+              "Use o botão de plantão para preencher automaticamente quando houver dados.";
+          return;
+        }
+
+        if (currentShiftData.dataPlantao && elSheetDay) {
+          elSheetDay.value = formatDateForInput(
+            normalizeDateValue(currentShiftData.dataPlantao)
+          );
+        }
+
+        if (currentShiftData.turno && elSheetTurno) {
+          elSheetTurno.value = currentShiftData.turno;
+          elSheetTurnoLabel.textContent = currentShiftData.turno;
+        }
+
+        if (elSheetSubtitle) {
+          elSheetSubtitle.textContent =
+            "Visão sincronizada com o plantão atual registrado.";
+        }
+      }
+
+      function loadSheetView() {
+        if (!elSheetTableBody) return;
+        elSheetTableBody.innerHTML =
+          '<tr><td colspan="8" class="muted">Carregando coluna do dia...</td></tr>';
+
+        const payload = {
+          category: currentSheetCategory,
+          dia: elSheetDay ? elSheetDay.value : "",
+          turno: elSheetTurno ? elSheetTurno.value : "",
+        };
+
+        elSheetCategoryLabel.textContent = currentSheetCategory;
+        elSheetTurnoLabel.textContent = payload.turno || "Todos";
+
+        google.script.run
+          .withSuccessHandler(renderSheetView)
+          .withFailureHandler(function () {
+            elSheetTableBody.innerHTML =
+              '<tr><td colspan="8" class="muted">Erro ao carregar dados.</td></tr>';
+          })
+          .getSheetView(payload);
+      }
+
+      function renderSheetView(res) {
+        if (!elSheetTableBody) return;
+        const items = (res && res.items) || [];
+        const total = (res && res.total) || 0;
+        elSheetTotal.textContent = total;
+        elSheetTableBody.innerHTML = "";
+
+        if (!items.length) {
+          const tr = document.createElement("tr");
+          const td = document.createElement("td");
+          td.colSpan = 8;
+          td.className = "muted";
+          td.textContent = "Nenhum registro para os filtros escolhidos.";
+          tr.appendChild(td);
+          elSheetTableBody.appendChild(tr);
+          return;
+        }
+
+        items.slice(0, 80).forEach(function (item) {
+          const tr = document.createElement("tr");
+          [
+            item.category,
+            item.paciente || "Paciente não informado",
+            item.especialidade || "—",
+            item.origem || "—",
+            item.status || "—",
+            item.turno || "—",
+            item.dataHora || "—",
+            item.observacao || "—",
+          ].forEach(function (val) {
+            const td = document.createElement("td");
+            td.textContent = val;
+            tr.appendChild(td);
+          });
+          elSheetTableBody.appendChild(tr);
+        });
       }
 
       function loadLatestOccurrences() {
