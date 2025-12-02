@@ -76,6 +76,103 @@ function getHeaderNormalized_(sheet) {
   return headers.map(function (h) { return normalize_(h); });
 }
 
+function sanitizeValue_(value) {
+  if (value === null || value === undefined) return '';
+  if (value instanceof Date) return value;
+
+  var str = String(value).trim();
+  if (!str) return '';
+
+  if (/^[=+\-@]/.test(str)) {
+    return "'" + str; // evita fórmulas
+  }
+
+  return str;
+}
+
+function getRequiredFieldsConfig_() {
+  return {
+    'RESERVA CONFIRMADA': ['tipo', 'fastmedic', 'nomePaciente', 'especialidade', 'origem', 'status', 'dataReserva', 'horaReserva', 'dia', 'turno'],
+    'PROCEDIMENTO CONFIRMADO': ['tipo', 'fastmedic', 'nomePaciente', 'especialidade', 'origem', 'status', 'dataReserva', 'horaReserva', 'dia', 'turno'],
+    'RESERVA NEGADA': ['tipo', 'fastmedic', 'nomePaciente', 'origem', 'especialidade', 'justificativa', 'dataReserva', 'horaReserva', 'dia', 'turno'],
+    'PLANTÃO ANTERIOR': ['tipo', 'fastmedic', 'nomePaciente', 'especialidade', 'origem', 'status', 'dataReserva', 'horaReserva', 'dia', 'turno']
+  };
+}
+
+function validateRequiredFields_(category, fields, mapping) {
+  var required = getRequiredFieldsConfig_()[category] || [];
+  var missing = [];
+
+  required.forEach(function (key) {
+    var value = sanitizeValue_(fields[key]);
+    if (value === '') {
+      missing.push(mapping[key] || key);
+    }
+  });
+
+  return missing;
+}
+
+function buildOccurrenceFingerprint_(category, data, mapping) {
+  var keyParts = [normalize_(category)];
+  Object.keys(mapping).forEach(function (fieldKey) {
+    keyParts.push(normalize_(sanitizeValue_(data[fieldKey])));
+  });
+  var digest = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, keyParts.join('||'));
+  return Utilities.base64Encode(digest);
+}
+
+function getAuditInfo_(category, data, mapping) {
+  var createdBy = '';
+  try {
+    createdBy = Session.getActiveUser().getEmail() || '';
+  } catch (err) {
+    createdBy = '';
+  }
+
+  var createdAt = new Date();
+  var recordId = buildOccurrenceFingerprint_(category, data, mapping);
+
+  return {
+    createdBy: createdBy || 'Anônimo',
+    createdAt: createdAt,
+    recordId: recordId
+  };
+}
+
+function clearDashboardCache_() {
+  try {
+    CacheService.getScriptCache().remove('dashboardData');
+  } catch (err) {
+    // ignora erros de cache
+  }
+}
+
+function ensureAuditColumns_(sheet) {
+  var headersNorm = getHeaderNormalized_(sheet);
+  if (!headersNorm.length) return headersNorm;
+
+  var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  var additions = [];
+
+  if (headersNorm.indexOf('registro id') === -1) {
+    additions.push('Registro ID');
+  }
+  if (headersNorm.indexOf('criado por') === -1) {
+    additions.push('Criado por');
+  }
+  if (headersNorm.indexOf('criado em') === -1) {
+    additions.push('Criado em');
+  }
+
+  if (additions.length) {
+    sheet.insertColumnsAfter(sheet.getLastColumn() || 1, additions.length);
+    sheet.getRange(1, headers.length + 1, 1, additions.length).setValues([additions]);
+  }
+
+  return getHeaderNormalized_(sheet);
+}
+
 /**
  * Mapeamento de campos do formulário → cabeçalhos de cada aba
  * (usa o nome exato das colunas da sua planilha)
@@ -164,7 +261,7 @@ function appendOccurrence_(category, data) {
   }
 
   var sheet = getOrCreateSheet_(sheetName);
-  var headerNorm = getHeaderNormalized_(sheet);
+  var headerNorm = ensureAuditColumns_(sheet);
 
   if (!headerNorm.length) {
     throw new Error('A aba "' + sheetName + '" precisa ter o cabeçalho preenchido na Linha 1.');
@@ -176,15 +273,39 @@ function appendOccurrence_(category, data) {
   var lastCol = headerNorm.length;
   var newRow = new Array(lastCol).fill('');
 
+  var auditInfo = getAuditInfo_(category, data, mapping);
+  var recordIdIdx = headerNorm.indexOf('registro id');
+  if (recordIdIdx > -1 && sheet.getLastRow() > 1) {
+    var existing = sheet.getRange(2, recordIdIdx + 1, sheet.getLastRow() - 1, 1).getValues();
+    var hasDuplicate = existing.some(function (row) { return row[0] === auditInfo.recordId; });
+    if (hasDuplicate) {
+      throw new Error('Ocorrência duplicada detectada.');
+    }
+  }
+
   Object.keys(mapping).forEach(function (fieldKey) {
     var headerLabel = mapping[fieldKey];
     var idx = headerNorm.indexOf(normalize_(headerLabel));
-    var value = data[fieldKey];
+    var value = sanitizeValue_(data[fieldKey]);
 
     if (idx > -1 && value !== null && value !== undefined && value !== '') {
       newRow[idx] = value;
     }
   });
+
+  var createdByIdx = headerNorm.indexOf('criado por');
+  if (createdByIdx > -1) {
+    newRow[createdByIdx] = auditInfo.createdBy;
+  }
+
+  var createdAtIdx = headerNorm.indexOf('criado em');
+  if (createdAtIdx > -1) {
+    newRow[createdAtIdx] = auditInfo.createdAt;
+  }
+
+  if (recordIdIdx > -1) {
+    newRow[recordIdIdx] = auditInfo.recordId;
+  }
 
   sheet.appendRow(newRow);
 }
@@ -204,7 +325,17 @@ function saveOccurrence(payload) {
     throw new Error('Tipo de ocorrência inválido ou ausente.');
   }
 
+  var fieldMappings = getFieldMappings_();
+  var mapping = fieldMappings[category] || {};
+
+  var missing = validateRequiredFields_(category, fields, mapping);
+  if (missing.length) {
+    throw new Error('Campos obrigatórios ausentes: ' + missing.join(', '));
+  }
+
   appendOccurrence_(category, fields);
+
+  clearDashboardCache_();
 
   return {
     ok: true,
@@ -217,6 +348,16 @@ function saveOccurrence(payload) {
  * (baseado nas colunas Dia/dia e Turno/turno das 4 abas)
  */
 function getDashboardData() {
+  var cache = CacheService.getScriptCache();
+  var cached = cache.get('dashboardData');
+  if (cached) {
+    try {
+      return JSON.parse(cached);
+    } catch (err) {
+      // segue para recomputar
+    }
+  }
+
   var ss = getSS();
   var shiftMap = {};
 
@@ -298,9 +439,17 @@ function getDashboardData() {
     };
   });
 
-  return {
+  var result = {
     shifts: top3
   };
+
+  try {
+    cache.put('dashboardData', JSON.stringify(result), 300);
+  } catch (err) {
+    // ignora cache falho
+  }
+
+  return result;
 }
 
 /**
