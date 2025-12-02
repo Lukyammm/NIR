@@ -85,6 +85,32 @@
       box-shadow: var(--shadow-card);
     }
 
+    .header-brand {
+      display: flex;
+      gap: 14px;
+      align-items: flex-start;
+    }
+
+    .header-logo {
+      padding: 8px;
+      background: #fff;
+      border-radius: 14px;
+      box-shadow: 0 12px 28px rgba(15, 23, 42, 0.18);
+      border: 1px solid rgba(15, 23, 42, 0.06);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .header-logo img {
+      display: block;
+      height: 68px;
+      width: auto;
+      border-radius: 10px;
+      object-fit: contain;
+      filter: drop-shadow(0 6px 12px rgba(15, 23, 42, 0.15));
+    }
+
     .page-tabs {
       display: flex;
       gap: 10px;
@@ -194,19 +220,6 @@
       border-radius: 50%;
       background: #22c55e;
       box-shadow: 0 0 0 6px rgba(34, 197, 94, 0.25);
-    }
-
-    .brand-mark {
-      width: 48px;
-      height: 48px;
-      border-radius: 16px;
-      display: grid;
-      place-items: center;
-      background: linear-gradient(135deg, #2563eb, #1d4ed8);
-      color: #fff;
-      font-weight: 800;
-      letter-spacing: 0.04em;
-      box-shadow: 0 12px 30px rgba(37, 99, 235, 0.35);
     }
 
     .eyebrow {
@@ -1011,8 +1024,10 @@
 <body>
   <div class="app-shell">
     <header class="app-header">
-      <div style="display: flex; gap: 14px; align-items: flex-start;">
-        <div class="brand-mark">NIR</div>
+      <div class="header-brand">
+        <div class="header-logo">
+          <img src="https://i.ibb.co/hxbRMNvV/logo-HUC.jpg" alt="Hospital Universitário logo" loading="lazy" />
+        </div>
         <div>
           <p class="eyebrow">Central integrada</p>
           <h1>NIR – Ocorrências</h1>
