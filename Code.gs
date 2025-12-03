@@ -12,6 +12,8 @@ const NIR_SHEETS = {
 const REL_ENF_SHEET = 'REL ENF';
 const REL_MED_SHEET = 'REL MED';
 const SHIFT_SHEET = 'PLANTAO ATUAL';
+const FIXED_NOTES_SHEET = 'OBS FIXAS';
+const FIXED_NOTE_SECTIONS = ['enfermagem', 'medica', 'exames'];
 
 
 /**
@@ -88,6 +90,43 @@ function sanitizeValue_(value) {
   }
 
   return str;
+}
+
+function getDefaultFixedNotes_() {
+  return {
+    enfermagem: [
+      'OBSERVAÇÕES:',
+      '📍 ORTOPEDIA: 715 A 721 -  ENFERMARIA LIBERADA PARA LEITOS ECTÓPICOS',
+      '📍VASCULAR:  LEITOS DE ISOLAMENTO 600.1 E 600.2 SÃO LEITOS DE ISOLAMENTO DA VASCULAR, NÃO SÃO ECTÓPICOS.',
+      '📍BARIÁTRICA:  LEITOS 611.01 AO 612.02 SÃO PARA PACIENTES DA BARIÁTRICA',
+      '📍 CENTRO DE IMAGEM: HEMODINAMICA - HORARIOS DE FUNCIONAMENTO: SEGUNDA A SEXTA-FEIRA / NOS FINAIS DE SEMANA NÃO FUNCIONA.',
+      '📍 CATETERISMOS MARCADOS NO HM - TODOS ÀS 07 HORAS',
+      '📍ATENÇÃO!',
+      ' Perfis que não são nosso (VASCULAR) sinalizado por Dra Grazi: Doença carotídea, Isquemia Mesentérica, Aneurismas de aorta, Trauma vascular e Embolizações'
+    ].join('\n'),
+    medica: [
+      'OBSERVAÇÕES:',
+      '📍 ORTOPEDIA: 715 A 721 -  ENFERMARIA LIBERADA PARA LEITOS ECTÓPICOS',
+      '📍VASCULAR:  LEITOS DE ISOLAMENTO 600.1 E 600.2 SÃO LEITOS DE ISOLAMENTO DA VASCULAR, NÃO SÃO ECTÓPICOS.',
+      '📍BARIÁTRICA:  LEITOS 611.01 AO 612.02 SÃO PARA PACIENTES DA BARIÁTRICA',
+      '📍 CENTRO DE IMAGEM:HEMODINAMICA - HORARIOS DE FUNCIONAMENTO: SEGUNDA A SEXTA-FEIRA / NOS FINAIS DE SEMANA NÃO FUNCIONA.',
+      '📍ATENÇÃO!',
+      ' Perfis que não são nosso (VASCULAR) sinalizado por Dra Grazi: Doença carotídea, Isquemia Mesentérica, Aneurismas de aorta, Trauma vascular e Embolizações',
+      'FOI AUTORIZADO PELA DIREÇÃO (TARDE DE 06/09/2025), A PEDIDO DA CRL SESA, A REALIZAÇÃO DE TCs DA REDE, VISTO QUE TC DO HSJ ESTÁ QUEBRADA.',
+      'DR. JURANDIR SOLICITA QUE OS PACIENTES PARA ARTERIOGRAFIA SEJAM ALOCADOS PARA O IJF - CRL CIENTE'
+    ].join('\n'),
+    exames: [
+      '📍EXAMES:',
+      'VER PLANILHA  AGENDAMENTO EXAMES EXTERNOS (POR FAVOR, ATUALIZAR A CADA  AGENDAMENTO)',
+      '  Agendamento Exames H. Externos (RNM e TC);',
+      '🚨  AGENDADOS - 18/10/2025 -7H00',
+      '3687301        KALEBE BARBOSA TELES - HGWA - RNM CERVICAL E CRÂNIO (CRIANÇA 7 ANOS)',
+      '3685751        JOAO PAULO ALVES DE SOUZA - MULUNGU - TC DE CRÂNIO S/C',
+      '3685356        MARIA ALEUDA DE SOUSA - UPA HORIZONTE - TC DE CRÂNIO  S/C',
+      '3686927        FRANCISCA ANA DE SOUSA MOURA - ITAITINGA - TC DE CRÂNIO  S/C',
+      '3683819        MANOEL DOMINGOS DE OLIVEIRA - UPA AUTRAN NUNES - TC DE CRÂNIO S/C'
+    ].join('\n')
+  };
 }
 
 function getRequiredFieldsConfig_() {
@@ -171,6 +210,122 @@ function ensureAuditColumns_(sheet) {
   }
 
   return getHeaderNormalized_(sheet);
+}
+
+function getFixedNotesSheet_() {
+  var sheet = getOrCreateSheet_(FIXED_NOTES_SHEET);
+  var lastRow = sheet.getLastRow();
+
+  if (lastRow === 0) {
+    sheet.getRange(1, 1, 1, 4).setValues([[
+      'Seção',
+      'Texto',
+      'Atualizado em',
+      'Atualizado por'
+    ]]);
+    lastRow = 1;
+  }
+
+  var defaults = getDefaultFixedNotes_();
+
+  var rows = Math.max(lastRow - 1, 0);
+  var existing = {};
+  if (rows > 0) {
+    var values = sheet.getRange(2, 1, rows, 2).getValues();
+    values.forEach(function (r) {
+      var sec = normalize_(r[0]);
+      if (sec) existing[sec] = true;
+    });
+  }
+
+  var toAppend = [];
+  var now = new Date();
+  var user = '';
+  try {
+    user = Session.getActiveUser().getEmail() || '';
+  } catch (err) {
+    user = '';
+  }
+
+  FIXED_NOTE_SECTIONS.forEach(function (sec) {
+    if (!existing[normalize_(sec)]) {
+      toAppend.push([sec, defaults[sec] || '', now, user || 'Sistema']);
+    }
+  });
+
+  if (toAppend.length) {
+    sheet.getRange(lastRow + 1, 1, toAppend.length, 4).setValues(toAppend);
+  }
+
+  return sheet;
+}
+
+function getFixedNotes() {
+  var sheet = getFixedNotesSheet_();
+  var defaults = getDefaultFixedNotes_();
+  var notes = Object.assign({}, defaults);
+
+  var lastRow = sheet.getLastRow();
+  if (lastRow > 1) {
+    var values = sheet.getRange(2, 1, lastRow - 1, 2).getValues();
+    values.forEach(function (r) {
+      var sec = normalize_(r[0]);
+      if (sec && notes.hasOwnProperty(sec)) {
+        notes[sec] = String(r[1] || '').trim();
+      }
+    });
+  }
+
+  return { notes: notes };
+}
+
+function saveFixedNotes(payload) {
+  if (!payload) {
+    throw new Error('Nenhum bloco fixo recebido para salvar.');
+  }
+
+  var sheet = getFixedNotesSheet_();
+
+  var incomingKeys = Object.keys(payload).filter(function (k) {
+    return FIXED_NOTE_SECTIONS.indexOf(k) !== -1;
+  });
+
+  if (!incomingKeys.length) {
+    throw new Error('Nenhuma seção válida enviada.');
+  }
+
+  var lastRow = sheet.getLastRow();
+  var existingRows = {};
+  if (lastRow > 1) {
+    var secValues = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
+    secValues.forEach(function (r, idx) {
+      var sec = normalize_(r[0]);
+      if (sec) existingRows[sec] = idx + 2; // linha real na planilha
+    });
+  }
+
+  var now = new Date();
+  var user = '';
+  try {
+    user = Session.getActiveUser().getEmail() || '';
+  } catch (err) {
+    user = '';
+  }
+
+  incomingKeys.forEach(function (key) {
+    var value = sanitizeValue_(payload[key]);
+    var normalized = normalize_(key);
+    var rowIndex = existingRows[normalized];
+    var rowValues = [key, value || '', now, user || 'Sistema'];
+
+    if (rowIndex) {
+      sheet.getRange(rowIndex, 1, 1, 4).setValues([rowValues]);
+    } else {
+      sheet.appendRow(rowValues);
+    }
+  });
+
+  return getFixedNotes();
 }
 
 /**

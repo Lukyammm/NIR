@@ -497,6 +497,136 @@
       gap: 16px;
     }
 
+    .rel-hero {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .rel-actions {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .rel-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+      gap: 16px;
+    }
+
+    .rel-card {
+      background: linear-gradient(135deg, rgba(37, 99, 235, 0.08), #fff);
+      border: 1px solid rgba(37, 99, 235, 0.18);
+      border-radius: var(--radius-lg);
+      padding: 16px;
+      box-shadow: var(--shadow-card);
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      min-height: 420px;
+    }
+
+    .rel-card-header {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .rel-body {
+      background: #f8fafc;
+      border: 1px dashed var(--border-subtle);
+      border-radius: 14px;
+      padding: 10px 12px;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      max-height: 620px;
+      overflow: auto;
+    }
+
+    .rel-pinned {
+      position: sticky;
+      top: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      z-index: 2;
+    }
+
+    .rel-block {
+      border-radius: 12px;
+      padding: 10px 12px;
+      border: 1px solid rgba(15, 23, 42, 0.08);
+      box-shadow: 0 6px 12px rgba(15, 23, 42, 0.08);
+      line-height: 1.5;
+      white-space: pre-line;
+      font-size: 0.9rem;
+    }
+
+    .rel-block.enf {
+      background: #fff7e6;
+      border-color: #f59e0b;
+    }
+
+    .rel-block.med {
+      background: #ffe9e3;
+      border-color: #f97316;
+    }
+
+    .rel-block.exams {
+      background: #eef2ff;
+      border-color: #6366f1;
+    }
+
+    .rel-feed {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      display: grid;
+      gap: 8px;
+    }
+
+    .rel-feed li {
+      padding: 8px 10px;
+      background: #fff;
+      border-radius: 10px;
+      border: 1px solid var(--border-subtle);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+    }
+
+    .rel-feed .meta {
+      display: block;
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      margin-bottom: 4px;
+    }
+
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.4);
+      z-index: 40;
+    }
+
+    .fixed-modal-card {
+      position: fixed;
+      z-index: 50;
+      max-width: 720px;
+      width: calc(100% - 32px);
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      max-height: 80vh;
+      overflow: auto;
+    }
+
     .card {
       background: linear-gradient(145deg, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.75));
       border-radius: var(--radius-lg);
@@ -1043,6 +1173,7 @@
           <button class="menu-btn" data-page-jump="page-analytics" data-target="#relatorio-turno">🩺 Relatório do turno</button>
           <button class="menu-btn" data-page-jump="page-analytics" data-target="#pesquisa-ocorrencias">🔎 Pesquisar ocorrências</button>
           <button class="menu-btn" data-page-jump="page-analytics" data-target="#painel-plantao">📊 Painel de plantão</button>
+          <button class="menu-btn" data-page-jump="page-relatorios" data-target="#relatorio-aba">📝 Relatório de Ocorrências</button>
         </div>
       </div>
     </header>
@@ -1053,6 +1184,9 @@
       </button>
       <button class="page-tab" id="tab-analytics" data-page="page-analytics">
         Painel e funcionalidades
+      </button>
+      <button class="page-tab" id="tab-relatorios" data-page="page-relatorios">
+        Relatório de Ocorrências
       </button>
     </div>
 
@@ -1397,15 +1531,80 @@
           Últimos turnos
           <span class="badge">Resumo das 4 categorias</span>
         </h2>
-        <p class="muted" style="margin-top: 0; margin-bottom: 6px;">
-          Mostra o turno atual, anterior e o anterior ao anterior (quando
-          existirem registros nas abas do histórico).
+      <p class="muted" style="margin-top: 0; margin-bottom: 6px;">
+        Mostra o turno atual, anterior e o anterior ao anterior (quando
+        existirem registros nas abas do histórico).
+      </p>
+      <div id="dashboard-shifts" class="shift-grid">
+        <p class="muted">Carregando dados do painel...</p>
+      </div>
+    </section>
+  </main>
+  </div>
+
+  <div id="page-relatorios" class="page">
+    <section class="card full-width rel-hero" id="relatorio-aba">
+      <div>
+        <p class="muted" style="margin: 0; font-weight: 600; letter-spacing: 0.01em;">
+          Relatório de Ocorrências (linhas fixas)
         </p>
-        <div id="dashboard-shifts" class="shift-grid">
-          <p class="muted">Carregando dados do painel...</p>
+        <h2 style="margin: 6px 0 8px;">Cabeçalho fixo de enfermagem e médico</h2>
+        <p class="muted" style="margin: 0; max-width: 720px;">
+          As duas primeiras linhas ficam fixas e são persistentes na planilha. Edite o texto fixo ou acrescente novas linhas quando precisar, sem perder o padrão das observações.
+        </p>
+      </div>
+      <div class="rel-actions">
+        <button class="btn-ghost" id="btn-reload-fixed">Recarregar blocos</button>
+        <button class="btn-primary" id="btn-edit-fixed">Configurar linhas fixas</button>
+      </div>
+    </section>
+
+    <div class="rel-grid">
+      <section class="rel-card">
+        <header class="rel-card-header">
+          <div>
+            <p class="eyebrow" style="margin-bottom: 6px;">Enfermagem</p>
+            <h3 style="margin: 0;">Relato de Ocorrências de Enfermagem</h3>
+          </div>
+          <span class="badge">Linhas fixas</span>
+        </header>
+        <div class="rel-body">
+          <div class="rel-pinned">
+            <div class="rel-block enf" id="fixed-enfermagem"></div>
+            <div class="rel-block exams" id="fixed-exames-enf"></div>
+          </div>
+          <p class="muted" style="margin: 4px 0;">Registros do turno continuam armazenados nas abas REL ENF/REL MED. Aqui você fixa as linhas de cabeçalho.</p>
+          <ul class="rel-feed" id="rel-feed-enf"></ul>
         </div>
       </section>
-    </main>
+
+      <section class="rel-card">
+        <header class="rel-card-header">
+          <div>
+            <p class="eyebrow" style="margin-bottom: 6px;">Médica</p>
+            <h3 style="margin: 0;">Relato de Ocorrências Médica</h3>
+          </div>
+          <span class="badge">Linhas fixas</span>
+        </header>
+        <div class="rel-body">
+          <div class="rel-pinned">
+            <div class="rel-block med" id="fixed-medica"></div>
+            <div class="rel-block exams" id="fixed-exames"></div>
+          </div>
+          <p class="muted" style="margin: 4px 0;">Visualize rapidamente as notas fixas e as últimas entradas médicas.</p>
+          <ul class="rel-feed" id="rel-feed-med"></ul>
+        </div>
+      </section>
+    </div>
+
+    <section class="card full-width" style="margin-top: 6px;">
+      <h3 style="margin-top: 0;">Como usar</h3>
+      <ul class="board-list" style="gap: 4px;">
+        <li>Abra “Configurar linhas fixas” para editar as duas primeiras linhas (enfermagem, médica e exames).</li>
+        <li>O texto é salvo na aba <strong>OBS FIXAS</strong> da planilha, compartilhado com toda a equipe.</li>
+        <li>As listas abaixo mostram as últimas entradas gravadas nas abas REL ENF e REL MED.</li>
+      </ul>
+    </section>
   </div>
 
   <div id="shift-modal" style="display: none;">
@@ -1449,6 +1648,32 @@
       <div class="form-actions" style="margin-top: 14px;">
         <button type="button" class="btn-ghost" id="btn-cancel-shift">Cancelar</button>
         <button type="button" class="btn-primary" id="btn-save-shift">Salvar plantão</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="fixed-modal" style="display: none;">
+    <div class="modal-backdrop" id="fixed-modal-backdrop"></div>
+    <div class="card fixed-modal-card">
+      <h2 style="margin-top: 0;">Configurar linhas fixas</h2>
+      <p class="muted" style="margin-top: 2px;">Edite os blocos de Enfermagem, Médica e Exames. O texto é salvo de forma compartilhada na planilha.</p>
+      <div class="fields-grid">
+        <div class="field full">
+          <label for="fixed-enf-input">Enfermagem</label>
+          <textarea id="fixed-enf-input" rows="6"></textarea>
+        </div>
+        <div class="field full">
+          <label for="fixed-med-input">Médica</label>
+          <textarea id="fixed-med-input" rows="6"></textarea>
+        </div>
+        <div class="field full">
+          <label for="fixed-exames-input">Exames</label>
+          <textarea id="fixed-exames-input" rows="6"></textarea>
+        </div>
+      </div>
+      <div class="form-actions" style="margin-top: 14px;">
+        <button type="button" class="btn-ghost" id="btn-cancel-fixed">Cancelar</button>
+        <button type="button" class="btn-primary" id="btn-save-fixed">Salvar linhas fixas</button>
       </div>
     </div>
   </div>
@@ -1764,6 +1989,7 @@
       let currentRelTipo = "ENF";
       let isSaving = false;
       let generalTableData = [];
+      let fixedNotes = { enfermagem: "", medica: "", exames: "" };
       const activeFilters = new Set();
       const weekdayLabels = [
         "Domingo",
@@ -1777,8 +2003,10 @@
 
       const elTabMain = document.getElementById("tab-main");
       const elTabAnalytics = document.getElementById("tab-analytics");
+      const elTabRelatorios = document.getElementById("tab-relatorios");
       const elPageMain = document.getElementById("page-main");
       const elPageAnalytics = document.getElementById("page-analytics");
+      const elPageRelatorios = document.getElementById("page-relatorios");
 
       const elSheetCategoryGroup = document.getElementById(
         "sheet-category-group"
@@ -1818,6 +2046,21 @@
       const elRelSegment = document.getElementById("rel-tipo-segment");
       const elBtnRelSave = document.getElementById("btn-rel-save");
       const elRelRecentes = document.getElementById("rel-recentes");
+      const elRelFeedEnf = document.getElementById("rel-feed-enf");
+      const elRelFeedMed = document.getElementById("rel-feed-med");
+      const elFixedEnfermagem = document.getElementById("fixed-enfermagem");
+      const elFixedMedica = document.getElementById("fixed-medica");
+      const elFixedExames = document.getElementById("fixed-exames");
+      const elFixedExamesEnf = document.getElementById("fixed-exames-enf");
+      const elBtnReloadFixed = document.getElementById("btn-reload-fixed");
+      const elBtnEditFixed = document.getElementById("btn-edit-fixed");
+      const elFixedModal = document.getElementById("fixed-modal");
+      const elFixedModalBackdrop = document.getElementById("fixed-modal-backdrop");
+      const elFixedEnfInput = document.getElementById("fixed-enf-input");
+      const elFixedMedInput = document.getElementById("fixed-med-input");
+      const elFixedExamesInput = document.getElementById("fixed-exames-input");
+      const elBtnCancelFixed = document.getElementById("btn-cancel-fixed");
+      const elBtnSaveFixed = document.getElementById("btn-save-fixed");
       const elTargetButtons = document.querySelectorAll("[data-target]");
       const elLatestDays = document.getElementById("latest-days");
       const elSearchInput = document.getElementById("search-query");
@@ -1862,6 +2105,7 @@
         loadLatestOccurrences();
         loadDashboard();
         loadRelatorios();
+        loadFixedNotes();
       });
 
       function bindEvents() {
@@ -1919,6 +2163,26 @@
               renderGeneralTable();
             });
           });
+        }
+
+        if (elBtnEditFixed) {
+          elBtnEditFixed.addEventListener("click", openFixedModal);
+        }
+
+        if (elBtnReloadFixed) {
+          elBtnReloadFixed.addEventListener("click", loadFixedNotes);
+        }
+
+        if (elBtnCancelFixed) {
+          elBtnCancelFixed.addEventListener("click", closeFixedModal);
+        }
+
+        if (elFixedModalBackdrop) {
+          elFixedModalBackdrop.addEventListener("click", closeFixedModal);
+        }
+
+        if (elBtnSaveFixed) {
+          elBtnSaveFixed.addEventListener("click", handleSaveFixedNotes);
         }
 
         elTargetButtons.forEach(function (btn) {
@@ -2155,8 +2419,8 @@
 
       function switchPage(pageId) {
         if (!pageId) return;
-        const tabs = [elTabMain, elTabAnalytics];
-        const pages = [elPageMain, elPageAnalytics];
+        const tabs = [elTabMain, elTabAnalytics, elTabRelatorios];
+        const pages = [elPageMain, elPageAnalytics, elPageRelatorios];
 
         tabs.forEach(function (tab) {
           if (!tab) return;
@@ -2170,7 +2434,7 @@
       }
 
       function bindPageTabs() {
-        [elTabMain, elTabAnalytics].forEach(function (tab) {
+        [elTabMain, elTabAnalytics, elTabRelatorios].forEach(function (tab) {
           if (!tab) return;
           tab.addEventListener("click", function () {
             switchPage(this.dataset.page);
@@ -3005,6 +3269,142 @@
           "Sem ocorrências de enfermagem."
         );
         fillList(elOccMedica, grouped.MED, "Sem ocorrências médicas.");
+
+        renderRelFeed(
+          elRelFeedEnf,
+          grouped.ENF,
+          "Sem ocorrências de enfermagem."
+        );
+        renderRelFeed(
+          elRelFeedMed,
+          grouped.MED,
+          "Sem ocorrências médicas."
+        );
+      }
+
+      function renderRelFeed(listEl, items, emptyText) {
+        if (!listEl) return;
+        listEl.innerHTML = "";
+
+        if (!items || !items.length) {
+          const li = document.createElement("li");
+          li.className = "muted";
+          li.textContent = emptyText;
+          listEl.appendChild(li);
+          return;
+        }
+
+        items.slice(0, 6).forEach(function (r) {
+          const li = document.createElement("li");
+
+          const meta = document.createElement("span");
+          meta.className = "meta";
+
+          const parts = [];
+          if (r.dia) parts.push(String(r.dia));
+          if (r.turno) parts.push(String(r.turno));
+          if (r.data) parts.push(formatDateDisplay(r.data));
+          meta.textContent = parts.join(" • ") || "Sem data";
+
+          const txt = document.createElement("p");
+          txt.style.margin = "0";
+          txt.textContent = r.texto || "";
+
+          li.appendChild(meta);
+          li.appendChild(txt);
+          listEl.appendChild(li);
+        });
+      }
+
+      function openFixedModal() {
+        if (!elFixedModal) return;
+        elFixedModal.style.display = "block";
+
+        if (elFixedEnfInput) {
+          elFixedEnfInput.value = fixedNotes.enfermagem || "";
+        }
+        if (elFixedMedInput) {
+          elFixedMedInput.value = fixedNotes.medica || "";
+        }
+        if (elFixedExamesInput) {
+          elFixedExamesInput.value = fixedNotes.exames || "";
+        }
+      }
+
+      function closeFixedModal() {
+        if (!elFixedModal) return;
+        elFixedModal.style.display = "none";
+      }
+
+      function renderFixedNotes() {
+        const fallback = "Sem texto cadastrado.";
+
+        if (elFixedEnfermagem) {
+          elFixedEnfermagem.textContent = fixedNotes.enfermagem || fallback;
+        }
+        if (elFixedMedica) {
+          elFixedMedica.textContent = fixedNotes.medica || fallback;
+        }
+        if (elFixedExames) {
+          elFixedExames.textContent = fixedNotes.exames || fallback;
+        }
+        if (elFixedExamesEnf) {
+          elFixedExamesEnf.textContent = fixedNotes.exames || fallback;
+        }
+      }
+
+      function loadFixedNotes() {
+        if (elBtnReloadFixed) {
+          elBtnReloadFixed.disabled = true;
+        }
+
+        google.script.run
+          .withSuccessHandler(function (res) {
+            if (elBtnReloadFixed) {
+              elBtnReloadFixed.disabled = false;
+            }
+            if (res && res.notes) {
+              fixedNotes = res.notes;
+              renderFixedNotes();
+            }
+          })
+          .withFailureHandler(function (err) {
+            console.log(err);
+            if (elBtnReloadFixed) {
+              elBtnReloadFixed.disabled = false;
+            }
+            showToast(
+              (err && err.message) || "Erro ao carregar linhas fixas.",
+              true
+            );
+          })
+          .getFixedNotes();
+      }
+
+      function handleSaveFixedNotes() {
+        const payload = {
+          enfermagem: (elFixedEnfInput?.value || "").trim(),
+          medica: (elFixedMedInput?.value || "").trim(),
+          exames: (elFixedExamesInput?.value || "").trim(),
+        };
+
+        google.script.run
+          .withSuccessHandler(function (res) {
+            if (res && res.notes) {
+              fixedNotes = res.notes;
+              renderFixedNotes();
+            }
+            closeFixedModal();
+            showToast("Linhas fixas salvas.");
+          })
+          .withFailureHandler(function (err) {
+            console.log(err);
+            showToast(
+              (err && err.message) || "Erro ao salvar linhas fixas.",
+              true
+            );
+          })
+          .saveFixedNotes(payload);
       }
 
       let toastTimeout;
