@@ -114,6 +114,40 @@ function sanitizeValue_(value) {
   return str;
 }
 
+function normalizeMacroRegion_(value) {
+  var normalized = normalize_(value)
+    .replace(/ç/g, 'c')
+    .replace(/ã/g, 'a')
+    .replace(/á/g, 'a')
+    .replace(/â/g, 'a')
+    .replace(/é/g, 'e')
+    .replace(/ê/g, 'e')
+    .replace(/í/g, 'i')
+    .replace(/ó/g, 'o')
+    .replace(/õ/g, 'o')
+    .replace(/ú/g, 'u')
+    .replace(/ï/g, 'i')
+    .replace(/ü/g, 'u');
+
+  var mapping = {
+    cariri: 'Cariri',
+    fortaleza: 'Fortaleza',
+    norte: 'Norte',
+    'litoral leste / jaguaribe': 'Litoral Leste / Jaguaribe',
+    'litoral leste jaguaribe': 'Litoral Leste / Jaguaribe',
+    'litoral leste-jaguaribe': 'Litoral Leste / Jaguaribe',
+    'sertao central': 'Sertão Central'
+  };
+
+  if (mapping[normalized]) return mapping[normalized];
+
+  if (normalized.indexOf('litoral leste') > -1 || normalized.indexOf('jaguaribe') > -1) {
+    return 'Litoral Leste / Jaguaribe';
+  }
+
+  return value ? String(value).trim() : '';
+}
+
 function getDefaultFixedNotes_() {
   return {
     enfermagem: [
@@ -1258,4 +1292,63 @@ function formatDateTime_(timestamp) {
   var hh = ('0' + d.getHours()).slice(-2);
   var min = ('0' + d.getMinutes()).slice(-2);
   return dd + '/' + mm + '/' + yyyy + ' ' + hh + ':' + min;
+}
+
+function getMacroRegionData() {
+  var macroRegions = [
+    'Cariri',
+    'Fortaleza',
+    'Norte',
+    'Litoral Leste / Jaguaribe',
+    'Sertão Central'
+  ];
+
+  var counts = { Outros: 0, 'Sem macrorregião': 0 };
+  macroRegions.forEach(function (name) { counts[name] = 0; });
+
+  var result = { counts: counts, entries: [], total: 0 };
+  var ss = getSS();
+  var sheet = ss.getSheetByName('Base de Dados 1');
+  if (!sheet) return result;
+
+  var lastRow = sheet.getLastRow();
+  var lastCol = sheet.getLastColumn();
+  if (lastRow <= 1 || lastCol === 0) return result;
+
+  var headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
+  var headersNorm = headers.map(function (h) { return normalize_(h); });
+
+  var macroIdx = headersNorm.indexOf('macrorregiao');
+  if (macroIdx === -1) macroIdx = headersNorm.indexOf('macroregiao');
+  if (macroIdx === -1 && lastCol >= 20) macroIdx = 19; // fallback na coluna T
+
+  var municipioIdx = headersNorm.indexOf('municipio');
+  if (municipioIdx === -1) municipioIdx = headersNorm.indexOf('município');
+
+  var values = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
+
+  values.forEach(function (row) {
+    var macroRaw = macroIdx > -1 ? row[macroIdx] : '';
+    var municipio = municipioIdx > -1 ? sanitizeValue_(row[municipioIdx]) : '';
+    if (!macroRaw && !municipio) return;
+    var normalizedMacro = normalizeMacroRegion_(macroRaw);
+
+    var key = macroRegions.indexOf(normalizedMacro) > -1
+      ? normalizedMacro
+      : normalizedMacro
+        ? 'Outros'
+        : 'Sem macrorregião';
+
+    counts[key] = (counts[key] || 0) + 1;
+
+    if (normalizedMacro || macroRaw) {
+      result.entries.push({
+        macrorregiao: normalizedMacro || String(macroRaw || '').trim(),
+        municipio: municipio
+      });
+    }
+  });
+
+  result.total = result.entries.length;
+  return result;
 }
