@@ -14,6 +14,9 @@ const REL_MED_SHEET = 'REL MED';
 const SHIFT_SHEET = 'PLANTAO ATUAL';
 const FIXED_NOTES_SHEET = 'OBS FIXAS';
 const FIXED_NOTE_SECTIONS = ['enfermagem', 'medica', 'exames'];
+const STATUS_VALUES = ['Em andamento', 'Em espera', 'Concluído', 'Cancelado'];
+const DEFAULT_STATUS = STATUS_VALUES[0];
+const ACTIVE_STATUS = ['em andamento', 'em espera'];
 
 // Colunas (1-based) que devem ser tratadas como horário em cada aba NIR
 const SHEET_TIME_COLUMNS = {
@@ -498,6 +501,13 @@ function appendOccurrence_(category, data) {
 
   var fieldMappings = getFieldMappings_();
   var mapping = fieldMappings[category] || {};
+
+  if (mapping.status) {
+    var normalizedStatus = sanitizeValue_(data.status);
+    if (!normalizedStatus) {
+      data = Object.assign({}, data, { status: DEFAULT_STATUS });
+    }
+  }
 
   var lastCol = headerNorm.length;
   var newRow = new Array(lastCol).fill('');
@@ -1063,6 +1073,11 @@ function getStatusBoardData(options) {
       var timestamp = buildTimestamp_(dataReserva, horaReserva);
       var order = timestamp || (lastRow - idx);
 
+      var statusValue = statusIdx > -1 ? row[statusIdx] : '';
+      var statusNormalized = normalize_(statusValue);
+      var isActive = !statusNormalized || ACTIVE_STATUS.indexOf(statusNormalized) > -1 || statusNormalized.indexOf('andamento') > -1;
+      if (!isActive) return;
+
       items.push({
         category: categoryName,
         dia: hasDateCol ? row[dateColIdx] : (diaIdx > -1 ? row[diaIdx] : ''),
@@ -1070,7 +1085,7 @@ function getStatusBoardData(options) {
         paciente: getValueByHeader_(headersNorm, row, ['nome do paciente', 'paciente']) || 'Paciente não informado',
         especialidade: getValueByHeader_(headersNorm, row, ['especialidade']),
         origem: getValueByHeader_(headersNorm, row, ['origem']),
-        status: statusIdx > -1 ? row[statusIdx] : '',
+        status: statusValue,
         observacao: getValueByHeader_(headersNorm, row, ['observação', 'observacao']),
         recordId: recordIdIdx > -1 ? row[recordIdIdx] : '',
         rowNumber: idx + 2,

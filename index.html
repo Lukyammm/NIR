@@ -1728,12 +1728,9 @@
 
   <datalist id="status-suggestions">
     <option value="Em andamento"></option>
-    <option value="Chegou"></option>
-    <option value="Em fila"></option>
-    <option value="Observação"></option>
+    <option value="Em espera"></option>
     <option value="Concluído"></option>
     <option value="Cancelado"></option>
-    <option value="Baixa dada"></option>
   </datalist>
 
   <div id="shift-modal" style="display: none;">
@@ -1841,7 +1838,15 @@
             width: "sm",
           },
           { key: "origem", label: "Origem", required: true, width: "sm" },
-          { key: "status", label: "Status", required: true, width: "sm" },
+          {
+            key: "status",
+            label: "Status",
+            required: true,
+            width: "sm",
+            type: "select",
+            options: STATUS_OPTIONS,
+            defaultValue: STATUS_OPTIONS[0],
+          },
           {
             key: "dataReserva",
             label: "Data da Reserva",
@@ -1918,7 +1923,15 @@
             width: "sm",
           },
           { key: "origem", label: "Origem", required: true, width: "sm" },
-          { key: "status", label: "Status", required: true, width: "sm" },
+          {
+            key: "status",
+            label: "Status",
+            required: true,
+            width: "sm",
+            type: "select",
+            options: STATUS_OPTIONS,
+            defaultValue: STATUS_OPTIONS[0],
+          },
           {
             key: "dataReserva",
             label: "Data da Reserva",
@@ -2062,7 +2075,15 @@
             width: "sm",
           },
           { key: "origem", label: "Origem", required: true, width: "sm" },
-          { key: "status", label: "Status", required: true, width: "sm" },
+          {
+            key: "status",
+            label: "Status",
+            required: true,
+            width: "sm",
+            type: "select",
+            options: STATUS_OPTIONS,
+            defaultValue: STATUS_OPTIONS[0],
+          },
           {
             key: "dataReserva",
             label: "Data da Reserva",
@@ -2125,15 +2146,13 @@
       let isStatusSaving = false;
       let currentStatusCategory = "TODOS";
       let fixedNotes = { enfermagem: "", medica: "", exames: "" };
-      const STATUS_SUGGESTIONS = [
+      const STATUS_OPTIONS = [
         "Em andamento",
-        "Chegou",
-        "Em fila",
-        "Observação",
+        "Em espera",
         "Concluído",
         "Cancelado",
-        "Baixa dada",
       ];
+      const STATUS_SUGGESTIONS = STATUS_OPTIONS;
       const weekdayLabels = [
         "Domingo",
         "Segunda-feira",
@@ -3040,7 +3059,7 @@
         if (!elStatusList) return;
 
         elStatusList.innerHTML =
-          '<p class="muted">Carregando ocorrências com status...</p>';
+          '<p class="muted">Carregando ocorrências em andamento...</p>';
 
         const payload = {
           category: currentStatusCategory,
@@ -3066,7 +3085,7 @@
 
         if (!items.length) {
           elStatusList.innerHTML =
-            '<p class="muted">Nenhuma ocorrência encontrada para os filtros.</p>';
+            '<p class="muted">Nenhuma ocorrência em andamento para os filtros.</p>';
           return;
         }
 
@@ -3160,6 +3179,7 @@
         if (!text) return "#2563eb";
         if (text.indexOf("cancel") > -1) return "#b91c1c";
         if (text.indexOf("conclu") > -1 || text.indexOf("alta") > -1) return "#15803d";
+        if (text.indexOf("espera") > -1) return "#f59e0b";
         if (text.indexOf("andamento") > -1) return "#b45309";
         return "#2563eb";
       }
@@ -3311,6 +3331,15 @@
           let input;
           if (field.type === "textarea") {
             input = document.createElement("textarea");
+          } else if (field.type === "select") {
+            input = document.createElement("select");
+            const opts = Array.isArray(field.options) ? field.options : [];
+            opts.forEach(function (opt) {
+              const option = document.createElement("option");
+              option.value = opt;
+              option.textContent = opt;
+              input.appendChild(option);
+            });
           } else {
             input = document.createElement("input");
             input.type = field.type || "text";
@@ -3321,6 +3350,10 @@
 
           if (field.placeholder) {
             input.placeholder = field.placeholder;
+          }
+
+          if (field.defaultValue) {
+            input.value = field.defaultValue;
           }
 
           wrap.appendChild(label);
