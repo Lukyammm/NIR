@@ -1259,7 +1259,7 @@
         </div>
         <div class="menu-actions">
           <button class="menu-btn" id="menu-open-occurrence">➕ Nova ocorrência</button>
-          <button class="menu-btn" data-page-jump="page-analytics" data-target="#relatorio-turno">🩺 Relatório do turno</button>
+          <button class="menu-btn" data-page-jump="page-relatorios" data-target="#relatorio-turno">🩺 Relatório do turno</button>
           <button class="menu-btn" data-page-jump="page-analytics" data-target="#painel-plantao">📊 Painel de plantão</button>
           <button class="menu-btn" data-page-jump="page-mapa" data-target="#mapa-macros">🗺️ Mapa Ceará</button>
           <button class="menu-btn" data-page-jump="page-relatorios" data-target="#relatorio-aba">📝 Relatório de Ocorrências</button>
@@ -1286,7 +1286,8 @@
             <h2>Plantão atual</h2>
             <p class="muted" id="shift-subtitle">Carregando informações do plantão...</p>
             <div class="hero-actions">
-              <button class="btn-primary" id="btn-open-shift">Abrir / Atualizar plantão</button>
+              <button class="btn-primary" id="btn-open-occurrence">Nova ocorrência</button>
+              <button class="btn-ghost" id="btn-open-shift">Abrir / Atualizar plantão</button>
               <button class="btn-ghost" id="btn-refresh-shift">Recarregar dados</button>
             </div>
             <div id="shift-alert" class="alert-banner" style="display: none;"></div>
@@ -1327,48 +1328,6 @@
           </div>
         </div>
       </section>
-
-      <section class="card full-width board-shell">
-        <div class="board-header">
-          <div>
-            <p class="muted" style="margin: 0; font-weight: 600; letter-spacing: 0.01em;">
-              Equipe do Plantão
-            </p>
-            <h2 id="board-shift-label" class="board-title">
-              Data • Turno • Assessor
-            </h2>
-          </div>
-          <button class="btn-primary" id="btn-open-occurrence">
-            + Nova Ocorrência
-          </button>
-        </div>
-
-        <div id="board-kpis" class="board-kpis"></div>
-
-        <div class="board-grid">
-          <div class="board-card" id="board-previous">
-            <p class="board-card-title">Visão do plantão anterior</p>
-            <ul id="board-previous-list" class="board-list">
-              <li class="muted">Carregando...</li>
-            </ul>
-          </div>
-        </div>
-      </section>
-
-      <section class="card" id="ocorrencias-cta">
-        <div class="sheet-header">
-          <div>
-            <p class="muted" style="margin: 0; font-weight: 600; letter-spacing: 0.01em;">Ocorrências NIR</p>
-            <h2 class="board-title" style="margin-top: 4px;">Central única de registros</h2>
-            <p class="muted" style="margin: 6px 0 0;">Abra o plantão, registre e acompanhe todas as ocorrências do dia em um só lugar.</p>
-          </div>
-          <div class="hero-actions">
-            <button class="btn-primary" id="cta-open-occurrence">Nova ocorrência</button>
-            <button class="btn-ghost" data-target="#relatorio-turno">Ir para relatório</button>
-          </div>
-        </div>
-      </section>
-
       <section class="card full-width sheet-board" id="aba-dia">
         <div class="sheet-header">
           <div>
@@ -1444,65 +1403,7 @@
         </div>
       </section>
 
-      <div class="content-grid two">
-        <section class="card" id="relatorio-turno">
-          <h2>
-            Relatório do turno
-            <span class="badge">Enfermagem / Médico</span>
-          </h2>
-
-          <div class="form-row">
-            <div class="field">
-              <label for="rel-dia">Dia</label>
-              <input
-                type="text"
-                id="rel-dia"
-                placeholder="Ex.: 21/10/2025 ou texto"
-              />
-            </div>
-            <div class="field">
-              <label for="rel-turno">Turno</label>
-              <input
-                type="text"
-                id="rel-turno"
-                placeholder="Ex.: MATUTINO / NOTURNO"
-              />
-            </div>
-          </div>
-
-          <div class="field">
-            <label>Tipo de relatório</label>
-            <div class="segment" id="rel-tipo-segment">
-              <button type="button" class="segmented-btn active" data-tipo="ENF">
-                Enfermagem
-              </button>
-              <button type="button" class="segmented-btn" data-tipo="MED">
-                Médico
-              </button>
-            </div>
-          </div>
-
-          <div class="field">
-            <label for="rel-texto">Relatório de Ocorrências</label>
-            <textarea
-              id="rel-texto"
-              placeholder="Descreva as ocorrências relevantes deste turno..."
-            ></textarea>
-          </div>
-
-          <div class="form-actions">
-            <button type="button" id="btn-rel-save" class="btn-primary btn-small">
-              Salvar relatório
-            </button>
-          </div>
-
-          <div class="field" style="margin-top: 4px;">
-            <label>Relatórios recentes</label>
-            <div id="rel-recentes" class="muted">Carregando...</div>
-          </div>
-        </section>
-
-        <section class="card" id="dashboard-turnos">
+      <section class="card" id="dashboard-turnos">
           <h2>
             Últimos turnos
             <span class="badge">Resumo das 4 categorias</span>
@@ -1511,11 +1412,10 @@
             Mostra o turno atual, anterior e o anterior ao anterior (quando
             existirem registros nas abas do histórico).
           </p>
-          <div id="dashboard-shifts" class="shift-grid">
-            <p class="muted">Carregando dados do painel...</p>
-          </div>
-        </section>
-      </div>
+        <div id="dashboard-shifts" class="shift-grid">
+          <p class="muted">Carregando dados do painel...</p>
+        </div>
+      </section>
     </div>
 
   <div id="page-mapa" class="page">
@@ -1585,6 +1485,52 @@
       <div class="rel-actions">
         <button class="btn-ghost" id="btn-reload-fixed">Recarregar blocos</button>
         <button class="btn-primary" id="btn-edit-fixed">Configurar linhas fixas</button>
+      </div>
+    </section>
+
+    <section class="card" id="relatorio-turno">
+      <h2>
+        Relatório do turno
+        <span class="badge">Enfermagem / Médico</span>
+      </h2>
+
+      <div class="form-row">
+        <div class="field">
+          <label for="rel-dia">Dia</label>
+          <input type="text" id="rel-dia" placeholder="Ex.: 21/10/2025 ou texto" />
+        </div>
+        <div class="field">
+          <label for="rel-turno">Turno</label>
+          <input type="text" id="rel-turno" placeholder="Ex.: MATUTINO / NOTURNO" />
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Tipo de relatório</label>
+        <div class="segment" id="rel-tipo-segment">
+          <button type="button" class="segmented-btn active" data-tipo="ENF">
+            Enfermagem
+          </button>
+          <button type="button" class="segmented-btn" data-tipo="MED">
+            Médico
+          </button>
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="rel-texto">Relatório de Ocorrências</label>
+        <textarea id="rel-texto" placeholder="Descreva as ocorrências relevantes deste turno..."></textarea>
+      </div>
+
+      <div class="form-actions">
+        <button type="button" id="btn-rel-save" class="btn-primary btn-small">
+          Salvar relatório
+        </button>
+      </div>
+
+      <div class="field" style="margin-top: 4px;">
+        <label>Relatórios recentes</label>
+        <div id="rel-recentes" class="muted">Carregando...</div>
       </div>
     </section>
 
@@ -2128,7 +2074,6 @@
       const elBtnSave = document.getElementById("btn-save");
       const elBtnClear = document.getElementById("btn-clear");
       const elBtnOpenOccurrence = document.getElementById("btn-open-occurrence");
-      const elCtaOpenOccurrence = document.getElementById("cta-open-occurrence");
       const elMenuOpenOccurrence = document.getElementById("menu-open-occurrence");
       const elOccurrenceModal = document.getElementById("nova-ocorrencia-modal");
       const elOccurrenceBackdrop = document.getElementById(
@@ -2267,12 +2212,10 @@
           elBtnSaveFixed.addEventListener("click", handleSaveFixedNotes);
         }
 
-        [elBtnOpenOccurrence, elCtaOpenOccurrence, elMenuOpenOccurrence].forEach(
-          function (btn) {
-            if (!btn) return;
-            btn.addEventListener("click", openOccurrenceModal);
-          }
-        );
+        [elBtnOpenOccurrence, elMenuOpenOccurrence].forEach(function (btn) {
+          if (!btn) return;
+          btn.addEventListener("click", openOccurrenceModal);
+        });
 
         if (elBtnCloseOccurrence) {
           elBtnCloseOccurrence.addEventListener("click", closeOccurrenceModal);
