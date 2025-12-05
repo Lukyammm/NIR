@@ -2166,6 +2166,7 @@
       let macroMapInstance = null;
       let macroLayers = {};
       let macroCounts = {};
+      let macroMapNeedsRender = false;
 
       const elTabMain = document.getElementById("tab-main");
       const elTabAnalytics = document.getElementById("tab-analytics");
@@ -2433,8 +2434,11 @@
 
         updateMacroSummary();
         buildMacroLegend();
-        ensureMacroMap();
-        drawMacroLayers();
+        macroMapNeedsRender = true;
+
+        if (isMapaPageActive()) {
+          renderMacroMap();
+        }
       }
 
       function ensureMacroMap() {
@@ -2453,6 +2457,24 @@
         }).addTo(macroMapInstance);
 
         return macroMapInstance;
+      }
+
+      function renderMacroMap() {
+        if (!elMacroMap || typeof L === "undefined") return;
+
+        ensureMacroMap();
+
+        if (!macroMapInstance) return;
+
+        // Aguarda o elemento ficar visível para calcular o tamanho corretamente
+        requestAnimationFrame(function () {
+          macroMapInstance.invalidateSize();
+
+          if (macroMapNeedsRender) {
+            drawMacroLayers();
+            macroMapNeedsRender = false;
+          }
+        });
       }
 
       function drawMacroLayers() {
@@ -2815,14 +2837,12 @@
         });
 
         if (pageId === "page-mapa") {
-          ensureMacroMap();
-          setTimeout(function () {
-            if (macroMapInstance) {
-              macroMapInstance.invalidateSize();
-              drawMacroLayers();
-            }
-          }, 80);
+          renderMacroMap();
         }
+      }
+
+      function isMapaPageActive() {
+        return elPageMapa && elPageMapa.classList.contains("active");
       }
 
       function bindPageTabs() {
