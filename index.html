@@ -1258,9 +1258,8 @@
           <span><span class="dot"></span> WebApp conectado à planilha</span>
         </div>
         <div class="menu-actions">
-          <button class="menu-btn" data-page-jump="page-analytics" data-target="#nova-ocorrencia">➕ Cadastrar ocorrência</button>
+          <button class="menu-btn" id="menu-open-occurrence">➕ Nova ocorrência</button>
           <button class="menu-btn" data-page-jump="page-analytics" data-target="#relatorio-turno">🩺 Relatório do turno</button>
-          <button class="menu-btn" data-page-jump="page-analytics" data-target="#pesquisa-ocorrencias">🔎 Pesquisar ocorrências</button>
           <button class="menu-btn" data-page-jump="page-analytics" data-target="#painel-plantao">📊 Painel de plantão</button>
           <button class="menu-btn" data-page-jump="page-mapa" data-target="#mapa-macros">🗺️ Mapa Ceará</button>
           <button class="menu-btn" data-page-jump="page-relatorios" data-target="#relatorio-aba">📝 Relatório de Ocorrências</button>
@@ -1269,11 +1268,8 @@
     </header>
 
     <div class="page-tabs">
-      <button class="page-tab active" id="tab-main" data-page="page-main">
-        Página principal (Aba do dia)
-      </button>
-      <button class="page-tab" id="tab-analytics" data-page="page-analytics">
-        Painel e funcionalidades
+      <button class="page-tab active" id="tab-analytics" data-page="page-analytics">
+        Ocorrências NIR
       </button>
       <button class="page-tab" id="tab-mapa" data-page="page-mapa">
         Mapa Ceará
@@ -1283,134 +1279,7 @@
       </button>
     </div>
 
-    <div id="page-main" class="page active">
-      <section class="card full-width sheet-board" id="aba-dia">
-        <div class="sheet-header">
-          <div>
-            <p class="muted" style="margin: 0; font-weight: 600; letter-spacing: 0.01em;">
-              Aba diária (Dia + Turno)
-            </p>
-            <h2 id="sheet-title" class="board-title" style="margin-top: 4px;">
-              Filtre o dia e o turno para ver a coluna da planilha
-            </h2>
-            <p class="muted" id="sheet-subtitle" style="margin: 6px 0 0;">
-              Escolha a categoria e o turno para montar a mesma visão da sua aba original.
-            </p>
-          </div>
-          <div class="sheet-actions">
-            <div class="sheet-category" id="sheet-category-group"></div>
-          </div>
-        </div>
-
-        <div class="sheet-controls">
-          <div class="field">
-            <label for="sheet-day">Dia (data)</label>
-            <input type="date" id="sheet-day" />
-          </div>
-          <div class="field">
-            <label for="sheet-turno">Turno</label>
-            <select id="sheet-turno">
-              <option value="">Todos</option>
-              <option value="MT">MT</option>
-              <option value="SN">SN</option>
-            </select>
-          </div>
-          <div class="field">
-            <label>&nbsp;</label>
-            <div style="display: flex; gap: 8px;">
-              <button class="btn-primary" id="btn-sheet-refresh">Atualizar visão</button>
-              <button class="btn-ghost" id="btn-sheet-today">Usar plantão atual</button>
-            </div>
-          </div>
-        </div>
-
-        <div class="sheet-summary" id="sheet-summary">
-          <div class="metric-card">
-            <small>Total encontrado</small>
-            <strong id="sheet-total">0</strong>
-          </div>
-          <div class="metric-card">
-            <small>Categoria atual</small>
-            <strong id="sheet-category-label">—</strong>
-          </div>
-          <div class="metric-card">
-            <small>Turno escolhido</small>
-            <strong id="sheet-turno-label">—</strong>
-          </div>
-        </div>
-
-        <div class="table-wrapper">
-          <table>
-            <thead id="sheet-table-head">
-              <tr>
-                <th>Categoria</th>
-                <th>Paciente</th>
-                <th>Especialidade</th>
-                <th>Origem</th>
-                <th>Status</th>
-                <th>Turno</th>
-                <th>Data/Hora</th>
-                <th>Observação</th>
-              </tr>
-            </thead>
-            <tbody id="sheet-table-body">
-              <tr>
-                <td colspan="8" class="muted">Selecione dia e turno para carregar.</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </section>
-    </div>
-
-    <div id="page-analytics" class="page">
-
-    <section class="card full-width board-shell">
-      <div class="board-header">
-        <div>
-          <p class="muted" style="margin: 0; font-weight: 600; letter-spacing: 0.01em;">
-            Equipe do Plantão
-          </p>
-          <h2 id="board-shift-label" class="board-title">
-            Data • Turno • Assessor
-          </h2>
-        </div>
-        <button class="btn-primary" data-target="#nova-ocorrencia">
-          + Nova Ocorrência
-        </button>
-      </div>
-
-      <div id="board-kpis" class="board-kpis"></div>
-
-      <div class="board-grid">
-        <div class="board-card" id="board-previous">
-          <p class="board-card-title">Visão do plantão anterior</p>
-          <ul id="board-previous-list" class="board-list">
-            <li class="muted">Carregando...</li>
-          </ul>
-        </div>
-        <div class="board-card" id="board-filters">
-          <p class="board-card-title">Filtros rápidos</p>
-          <div id="board-filter-buttons" class="filter-chips">
-            <button type="button" class="chip" data-type="RESERVA CONFIRMADA">
-              Reserva Conf.
-            </button>
-            <button type="button" class="chip" data-type="PROCEDIMENTO CONFIRMADO">
-              Procedimento
-            </button>
-            <button type="button" class="chip" data-type="RESERVA NEGADA">
-              Negada
-            </button>
-            <button type="button" class="chip" data-type="PLANTÃO ANTERIOR">
-              Plantão Ant.
-            </button>
-          </div>
-          <p class="muted" style="margin: 8px 0 0;">Aplica na Tabela Geral abaixo.</p>
-        </div>
-      </div>
-    </section>
-
-    <div class="content-grid two">
+    <div id="page-analytics" class="page active">
       <section class="card" id="painel-plantao">
         <div class="hero-card">
           <div class="hero-title">
@@ -1459,180 +1328,195 @@
         </div>
       </section>
 
-      <section class="card" id="ultimas-ocorrencias">
-        <h2>
-          Últimos 2 dias
-          <span class="badge">2 ocorrências mais recentes por dia</span>
-        </h2>
-        <p class="muted" style="margin-top: 0;">Visão rápida das movimentações mais recentes.</p>
-        <div id="latest-days" class="latest-grid">
-          <p class="muted">Carregando últimas ocorrências...</p>
-        </div>
-      </section>
-    </div>
-
-    <div class="content-grid two">
-      <section class="card" id="pesquisa-ocorrencias">
-        <h2>
-          Buscar ocorrências
-          <span class="badge">Filtro rápido</span>
-        </h2>
-        <div class="search-row">
-          <input id="search-query" type="text" placeholder="Digite nome do paciente, especialidade, turno ou categoria" />
-          <button class="btn-primary" id="btn-search">Pesquisar</button>
-        </div>
-        <div id="search-results" class="search-results"></div>
-      </section>
-
-      <section class="card" id="quadro-ocorrencias">
-        <h2>
-          Ocorrências
-          <span class="badge">Enfermagem x Médica</span>
-        </h2>
-        <div class="occ-columns">
+      <section class="card full-width board-shell">
+        <div class="board-header">
           <div>
-            <p class="board-card-title">Enfermagem</p>
-            <ul id="occ-enfermagem" class="board-list"></ul>
+            <p class="muted" style="margin: 0; font-weight: 600; letter-spacing: 0.01em;">
+              Equipe do Plantão
+            </p>
+            <h2 id="board-shift-label" class="board-title">
+              Data • Turno • Assessor
+            </h2>
           </div>
-          <div>
-            <p class="board-card-title">Médica</p>
-            <ul id="occ-medica" class="board-list"></ul>
+          <button class="btn-primary" id="btn-open-occurrence">
+            + Nova Ocorrência
+          </button>
+        </div>
+
+        <div id="board-kpis" class="board-kpis"></div>
+
+        <div class="board-grid">
+          <div class="board-card" id="board-previous">
+            <p class="board-card-title">Visão do plantão anterior</p>
+            <ul id="board-previous-list" class="board-list">
+              <li class="muted">Carregando...</li>
+            </ul>
           </div>
         </div>
       </section>
 
-    </div>
-
-    <section class="card full-width" id="tabela-geral">
-      <h2>
-        Tabela Geral
-        <span class="badge">Últimas entradas</span>
-      </h2>
-      <div class="table-wrapper">
-        <table>
-          <thead>
-            <tr>
-              <th>Categoria</th>
-              <th>Paciente</th>
-              <th>Origem</th>
-              <th>Status</th>
-              <th>Horário</th>
-              <th>Observação</th>
-            </tr>
-          </thead>
-          <tbody id="board-table-body">
-            <tr>
-              <td colspan="6" class="muted">Carregando dados...</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </section>
-
-    <main class="content-grid two">
-      <!-- FORMULÁRIO DE OCORRÊNCIAS -->
-      <section class="card" id="nova-ocorrencia">
-        <h2>
-          Nova ocorrência
-          <span class="badge">NIR</span>
-        </h2>
-
-        <div class="field">
-          <label for="category">Tipo de ocorrência</label>
-          <select id="category">
-            <option value="RESERVA CONFIRMADA">RESERVA CONFIRMADA</option>
-            <option value="PROCEDIMENTO CONFIRMADO">PROCEDIMENTO CONFIRMADO</option>
-            <option value="RESERVA NEGADA">RESERVA NEGADA</option>
-            <option value="PLANTÃO ANTERIOR">PLANTÃO ANTERIOR</option>
-          </select>
-        </div>
-
-        <div id="dynamic-fields" class="fields-grid"></div>
-
-        <div class="form-actions">
-          <button type="button" id="btn-clear" class="btn-ghost btn-small">
-            Limpar
-          </button>
-          <button type="button" id="btn-save" class="btn-primary">
-            Salvar ocorrência
-          </button>
+      <section class="card" id="ocorrencias-cta">
+        <div class="sheet-header">
+          <div>
+            <p class="muted" style="margin: 0; font-weight: 600; letter-spacing: 0.01em;">Ocorrências NIR</p>
+            <h2 class="board-title" style="margin-top: 4px;">Central única de registros</h2>
+            <p class="muted" style="margin: 6px 0 0;">Abra o plantão, registre e acompanhe todas as ocorrências do dia em um só lugar.</p>
+          </div>
+          <div class="hero-actions">
+            <button class="btn-primary" id="cta-open-occurrence">Nova ocorrência</button>
+            <button class="btn-ghost" data-target="#relatorio-turno">Ir para relatório</button>
+          </div>
         </div>
       </section>
 
-      <!-- RELATÓRIOS POR TURNO -->
-      <section class="card" id="relatorio-turno">
-        <h2>
-          Relatório do turno
-          <span class="badge">Enfermagem / Médico</span>
-        </h2>
+      <section class="card full-width sheet-board" id="aba-dia">
+        <div class="sheet-header">
+          <div>
+            <p class="muted" style="margin: 0; font-weight: 600; letter-spacing: 0.01em;">
+              Aba diária (Dia + Turno)
+            </p>
+            <h2 id="sheet-title" class="board-title" style="margin-top: 4px;">
+              Filtre o dia e o turno para ver a coluna da planilha
+            </h2>
+            <p class="muted" id="sheet-subtitle" style="margin: 6px 0 0;">
+              Escolha a categoria e o turno para montar a mesma visão da sua aba original.
+            </p>
+          </div>
+          <div class="sheet-actions">
+            <div class="sheet-category" id="sheet-category-group"></div>
+            <div style="display: flex; gap: 8px;">
+              <button class="btn-ghost" id="btn-sheet-refresh">Atualizar</button>
+              <button class="btn-primary" id="btn-sheet-today">Aplicar Plantão Atual</button>
+            </div>
+          </div>
+        </div>
 
-        <div class="form-row">
+        <div class="sheet-controls">
           <div class="field">
-            <label for="rel-dia">Dia</label>
-            <input
-              type="text"
-              id="rel-dia"
-              placeholder="Ex.: 21/10/2025 ou texto"
-            />
+            <label for="sheet-day">Dia (data)</label>
+            <input type="date" id="sheet-day" />
           </div>
           <div class="field">
-            <label for="rel-turno">Turno</label>
-            <input
-              type="text"
-              id="rel-turno"
-              placeholder="Ex.: MATUTINO / NOTURNO"
-            />
+            <label for="sheet-turno">Turno</label>
+            <select id="sheet-turno">
+              <option value="">Todos</option>
+              <option value="MT">MT</option>
+              <option value="SN">SN</option>
+            </select>
           </div>
         </div>
 
-        <div class="field">
-          <label>Tipo de relatório</label>
-          <div class="segment" id="rel-tipo-segment">
-            <button type="button" class="segmented-btn active" data-tipo="ENF">
-              Enfermagem
-            </button>
-            <button type="button" class="segmented-btn" data-tipo="MED">
-              Médico
-            </button>
+        <div class="sheet-summary" id="sheet-summary">
+          <div class="metric-card">
+            <small>Total encontrado</small>
+            <strong id="sheet-total">0</strong>
+          </div>
+          <div class="metric-card">
+            <small>Categoria atual</small>
+            <strong id="sheet-category-label">—</strong>
+          </div>
+          <div class="metric-card">
+            <small>Turno escolhido</small>
+            <strong id="sheet-turno-label">—</strong>
           </div>
         </div>
 
-        <div class="field">
-          <label for="rel-texto">Relatório de Ocorrências</label>
-          <textarea
-            id="rel-texto"
-            placeholder="Descreva as ocorrências relevantes deste turno..."
-          ></textarea>
-        </div>
-
-        <div class="form-actions">
-          <button type="button" id="btn-rel-save" class="btn-primary btn-small">
-            Salvar relatório
-          </button>
-        </div>
-
-        <div class="field" style="margin-top: 4px;">
-          <label>Relatórios recentes</label>
-          <div id="rel-recentes" class="muted">Carregando...</div>
+        <div class="table-wrapper">
+          <table>
+            <thead id="sheet-table-head">
+              <tr>
+                <th>Categoria</th>
+                <th>Paciente</th>
+                <th>Especialidade</th>
+                <th>Origem</th>
+                <th>Status</th>
+                <th>Turno</th>
+                <th>Data/Hora</th>
+                <th>Observação</th>
+              </tr>
+            </thead>
+            <tbody id="sheet-table-body">
+              <tr>
+                <td colspan="8" class="muted">Selecione dia e turno para carregar.</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </section>
 
-      <!-- DASHBOARD DE ÚLTIMOS TURNOS -->
-      <section class="card full-width">
-        <h2>
-          Últimos turnos
-          <span class="badge">Resumo das 4 categorias</span>
-        </h2>
-      <p class="muted" style="margin-top: 0; margin-bottom: 6px;">
-        Mostra o turno atual, anterior e o anterior ao anterior (quando
-        existirem registros nas abas do histórico).
-      </p>
-      <div id="dashboard-shifts" class="shift-grid">
-        <p class="muted">Carregando dados do painel...</p>
+      <div class="content-grid two">
+        <section class="card" id="relatorio-turno">
+          <h2>
+            Relatório do turno
+            <span class="badge">Enfermagem / Médico</span>
+          </h2>
+
+          <div class="form-row">
+            <div class="field">
+              <label for="rel-dia">Dia</label>
+              <input
+                type="text"
+                id="rel-dia"
+                placeholder="Ex.: 21/10/2025 ou texto"
+              />
+            </div>
+            <div class="field">
+              <label for="rel-turno">Turno</label>
+              <input
+                type="text"
+                id="rel-turno"
+                placeholder="Ex.: MATUTINO / NOTURNO"
+              />
+            </div>
+          </div>
+
+          <div class="field">
+            <label>Tipo de relatório</label>
+            <div class="segment" id="rel-tipo-segment">
+              <button type="button" class="segmented-btn active" data-tipo="ENF">
+                Enfermagem
+              </button>
+              <button type="button" class="segmented-btn" data-tipo="MED">
+                Médico
+              </button>
+            </div>
+          </div>
+
+          <div class="field">
+            <label for="rel-texto">Relatório de Ocorrências</label>
+            <textarea
+              id="rel-texto"
+              placeholder="Descreva as ocorrências relevantes deste turno..."
+            ></textarea>
+          </div>
+
+          <div class="form-actions">
+            <button type="button" id="btn-rel-save" class="btn-primary btn-small">
+              Salvar relatório
+            </button>
+          </div>
+
+          <div class="field" style="margin-top: 4px;">
+            <label>Relatórios recentes</label>
+            <div id="rel-recentes" class="muted">Carregando...</div>
+          </div>
+        </section>
+
+        <section class="card" id="dashboard-turnos">
+          <h2>
+            Últimos turnos
+            <span class="badge">Resumo das 4 categorias</span>
+          </h2>
+          <p class="muted" style="margin-top: 0; margin-bottom: 6px;">
+            Mostra o turno atual, anterior e o anterior ao anterior (quando
+            existirem registros nas abas do histórico).
+          </p>
+          <div id="dashboard-shifts" class="shift-grid">
+            <p class="muted">Carregando dados do painel...</p>
+          </div>
+        </section>
       </div>
-    </section>
-  </main>
-  </div>
+    </div>
 
   <div id="page-mapa" class="page">
     <section class="card full-width" id="mapa-macros">
@@ -1750,6 +1634,40 @@
         <li>As listas abaixo mostram as últimas entradas gravadas nas abas REL ENF e REL MED.</li>
       </ul>
     </section>
+  </div>
+
+  <div id="nova-ocorrencia-modal" style="display: none;">
+    <div class="modal-backdrop" id="nova-ocorrencia-backdrop"></div>
+    <div class="card fixed-modal-card">
+      <div class="sheet-header" style="margin-bottom: 12px;">
+        <div>
+          <p class="muted" style="margin: 0; font-weight: 600; letter-spacing: 0.01em;">Registro rápido</p>
+          <h2 style="margin: 2px 0 0;">Nova ocorrência</h2>
+        </div>
+        <button class="btn-ghost" id="btn-close-occurrence">Fechar</button>
+      </div>
+
+      <div class="field">
+        <label for="category">Tipo de ocorrência</label>
+        <select id="category">
+          <option value="RESERVA CONFIRMADA">RESERVA CONFIRMADA</option>
+          <option value="PROCEDIMENTO CONFIRMADO">PROCEDIMENTO CONFIRMADO</option>
+          <option value="RESERVA NEGADA">RESERVA NEGADA</option>
+          <option value="PLANTÃO ANTERIOR">PLANTÃO ANTERIOR</option>
+        </select>
+      </div>
+
+      <div id="dynamic-fields" class="fields-grid"></div>
+
+      <div class="form-actions" style="margin-top: 10px;">
+        <button type="button" id="btn-clear" class="btn-ghost btn-small">
+          Limpar
+        </button>
+        <button type="button" id="btn-save" class="btn-primary">
+          Salvar ocorrência
+        </button>
+      </div>
+    </div>
   </div>
 
   <div id="shift-modal" style="display: none;">
@@ -2138,9 +2056,7 @@
 
       let currentRelTipo = "ENF";
       let isSaving = false;
-      let generalTableData = [];
       let fixedNotes = { enfermagem: "", medica: "", exames: "" };
-      const activeFilters = new Set();
       const weekdayLabels = [
         "Domingo",
         "Segunda-feira",
@@ -2168,11 +2084,9 @@
       let macroCounts = {};
       let macroMapNeedsRender = false;
 
-      const elTabMain = document.getElementById("tab-main");
       const elTabAnalytics = document.getElementById("tab-analytics");
       const elTabMapa = document.getElementById("tab-mapa");
       const elTabRelatorios = document.getElementById("tab-relatorios");
-      const elPageMain = document.getElementById("page-main");
       const elPageAnalytics = document.getElementById("page-analytics");
       const elPageMapa = document.getElementById("page-mapa");
       const elPageRelatorios = document.getElementById("page-relatorios");
@@ -2208,17 +2122,21 @@
       const elBoardShiftLabel = document.getElementById("board-shift-label");
       const elBoardKpis = document.getElementById("board-kpis");
       const elBoardPrevList = document.getElementById("board-previous-list");
-      const elBoardFilterButtons = document.getElementById(
-        "board-filter-buttons"
-      );
-      const elBoardTableBody = document.getElementById("board-table-body");
-      const elOccEnfermagem = document.getElementById("occ-enfermagem");
-      const elOccMedica = document.getElementById("occ-medica");
 
       const elCategory = document.getElementById("category");
       const elDynamicFields = document.getElementById("dynamic-fields");
       const elBtnSave = document.getElementById("btn-save");
       const elBtnClear = document.getElementById("btn-clear");
+      const elBtnOpenOccurrence = document.getElementById("btn-open-occurrence");
+      const elCtaOpenOccurrence = document.getElementById("cta-open-occurrence");
+      const elMenuOpenOccurrence = document.getElementById("menu-open-occurrence");
+      const elOccurrenceModal = document.getElementById("nova-ocorrencia-modal");
+      const elOccurrenceBackdrop = document.getElementById(
+        "nova-ocorrencia-backdrop"
+      );
+      const elBtnCloseOccurrence = document.getElementById(
+        "btn-close-occurrence"
+      );
       const elDash = document.getElementById("dashboard-shifts");
       const elToast = document.getElementById("toast");
       const elRelDia = document.getElementById("rel-dia");
@@ -2243,10 +2161,6 @@
       const elBtnCancelFixed = document.getElementById("btn-cancel-fixed");
       const elBtnSaveFixed = document.getElementById("btn-save-fixed");
       const elTargetButtons = document.querySelectorAll("[data-target]");
-      const elLatestDays = document.getElementById("latest-days");
-      const elSearchInput = document.getElementById("search-query");
-      const elSearchResults = document.getElementById("search-results");
-      const elSearchBtn = document.getElementById("btn-search");
       const elMacroMap = document.getElementById("macro-map");
       const elMacroLegend = document.getElementById("macro-legend");
       const elMacroSummary = document.getElementById("macro-summary");
@@ -2288,7 +2202,6 @@
         prefillSheetFiltersWithToday();
         loadSheetView();
         loadShiftInfo();
-        loadLatestOccurrences();
         loadDashboard();
         loadRelatorios();
         loadFixedNotes();
@@ -2334,24 +2247,6 @@
 
         elBtnRelSave.addEventListener("click", handleSaveRelatorio);
 
-        if (elBoardFilterButtons) {
-          const chips = elBoardFilterButtons.querySelectorAll(".chip");
-          chips.forEach(function (chip) {
-            chip.addEventListener("click", function () {
-              const type = this.dataset.type;
-              if (!type) return;
-              if (activeFilters.has(type)) {
-                activeFilters.delete(type);
-                this.classList.remove("active");
-              } else {
-                activeFilters.add(type);
-                this.classList.add("active");
-              }
-              renderGeneralTable();
-            });
-          });
-        }
-
         if (elBtnEditFixed) {
           elBtnEditFixed.addEventListener("click", openFixedModal);
         }
@@ -2370,6 +2265,21 @@
 
         if (elBtnSaveFixed) {
           elBtnSaveFixed.addEventListener("click", handleSaveFixedNotes);
+        }
+
+        [elBtnOpenOccurrence, elCtaOpenOccurrence, elMenuOpenOccurrence].forEach(
+          function (btn) {
+            if (!btn) return;
+            btn.addEventListener("click", openOccurrenceModal);
+          }
+        );
+
+        if (elBtnCloseOccurrence) {
+          elBtnCloseOccurrence.addEventListener("click", closeOccurrenceModal);
+        }
+
+        if (elOccurrenceBackdrop) {
+          elOccurrenceBackdrop.addEventListener("click", closeOccurrenceModal);
         }
 
         elTargetButtons.forEach(function (btn) {
@@ -2391,14 +2301,6 @@
         elBtnSaveShift.addEventListener("click", handleSaveShift);
         elShiftModalBackdrop.addEventListener("click", closeShiftModal);
         elShiftDataInput.addEventListener("change", handleShiftDateChange);
-
-        elSearchBtn.addEventListener("click", handleSearch);
-        elSearchInput.addEventListener("keypress", function (ev) {
-          if (ev.key === "Enter") {
-            ev.preventDefault();
-            handleSearch();
-          }
-        });
 
         if (elMacroFilterSelect) {
           elMacroFilterSelect.addEventListener("change", function () {
@@ -2818,13 +2720,8 @@
 
       function switchPage(pageId) {
         if (!pageId) return;
-        const tabs = [elTabMain, elTabAnalytics, elTabMapa, elTabRelatorios];
-        const pages = [
-          elPageMain,
-          elPageAnalytics,
-          elPageMapa,
-          elPageRelatorios,
-        ];
+        const tabs = [elTabAnalytics, elTabMapa, elTabRelatorios];
+        const pages = [elPageAnalytics, elPageMapa, elPageRelatorios];
 
         tabs.forEach(function (tab) {
           if (!tab) return;
@@ -2846,7 +2743,7 @@
       }
 
       function bindPageTabs() {
-        [elTabMain, elTabAnalytics, elTabMapa, elTabRelatorios].forEach(function (tab) {
+        [elTabAnalytics, elTabMapa, elTabRelatorios].forEach(function (tab) {
           if (!tab) return;
           tab.addEventListener("click", function () {
             switchPage(this.dataset.page);
@@ -2968,238 +2865,6 @@
         );
         elSheetTableHead.innerHTML = "";
         elSheetTableHead.appendChild(tr);
-      }
-
-      function loadLatestOccurrences() {
-        if (!elLatestDays) return;
-        elLatestDays.innerHTML = '<p class="muted">Carregando últimas ocorrências...</p>';
-
-        google.script.run
-          .withSuccessHandler(renderLatestOccurrences)
-          .withFailureHandler(function (err) {
-            console.log(err);
-            elLatestDays.innerHTML = '<p class="muted">Não foi possível carregar as ocorrências.</p>';
-          })
-          .getLatestOccurrencesDays(2, 4);
-      }
-
-      function renderLatestOccurrences(data) {
-        if (!elLatestDays) return;
-        elLatestDays.innerHTML = "";
-
-        const days = (data && data.days) || [];
-        if (!days.length) {
-          elLatestDays.innerHTML = '<p class="muted">Sem registros recentes.</p>';
-          return;
-        }
-
-        updateGeneralTableFromLatest(days);
-
-        days.forEach(function (day) {
-          const card = document.createElement("div");
-          card.className = "day-card";
-
-          const h3 = document.createElement("h3");
-          h3.textContent = day.dia || "Sem dia";
-          const badge = document.createElement("span");
-          badge.className = "badge";
-          badge.textContent = day.turnoResumo || "Recente";
-          h3.appendChild(badge);
-          card.appendChild(h3);
-
-          const ul = document.createElement("ul");
-          ul.className = "occ-list";
-
-          (day.occurrences || []).forEach(function (occ) {
-            const li = document.createElement("li");
-            li.className = "occ-item";
-
-            const head = document.createElement("div");
-            head.className = "occ-head";
-
-            const title = document.createElement("p");
-            title.className = "occ-title";
-            title.textContent = occ.paciente || "Paciente não informado";
-
-            const chip = document.createElement("span");
-            chip.className = "badge";
-            chip.textContent = occ.category;
-
-            head.appendChild(title);
-            head.appendChild(chip);
-
-            const meta = document.createElement("div");
-            meta.className = "occ-meta";
-
-            if (occ.turno) meta.appendChild(createMetaTag("Turno: " + occ.turno));
-            if (occ.especialidade)
-              meta.appendChild(createMetaTag(occ.especialidade));
-            if (occ.origem) meta.appendChild(createMetaTag("Origem: " + occ.origem));
-            if (occ.status) meta.appendChild(createMetaTag("Status: " + occ.status));
-            if (occ.dataHora)
-              meta.appendChild(createMetaTag("Registro: " + occ.dataHora));
-
-            if (occ.observacao) {
-              const obs = document.createElement("p");
-              obs.className = "muted";
-              obs.style.margin = "6px 0 0";
-              obs.textContent = occ.observacao;
-              li.appendChild(head);
-              li.appendChild(meta);
-              li.appendChild(obs);
-            } else {
-              li.appendChild(head);
-              li.appendChild(meta);
-            }
-
-            ul.appendChild(li);
-          });
-
-          if (!day.occurrences || !day.occurrences.length) {
-            const empty = document.createElement("p");
-            empty.className = "muted";
-            empty.textContent = "Sem ocorrências para este dia.";
-            card.appendChild(empty);
-          } else {
-            card.appendChild(ul);
-          }
-
-          elLatestDays.appendChild(card);
-        });
-      }
-
-      function updateGeneralTableFromLatest(days) {
-        generalTableData = [];
-        (days || []).forEach(function (day) {
-          (day.occurrences || []).forEach(function (occ) {
-            generalTableData.push({
-              category: occ.category,
-              paciente: occ.paciente || "Paciente não informado",
-              origem: occ.origem || "—",
-              status: occ.status || "—",
-              horario: occ.dataHora || "—",
-              observacao: occ.observacao || "",
-            });
-          });
-        });
-
-        renderGeneralTable();
-      }
-
-      function renderGeneralTable() {
-        if (!elBoardTableBody) return;
-        elBoardTableBody.innerHTML = "";
-
-        const filtered = !activeFilters.size
-          ? generalTableData
-          : generalTableData.filter(function (row) {
-              return activeFilters.has(row.category);
-            });
-
-        if (!filtered.length) {
-          const tr = document.createElement("tr");
-          const td = document.createElement("td");
-          td.colSpan = 6;
-          td.className = "muted";
-          td.textContent = activeFilters.size
-            ? "Sem registros para os filtros selecionados."
-            : "Sem dados recentes.";
-          tr.appendChild(td);
-          elBoardTableBody.appendChild(tr);
-          return;
-        }
-
-        filtered.slice(0, 30).forEach(function (row) {
-          const tr = document.createElement("tr");
-
-          const fields = [
-            row.category,
-            row.paciente,
-            row.origem,
-            row.status,
-            row.horario,
-            row.observacao || "—",
-          ];
-
-          fields.forEach(function (val) {
-            const td = document.createElement("td");
-            td.textContent = val;
-            tr.appendChild(td);
-          });
-
-          elBoardTableBody.appendChild(tr);
-        });
-      }
-
-      function createMetaTag(text) {
-        const span = document.createElement("span");
-        span.textContent = text;
-        return span;
-      }
-
-      function handleSearch() {
-        if (!elSearchInput || !elSearchResults) return;
-        const query = (elSearchInput.value || "").trim();
-        if (!query || query.length < 2) {
-          elSearchResults.innerHTML = '<p class="muted">Digite pelo menos 2 caracteres para buscar.</p>';
-          return;
-        }
-
-        elSearchResults.innerHTML = '<p class="muted">Buscando ocorrências...</p>';
-
-        google.script.run
-          .withSuccessHandler(renderSearchResults)
-          .withFailureHandler(function (err) {
-            console.log(err);
-            elSearchResults.innerHTML = '<p class="muted">Erro ao buscar ocorrências.</p>';
-          })
-          .searchOccurrences(query);
-      }
-
-      function renderSearchResults(list) {
-        if (!elSearchResults) return;
-        elSearchResults.innerHTML = "";
-
-        if (!list || !list.length) {
-          elSearchResults.innerHTML = '<p class="muted">Nenhum resultado encontrado.</p>';
-          return;
-        }
-
-        list.forEach(function (occ) {
-          const card = document.createElement("div");
-          card.className = "search-card";
-
-          const h4 = document.createElement("h4");
-          h4.textContent = occ.paciente || "Paciente não informado";
-
-          const badge = document.createElement("span");
-          badge.className = "badge";
-          badge.textContent = occ.category;
-          h4.appendChild(document.createTextNode(" "));
-          h4.appendChild(badge);
-
-          const meta = document.createElement("div");
-          meta.className = "occ-meta";
-
-          if (occ.dia) meta.appendChild(createMetaTag("Dia: " + occ.dia));
-          if (occ.turno) meta.appendChild(createMetaTag("Turno: " + occ.turno));
-          if (occ.especialidade)
-            meta.appendChild(createMetaTag(occ.especialidade));
-          if (occ.origem) meta.appendChild(createMetaTag("Origem: " + occ.origem));
-          if (occ.status) meta.appendChild(createMetaTag("Status: " + occ.status));
-          if (occ.dataHora)
-            meta.appendChild(createMetaTag("Registro: " + occ.dataHora));
-
-          const obs = document.createElement("p");
-          obs.className = "muted";
-          obs.style.margin = "6px 0 0";
-          obs.textContent = occ.observacao || "Sem observação.";
-
-          card.appendChild(h4);
-          card.appendChild(meta);
-          card.appendChild(obs);
-          elSearchResults.appendChild(card);
-        });
       }
 
       function formatDateForInput(date) {
@@ -3364,6 +3029,16 @@
         elBtnRelSave.disabled = flag;
       }
 
+      function openOccurrenceModal() {
+        if (!elOccurrenceModal) return;
+        elOccurrenceModal.style.display = "block";
+      }
+
+      function closeOccurrenceModal() {
+        if (!elOccurrenceModal) return;
+        elOccurrenceModal.style.display = "none";
+      }
+
       function handleSaveOccurrence() {
         if (isSaving) return;
 
@@ -3377,6 +3052,7 @@
             setSaving(false);
             showToast((res && res.message) || "Ocorrência salva.");
             clearForm();
+            closeOccurrenceModal();
             loadDashboard();
           })
           .withFailureHandler(function (err) {
