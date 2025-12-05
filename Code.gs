@@ -975,13 +975,17 @@ function getSheetView(options) {
   var dia = normalize_(options.dia || '');
   var turno = normalize_(options.turno || '');
 
+  if (category && category !== 'TODOS') {
+    return buildSheetViewByCategory_(category, dia, turno);
+  }
+
+  return buildSheetViewCombined_(dia, turno);
+}
+
+function buildSheetViewCombined_(dia, turno) {
   var occurrences = collectOccurrences_();
 
   var filtered = occurrences.filter(function (occ) {
-    if (category && category !== 'TODOS' && occ.category !== category) {
-      return false;
-    }
-
     if (dia && normalize_(occ.dia) !== dia) {
       return false;
     }
@@ -1000,10 +1004,90 @@ function getSheetView(options) {
     return base;
   });
 
+  var headers = [
+    'Categoria',
+    'Paciente',
+    'Especialidade',
+    'Origem',
+    'Status',
+    'Turno',
+    'Data/Hora',
+    'Observação'
+  ];
+
+  var rows = mapped.map(function (item) {
+    return [
+      item.category,
+      item.paciente || 'Paciente não informado',
+      item.especialidade || '—',
+      item.origem || '—',
+      item.status || '—',
+      item.turno || '—',
+      item.dataHora || '—',
+      item.observacao || '—'
+    ];
+  });
+
   return {
     total: filtered.length,
-    items: mapped
+    headers: headers,
+    rows: rows
   };
+}
+
+function buildSheetViewByCategory_(category, dia, turno) {
+  var sheetName = NIR_SHEETS[category];
+  if (!sheetName) {
+    return buildSheetViewCombined_(dia, turno);
+  }
+
+  var sh = getSS().getSheetByName(sheetName);
+  if (!sh) {
+    return buildSheetViewCombined_(dia, turno);
+  }
+
+  var lastRow = sh.getLastRow();
+  var lastCol = sh.getLastColumn();
+  if (lastRow <= 1 || lastCol === 0) {
+    return { total: 0, headers: [], rows: [] };
+  }
+
+  var headers = sh.getRange(1, 1, 1, lastCol).getValues()[0];
+  var headersNorm = headers.map(function (h) { return normalize_(h); });
+  var values = sh.getRange(2, 1, lastRow - 1, lastCol).getValues();
+
+  var diaIdx = headersNorm.indexOf('dia');
+  var turnoIdx = headersNorm.indexOf('turno');
+
+  var filteredRows = values.filter(function (row) {
+    if (dia && diaIdx > -1) {
+      if (normalize_(row[diaIdx]) !== dia) return false;
+    }
+
+    if (turno && turnoIdx > -1) {
+      if (normalize_(row[turnoIdx]) !== turno) return false;
+    }
+
+    return true;
+  });
+
+  var rows = filteredRows.slice(0, 120).map(function (row) {
+    return row.map(formatSheetCellForDisplay_);
+  });
+
+  return {
+    total: filteredRows.length,
+    headers: headers,
+    rows: rows
+  };
+}
+
+function formatSheetCellForDisplay_(value) {
+  if (value instanceof Date && !isNaN(value.getTime())) {
+    var tz = Session.getScriptTimeZone() || 'America/Sao_Paulo';
+    return Utilities.formatDate(value, tz, 'dd/MM/yyyy HH:mm');
+  }
+  return sanitizeValue_(value);
 }
 
 function mapOccurrenceForClient_(occ) {

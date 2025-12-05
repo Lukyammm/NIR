@@ -1249,7 +1249,7 @@
 
         <div class="table-wrapper">
           <table>
-            <thead>
+            <thead id="sheet-table-head">
               <tr>
                 <th>Categoria</th>
                 <th>Paciente</th>
@@ -2011,6 +2011,7 @@
       const elSheetCategoryGroup = document.getElementById(
         "sheet-category-group"
       );
+      const elSheetTableHead = document.getElementById("sheet-table-head");
       const elSheetDay = document.getElementById("sheet-day");
       const elSheetTurno = document.getElementById("sheet-turno");
       const elSheetTableBody = document.getElementById("sheet-table-body");
@@ -2023,6 +2024,17 @@
       const elBtnSheetToday = document.getElementById("btn-sheet-today");
       const elSheetSubtitle = document.getElementById("sheet-subtitle");
       let currentSheetCategory = "RESERVA CONFIRMADA";
+      const DEFAULT_SHEET_HEADERS = [
+        "Categoria",
+        "Paciente",
+        "Especialidade",
+        "Origem",
+        "Status",
+        "Turno",
+        "Data/Hora",
+        "Observação",
+      ];
+      let currentSheetHeaders = DEFAULT_SHEET_HEADERS;
 
       const elBoardShiftLabel = document.getElementById("board-shift-label");
       const elBoardKpis = document.getElementById("board-kpis");
@@ -2477,8 +2489,11 @@
 
       function loadSheetView() {
         if (!elSheetTableBody) return;
+        const colSpan = (currentSheetHeaders && currentSheetHeaders.length)
+          ? currentSheetHeaders.length
+          : DEFAULT_SHEET_HEADERS.length;
         elSheetTableBody.innerHTML =
-          '<tr><td colspan="8" class="muted">Carregando coluna do dia...</td></tr>';
+          `<tr><td colspan="${colSpan}" class="muted">Carregando coluna do dia...</td></tr>`;
 
         const payload = {
           category: currentSheetCategory,
@@ -2492,23 +2507,37 @@
         google.script.run
           .withSuccessHandler(renderSheetView)
           .withFailureHandler(function () {
+            const colSpan = (currentSheetHeaders && currentSheetHeaders.length)
+              ? currentSheetHeaders.length
+              : DEFAULT_SHEET_HEADERS.length;
             elSheetTableBody.innerHTML =
-              '<tr><td colspan="8" class="muted">Erro ao carregar dados.</td></tr>';
+              `<tr><td colspan="${colSpan}" class="muted">Erro ao carregar dados.</td></tr>`;
           })
           .getSheetView(payload);
       }
 
       function renderSheetView(res) {
         if (!elSheetTableBody) return;
-        const items = (res && res.items) || [];
-        const total = (res && res.total) || 0;
+        const headers =
+          (res && Array.isArray(res.headers) && res.headers.length)
+            ? res.headers
+            : DEFAULT_SHEET_HEADERS;
+
+        currentSheetHeaders = headers;
+        renderSheetHead(headers);
+
+        const rows = (res && Array.isArray(res.rows) ? res.rows : []) || [];
+        const total = (res && typeof res.total === "number")
+          ? res.total
+          : rows.length;
+
         elSheetTotal.textContent = total;
         elSheetTableBody.innerHTML = "";
 
-        if (!items.length) {
+        if (!rows.length) {
           const tr = document.createElement("tr");
           const td = document.createElement("td");
-          td.colSpan = 8;
+          td.colSpan = headers.length || DEFAULT_SHEET_HEADERS.length;
           td.className = "muted";
           td.textContent = "Nenhum registro para os filtros escolhidos.";
           tr.appendChild(td);
@@ -2516,24 +2545,29 @@
           return;
         }
 
-        items.slice(0, 80).forEach(function (item) {
+        rows.slice(0, 80).forEach(function (row) {
           const tr = document.createElement("tr");
-          [
-            item.category,
-            item.paciente || "Paciente não informado",
-            item.especialidade || "—",
-            item.origem || "—",
-            item.status || "—",
-            item.turno || "—",
-            item.dataHora || "—",
-            item.observacao || "—",
-          ].forEach(function (val) {
+          (row || []).forEach(function (val) {
             const td = document.createElement("td");
             td.textContent = val;
             tr.appendChild(td);
           });
           elSheetTableBody.appendChild(tr);
         });
+      }
+
+      function renderSheetHead(headers) {
+        if (!elSheetTableHead) return;
+        const tr = document.createElement("tr");
+        (headers && headers.length ? headers : DEFAULT_SHEET_HEADERS).forEach(
+          function (label) {
+            const th = document.createElement("th");
+            th.textContent = label;
+            tr.appendChild(th);
+          }
+        );
+        elSheetTableHead.innerHTML = "";
+        elSheetTableHead.appendChild(tr);
       }
 
       function loadLatestOccurrences() {
