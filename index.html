@@ -462,6 +462,10 @@
       overflow-x: auto;
     }
 
+    .table-wrapper.compact table {
+      table-layout: fixed;
+    }
+
     table {
       width: 100%;
       border-collapse: collapse;
@@ -473,6 +477,8 @@
       text-align: left;
       padding: 10px 8px;
       border-bottom: 1px solid var(--border-subtle);
+      white-space: normal;
+      word-break: break-word;
     }
 
     tbody tr:nth-child(even) {
@@ -489,6 +495,22 @@
       color: var(--text-muted);
       text-transform: uppercase;
       letter-spacing: 0.02em;
+    }
+
+    @media (max-width: 1024px) {
+      .table-wrapper.compact th,
+      .table-wrapper.compact td {
+        padding: 8px 6px;
+        font-size: 0.82rem;
+      }
+    }
+
+    @media (max-width: 768px) {
+      .table-wrapper.compact th,
+      .table-wrapper.compact td {
+        padding: 7px 6px;
+        font-size: 0.8rem;
+      }
     }
 
     .occ-columns {
@@ -1246,8 +1268,18 @@
           </div>
         </div>
 
-        <div class="table-wrapper">
+        <div class="table-wrapper compact">
           <table>
+            <colgroup>
+              <col style="width: 14%" />
+              <col style="width: 17%" />
+              <col style="width: 12%" />
+              <col style="width: 12%" />
+              <col style="width: 10%" />
+              <col style="width: 9%" />
+              <col style="width: 9%" />
+              <col style="width: 17%" />
+            </colgroup>
             <thead id="sheet-table-head">
               <tr>
                 <th>Categoria</th>
@@ -1415,8 +1447,16 @@
         Tabela Geral
         <span class="badge">Últimas entradas</span>
       </h2>
-      <div class="table-wrapper">
+      <div class="table-wrapper compact">
         <table>
+          <colgroup>
+            <col style="width: 16%" />
+            <col style="width: 18%" />
+            <col style="width: 14%" />
+            <col style="width: 12%" />
+            <col style="width: 12%" />
+            <col style="width: 28%" />
+          </colgroup>
           <thead>
             <tr>
               <th>Categoria</th>
