@@ -353,6 +353,75 @@
       border: 1px solid rgba(37, 99, 235, 0.14);
     }
 
+    .status-board .sheet-controls {
+      margin-top: 4px;
+    }
+
+    .status-list {
+      display: grid;
+      gap: 12px;
+      margin-top: 12px;
+    }
+
+    .status-card {
+      background: #fff;
+      border-radius: 14px;
+      border: 1px solid var(--border-subtle);
+      padding: 12px 14px;
+      box-shadow: var(--shadow-card);
+      display: grid;
+      gap: 8px;
+    }
+
+    .status-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .status-meta {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 8px;
+      color: var(--text-muted);
+      font-size: 0.9rem;
+    }
+
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 10px;
+      border-radius: var(--radius-pill);
+      background: rgba(37, 99, 235, 0.08);
+      color: var(--text-main);
+      font-weight: 700;
+      border: 1px solid rgba(37, 99, 235, 0.14);
+    }
+
+    .status-pill .dot {
+      box-shadow: none;
+    }
+
+    .status-actions {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 10px;
+      align-items: center;
+    }
+
+    .status-actions input {
+      width: 100%;
+    }
+
+    .badge.warning {
+      background: var(--warning-soft);
+      color: var(--warning);
+      border: 1px solid rgba(180, 83, 9, 0.3);
+    }
+
     .sheet-header {
       display: flex;
       justify-content: space-between;
@@ -1328,6 +1397,47 @@
           </div>
         </div>
       </section>
+      <section class="card full-width sheet-board status-board" id="status-board">
+        <div class="sheet-header">
+          <div>
+            <p class="muted" style="margin: 0; font-weight: 600; letter-spacing: 0.01em;">
+              Ocorrências em andamento
+            </p>
+            <h2 class="board-title" style="margin-top: 4px;">
+              Atualize o status direto pelo sistema
+            </h2>
+            <p class="muted" style="margin: 6px 0 0;">
+              Registros do dia e turno filtrados ficam visíveis aqui até receberem um novo status.
+            </p>
+          </div>
+          <div class="sheet-actions">
+            <div class="sheet-category" id="status-category-group"></div>
+            <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+              <button class="btn-ghost" id="btn-status-refresh">Atualizar lista</button>
+              <button class="btn-primary" id="btn-status-apply-shift">Aplicar Plantão Atual</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="sheet-controls">
+          <div class="field">
+            <label for="status-day">Dia (data)</label>
+            <input type="date" id="status-day" />
+          </div>
+          <div class="field">
+            <label for="status-turno">Turno</label>
+            <select id="status-turno">
+              <option value="">Todos</option>
+              <option value="MT">MT</option>
+              <option value="SN">SN</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="status-list" id="status-list">
+          <p class="muted">Carregando ocorrências com status aberto...</p>
+        </div>
+      </section>
       <section class="card full-width sheet-board" id="aba-dia">
         <div class="sheet-header">
           <div>
@@ -1615,6 +1725,16 @@
       </div>
     </div>
   </div>
+
+  <datalist id="status-suggestions">
+    <option value="Em andamento"></option>
+    <option value="Chegou"></option>
+    <option value="Em fila"></option>
+    <option value="Observação"></option>
+    <option value="Concluído"></option>
+    <option value="Cancelado"></option>
+    <option value="Baixa dada"></option>
+  </datalist>
 
   <div id="shift-modal" style="display: none;">
     <div id="shift-modal-backdrop" style="position: fixed; inset: 0; background: rgba(15, 23, 42, 0.4); z-index: 40;"></div>
@@ -2002,7 +2122,18 @@
 
       let currentRelTipo = "ENF";
       let isSaving = false;
+      let isStatusSaving = false;
+      let currentStatusCategory = "TODOS";
       let fixedNotes = { enfermagem: "", medica: "", exames: "" };
+      const STATUS_SUGGESTIONS = [
+        "Em andamento",
+        "Chegou",
+        "Em fila",
+        "Observação",
+        "Concluído",
+        "Cancelado",
+        "Baixa dada",
+      ];
       const weekdayLabels = [
         "Domingo",
         "Segunda-feira",
@@ -2040,6 +2171,9 @@
       const elSheetCategoryGroup = document.getElementById(
         "sheet-category-group"
       );
+      const elStatusCategoryGroup = document.getElementById(
+        "status-category-group"
+      );
       const elSheetTableHead = document.getElementById("sheet-table-head");
       const elSheetDay = document.getElementById("sheet-day");
       const elSheetTurno = document.getElementById("sheet-turno");
@@ -2052,6 +2186,16 @@
       const elBtnSheetRefresh = document.getElementById("btn-sheet-refresh");
       const elBtnSheetToday = document.getElementById("btn-sheet-today");
       const elSheetSubtitle = document.getElementById("sheet-subtitle");
+      const elStatusDay = document.getElementById("status-day");
+      const elStatusTurno = document.getElementById("status-turno");
+      const elStatusList = document.getElementById("status-list");
+      const elBtnStatusRefresh = document.getElementById("btn-status-refresh");
+      const elBtnStatusApplyShift = document.getElementById(
+        "btn-status-apply-shift"
+      );
+      const elStatusSuggestions = document.getElementById(
+        "status-suggestions"
+      );
       let currentSheetCategory = "RESERVA CONFIRMADA";
       const DEFAULT_SHEET_HEADERS = [
         "Categoria",
@@ -2141,11 +2285,15 @@
 
       document.addEventListener("DOMContentLoaded", function () {
         buildSheetCategories();
+        buildStatusCategories();
+        buildStatusSuggestionList();
         buildFieldsFor(elCategory.value);
         bindPageTabs();
         bindEvents();
         prefillSheetFiltersWithToday();
+        prefillStatusFiltersWithToday();
         loadSheetView();
+        loadStatusBoard();
         loadShiftInfo();
         loadDashboard();
         loadRelatorios();
@@ -2169,6 +2317,25 @@
             applyShiftToSheetFilters();
             loadSheetView();
           });
+        }
+
+        if (elBtnStatusRefresh) {
+          elBtnStatusRefresh.addEventListener("click", loadStatusBoard);
+        }
+
+        if (elBtnStatusApplyShift) {
+          elBtnStatusApplyShift.addEventListener("click", function () {
+            applyShiftToStatusFilters();
+            loadStatusBoard();
+          });
+        }
+
+        if (elStatusDay) {
+          elStatusDay.addEventListener("change", loadStatusBoard);
+        }
+
+        if (elStatusTurno) {
+          elStatusTurno.addEventListener("change", loadStatusBoard);
         }
 
         if (elSheetTurno) {
@@ -2661,6 +2828,42 @@
         elSheetCategoryLabel.textContent = currentSheetCategory;
       }
 
+      function buildStatusCategories() {
+        if (!elStatusCategoryGroup) return;
+        elStatusCategoryGroup.innerHTML = "";
+        const cats = [
+          "TODOS",
+          "RESERVA CONFIRMADA",
+          "PROCEDIMENTO CONFIRMADO",
+          "RESERVA NEGADA",
+          "PLANTÃO ANTERIOR",
+        ];
+
+        cats.forEach(function (cat) {
+          const btn = document.createElement("button");
+          btn.textContent = cat;
+          btn.className = cat === currentStatusCategory ? "active" : "";
+          btn.addEventListener("click", function () {
+            currentStatusCategory = cat;
+            const allBtns = elStatusCategoryGroup.querySelectorAll("button");
+            allBtns.forEach(function (b) { b.classList.remove("active"); });
+            btn.classList.add("active");
+            loadStatusBoard();
+          });
+          elStatusCategoryGroup.appendChild(btn);
+        });
+      }
+
+      function buildStatusSuggestionList() {
+        if (!elStatusSuggestions) return;
+        elStatusSuggestions.innerHTML = "";
+        STATUS_SUGGESTIONS.forEach(function (label) {
+          const opt = document.createElement("option");
+          opt.value = label;
+          elStatusSuggestions.appendChild(opt);
+        });
+      }
+
       function switchPage(pageId) {
         if (!pageId) return;
         const tabs = [elTabAnalytics, elTabMapa, elTabRelatorios];
@@ -2701,6 +2904,12 @@
         elSheetTurnoLabel.textContent = "Todos";
       }
 
+      function prefillStatusFiltersWithToday() {
+        if (!elStatusDay) return;
+        const today = new Date();
+        elStatusDay.value = formatDateForInput(today);
+      }
+
       function applyShiftToSheetFilters() {
         if (!currentShiftData) {
           prefillSheetFiltersWithToday();
@@ -2724,6 +2933,23 @@
         if (elSheetSubtitle) {
           elSheetSubtitle.textContent =
             "Visão sincronizada com o plantão atual registrado.";
+        }
+      }
+
+      function applyShiftToStatusFilters() {
+        if (!currentShiftData) {
+          prefillStatusFiltersWithToday();
+          return;
+        }
+
+        if (currentShiftData.dataPlantao && elStatusDay) {
+          elStatusDay.value = formatDateForInput(
+            normalizeDateValue(currentShiftData.dataPlantao)
+          );
+        }
+
+        if (currentShiftData.turno && elStatusTurno) {
+          elStatusTurno.value = currentShiftData.turno;
         }
       }
 
@@ -2808,6 +3034,183 @@
         );
         elSheetTableHead.innerHTML = "";
         elSheetTableHead.appendChild(tr);
+      }
+
+      function loadStatusBoard() {
+        if (!elStatusList) return;
+
+        elStatusList.innerHTML =
+          '<p class="muted">Carregando ocorrências com status...</p>';
+
+        const payload = {
+          category: currentStatusCategory,
+          dia: elStatusDay ? elStatusDay.value : "",
+          turno: elStatusTurno ? elStatusTurno.value : "",
+        };
+
+        google.script.run
+          .withSuccessHandler(renderStatusBoard)
+          .withFailureHandler(function (err) {
+            console.log(err);
+            elStatusList.innerHTML =
+              '<p class="muted">Não foi possível carregar as ocorrências.</p>';
+          })
+          .getStatusBoardData(payload);
+      }
+
+      function renderStatusBoard(res) {
+        if (!elStatusList) return;
+        const items = (res && Array.isArray(res.items) ? res.items : []) || [];
+
+        elStatusList.innerHTML = "";
+
+        if (!items.length) {
+          elStatusList.innerHTML =
+            '<p class="muted">Nenhuma ocorrência encontrada para os filtros.</p>';
+          return;
+        }
+
+        items.slice(0, 30).forEach(function (item) {
+          elStatusList.appendChild(buildStatusCard(item));
+        });
+      }
+
+      function buildStatusCard(item) {
+        const card = document.createElement("div");
+        card.className = "status-card";
+
+        const head = document.createElement("div");
+        head.className = "status-head";
+
+        const catPill = document.createElement("div");
+        catPill.className = "status-pill";
+        const catDot = document.createElement("span");
+        catDot.className = "dot";
+        catDot.style.background = "#2563eb";
+        catPill.appendChild(catDot);
+        catPill.appendChild(document.createTextNode(item.category || ""));
+
+        const statusPill = document.createElement("div");
+        statusPill.className = "status-pill";
+        const statusDot = document.createElement("span");
+        statusDot.className = "dot";
+        statusDot.style.background = resolveStatusColor(item.status);
+        statusPill.appendChild(statusDot);
+        statusPill.appendChild(
+          document.createTextNode(item.status || "Sem status informado")
+        );
+
+        head.appendChild(catPill);
+        head.appendChild(statusPill);
+
+        const meta = document.createElement("div");
+        meta.className = "status-meta";
+        meta.innerHTML = `
+          <span><strong>Paciente:</strong> ${item.paciente || "—"}</span>
+          <span><strong>Especialidade:</strong> ${item.especialidade || "—"}</span>
+          <span><strong>Origem:</strong> ${item.origem || "—"}</span>
+          <span><strong>Dia/Turno:</strong> ${
+            item.dia || "Sem dia"
+          } · ${item.turno || "—"}</span>
+        `;
+
+        const actions = document.createElement("div");
+        actions.className = "status-actions";
+
+        const statusInput = document.createElement("input");
+        statusInput.type = "text";
+        statusInput.placeholder = "Novo status";
+        statusInput.value = item.status || "";
+        statusInput.setAttribute("list", "status-suggestions");
+
+        const statusNote = document.createElement("div");
+        statusNote.className = "muted";
+        statusNote.textContent = item.observacao || "Sem observação.";
+
+        const btn = document.createElement("button");
+        btn.className = "btn-primary";
+        btn.textContent = "Salvar status";
+
+        if (!item.recordId) {
+          btn.disabled = true;
+          btn.title = "Registro sem ID. Salve novamente a ocorrência pelo formulário.";
+          const warn = document.createElement("span");
+          warn.className = "badge warning";
+          warn.textContent = "Registro antigo sem ID";
+          head.appendChild(warn);
+        }
+
+        btn.addEventListener("click", function () {
+          handleStatusUpdate(item, statusInput, btn);
+        });
+
+        actions.appendChild(statusInput);
+        actions.appendChild(btn);
+
+        card.appendChild(head);
+        card.appendChild(meta);
+        card.appendChild(statusNote);
+        card.appendChild(actions);
+
+        return card;
+      }
+
+      function resolveStatusColor(status) {
+        const text = String(status || "").toLowerCase();
+        if (!text) return "#2563eb";
+        if (text.indexOf("cancel") > -1) return "#b91c1c";
+        if (text.indexOf("conclu") > -1 || text.indexOf("alta") > -1) return "#15803d";
+        if (text.indexOf("andamento") > -1) return "#b45309";
+        return "#2563eb";
+      }
+
+      function handleStatusUpdate(item, inputEl, btnEl) {
+        if (isStatusSaving) return;
+        if (!item || !item.recordId) {
+          showToast("Registro sem ID. Salve novamente pelo formulário.", true);
+          return;
+        }
+
+        const value = (inputEl?.value || "").trim();
+        if (!value) {
+          showToast("Informe o novo status.", true);
+          return;
+        }
+
+        isStatusSaving = true;
+        if (btnEl) {
+          btnEl.disabled = true;
+          btnEl.textContent = "Salvando...";
+        }
+
+        google.script.run
+          .withSuccessHandler(function (res) {
+            isStatusSaving = false;
+            if (btnEl) {
+              btnEl.disabled = false;
+              btnEl.textContent = "Salvar status";
+            }
+            showToast((res && res.message) || "Status atualizado.");
+            loadStatusBoard();
+            loadSheetView();
+            loadDashboard();
+          })
+          .withFailureHandler(function (err) {
+            isStatusSaving = false;
+            if (btnEl) {
+              btnEl.disabled = false;
+              btnEl.textContent = "Salvar status";
+            }
+            showToast(
+              (err && err.message) || "Não foi possível atualizar o status.",
+              true
+            );
+          })
+          .updateOccurrenceStatus({
+            category: item.category,
+            recordId: item.recordId,
+            status: value,
+          });
       }
 
       function formatDateForInput(date) {

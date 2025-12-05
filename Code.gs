@@ -966,6 +966,157 @@ function collectOccurrences_() {
   return out;
 }
 
+function getStatusBoardData(options) {
+  options = options || {};
+
+  var categoryFilter = options.category || '';
+  var dateFilterKey = toDateKey_(options.dia || '');
+  var turnoFilter = normalizeTurnoValue_(options.turno || '');
+
+  var ss = getSS();
+  var items = [];
+
+  Object.keys(NIR_SHEETS).forEach(function (categoryName) {
+    if (categoryFilter && categoryFilter !== 'TODOS' && categoryFilter !== categoryName) {
+      return;
+    }
+
+    var sheetName = NIR_SHEETS[categoryName];
+    var sh = ss.getSheetByName(sheetName);
+    if (!sh) return;
+
+    var lastRow = sh.getLastRow();
+    var lastCol = sh.getLastColumn();
+    if (lastRow <= 1 || lastCol === 0) return;
+
+    var headers = sh.getRange(1, 1, 1, lastCol).getValues()[0];
+    var headersNorm = headers.map(function (h) { return normalize_(h); });
+
+    var statusIdx = headersNorm.indexOf('status');
+    var recordIdIdx = headersNorm.indexOf('registro id');
+    var diaIdx = headersNorm.indexOf('dia');
+    var turnoIdx = headersNorm.indexOf('turno');
+
+    var values = sh.getRange(2, 1, lastRow - 1, lastCol).getValues();
+
+    values.forEach(function (row, idx) {
+      var rowDateKey = diaIdx > -1 ? toDateKey_(row[diaIdx]) : '';
+      if (dateFilterKey && rowDateKey !== dateFilterKey) return;
+
+      var rowTurno = turnoIdx > -1 ? normalizeTurnoValue_(row[turnoIdx]) : '';
+      if (turnoFilter && rowTurno !== turnoFilter) return;
+
+      var dataReserva = getValueByHeader_(headersNorm, row, [
+        'data da reserva',
+        'data da confirmação da reserva',
+        'data do cancelamento da reserva',
+        'data de admissão'
+      ]);
+
+      var horaReserva = getValueByHeader_(headersNorm, row, [
+        'hora da reserva',
+        'hora da confirmação da reserva',
+        'hora do cancelamento da reserva',
+        'hora da admissão'
+      ]);
+
+      var timestamp = buildTimestamp_(dataReserva, horaReserva);
+      var order = timestamp || (lastRow - idx);
+
+      items.push({
+        category: categoryName,
+        dia: diaIdx > -1 ? row[diaIdx] : '',
+        turno: turnoIdx > -1 ? row[turnoIdx] : '',
+        paciente: getValueByHeader_(headersNorm, row, ['nome do paciente', 'paciente']) || 'Paciente não informado',
+        especialidade: getValueByHeader_(headersNorm, row, ['especialidade']),
+        origem: getValueByHeader_(headersNorm, row, ['origem']),
+        status: statusIdx > -1 ? row[statusIdx] : '',
+        observacao: getValueByHeader_(headersNorm, row, ['observação', 'observacao']),
+        recordId: recordIdIdx > -1 ? row[recordIdIdx] : '',
+        rowNumber: idx + 2,
+        order: order
+      });
+    });
+  });
+
+  items.sort(function (a, b) {
+    return (b.order || 0) - (a.order || 0);
+  });
+
+  return { items: items.slice(0, 80) };
+}
+
+function updateOccurrenceStatus(payload) {
+  if (!payload) {
+    throw new Error('Dados do status não recebidos.');
+  }
+
+  var category = payload.category;
+  var recordId = payload.recordId;
+  var newStatus = sanitizeValue_(payload.status);
+
+  if (!category || !NIR_SHEETS[category]) {
+    throw new Error('Categoria inválida para atualização.');
+  }
+
+  if (!recordId) {
+    throw new Error('Registro sem identificador. Não foi possível atualizar.');
+  }
+
+  var sheetName = NIR_SHEETS[category];
+  var sh = getSS().getSheetByName(sheetName);
+  if (!sh) {
+    throw new Error('Aba de destino não encontrada: ' + sheetName);
+  }
+
+  var lastRow = sh.getLastRow();
+  var lastCol = sh.getLastColumn();
+  if (lastRow <= 1 || lastCol === 0) {
+    throw new Error('Aba sem dados para atualizar.');
+  }
+
+  var headers = sh.getRange(1, 1, 1, lastCol).getValues()[0];
+  var headersNorm = headers.map(function (h) { return normalize_(h); });
+
+  var statusIdx = headersNorm.indexOf('status');
+  var recordIdIdx = headersNorm.indexOf('registro id');
+
+  if (statusIdx === -1) {
+    throw new Error('Coluna "Status" não encontrada na aba.');
+  }
+
+  if (recordIdIdx === -1) {
+    throw new Error('Coluna "Registro ID" não encontrada. Recrie o registro para atualizar pelo sistema.');
+  }
+
+  var recordIds = sh.getRange(2, recordIdIdx + 1, lastRow - 1, 1).getValues();
+  var matchIdx = -1;
+
+  for (var i = 0; i < recordIds.length; i++) {
+    if (recordIds[i][0] === recordId) {
+      matchIdx = i;
+      break;
+    }
+  }
+
+  if (matchIdx === -1) {
+    throw new Error('Ocorrência não encontrada para atualizar.');
+  }
+
+  var targetRow = matchIdx + 2; // ajuste do cabeçalho
+
+  sh.getRange(targetRow, statusIdx + 1).setValue(newStatus || '');
+
+  clearDashboardCache_();
+
+  return {
+    ok: true,
+    message: 'Status atualizado com sucesso.',
+    row: targetRow,
+    status: newStatus
+  };
+}
+
 function getValueByHeader_(headersNorm, row, keys) {
   for (var i = 0; i < keys.length; i++) {
     var idx = headersNorm.indexOf(normalize_(keys[i]));
