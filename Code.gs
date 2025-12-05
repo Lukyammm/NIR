@@ -15,6 +15,28 @@ const SHIFT_SHEET = 'PLANTAO ATUAL';
 const FIXED_NOTES_SHEET = 'OBS FIXAS';
 const FIXED_NOTE_SECTIONS = ['enfermagem', 'medica', 'exames'];
 
+// Colunas (1-based) que devem ser tratadas como horário em cada aba NIR
+const SHEET_TIME_COLUMNS = {
+  'RESERVA CONFIRMADA': [13, 15], // M e O
+  'PROCEDIMENTO CONFIRMADO': [13, 15], // M e O
+  'PLANTÃO ANTERIOR': [13, 15], // M e O
+  'RESERVA NEGADA': [12, 14] // L e N
+};
+
+// Colunas (1-based) que representam duração/tempo decorrido em cada aba NIR
+const SHEET_DURATION_COLUMNS = {
+  'RESERVA CONFIRMADA': [16], // P
+  'PROCEDIMENTO CONFIRMADO': [16], // P
+  'PLANTÃO ANTERIOR': [16], // P
+  'RESERVA NEGADA': [15] // O
+};
+
+// Colunas fixas usadas para filtrar Dia (data) e Turno na visão da aba
+const SHEET_FILTER_COLUMNS = {
+  dateCol: 21, // coluna U
+  turnoCol: 22 // coluna V
+};
+
 
 /**
  * Abre o WebApp (usa o arquivo index.html)
@@ -966,14 +988,87 @@ function parseDateFlexible_(value) {
   return null;
 }
 
+function toDateKey_(value) {
+  var parsed = parseDateFlexible_(value);
+  if (!parsed) return '';
+
+  var tz = Session.getScriptTimeZone() || 'America/Sao_Paulo';
+  var normalized = new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate());
+  return Utilities.formatDate(normalized, tz, 'yyyy-MM-dd');
+}
+
+function normalizeTurnoValue_(value) {
+  var str = normalize_(value);
+  if (!str) return '';
+
+  if (str.indexOf('mt') === 0 || str.indexOf('manha') === 0 || str.indexOf('manhã') === 0 || str.indexOf('tarde') === 0) {
+    return 'mt';
+  }
+
+  if (str.indexOf('sn') === 0 || str.indexOf('noite') === 0) {
+    return 'sn';
+  }
+
+  return str;
+}
+
+function isTimeColumnForSheet_(sheetName, colIndexOneBased) {
+  var cols = SHEET_TIME_COLUMNS[sheetName] || [];
+  return cols.indexOf(colIndexOneBased) > -1;
+}
+
+function isDurationColumnForSheet_(sheetName, colIndexOneBased) {
+  var cols = SHEET_DURATION_COLUMNS[sheetName] || [];
+  return cols.indexOf(colIndexOneBased) > -1;
+}
+
+function formatFractionalTime_(value) {
+  if (typeof value !== 'number' || isNaN(value)) return '';
+  var totalMinutes = Math.round(value * 24 * 60);
+  var hours = Math.floor(totalMinutes / 60);
+  var minutes = totalMinutes % 60;
+  return ('0' + (hours % 24)).slice(-2) + ':' + ('0' + minutes).slice(-2);
+}
+
+function formatTimeValue_(value) {
+  if (value === null || value === undefined || value === '') return '';
+
+  var tz = Session.getScriptTimeZone() || 'America/Sao_Paulo';
+
+  if (value instanceof Date && !isNaN(value.getTime())) {
+    return Utilities.formatDate(value, tz, 'HH:mm');
+  }
+
+  if (typeof value === 'number' && !isNaN(value)) {
+    return formatFractionalTime_(value);
+  }
+
+  var parsed = parseDateFlexible_(value);
+  if (parsed) {
+    return Utilities.formatDate(parsed, tz, 'HH:mm');
+  }
+
+  return sanitizeValue_(value);
+}
+
+function formatDurationValue_(value) {
+  if (value === null || value === undefined || value === '') return '';
+
+  if (typeof value === 'number' && !isNaN(value)) {
+    return formatFractionalTime_(value);
+  }
+
+  return formatTimeValue_(value);
+}
+
 /**
  * Retorna visão estilo aba por dia/turno/categoria
  */
 function getSheetView(options) {
   options = options || {};
   var category = options.category || '';
-  var dia = normalize_(options.dia || '');
-  var turno = normalize_(options.turno || '');
+  var dia = toDateKey_(options.dia || '');
+  var turno = normalizeTurnoValue_(options.turno || '');
 
   if (category && category !== 'TODOS') {
     return buildSheetViewByCategory_(category, dia, turno);
@@ -984,14 +1079,21 @@ function getSheetView(options) {
 
 function buildSheetViewCombined_(dia, turno) {
   var occurrences = collectOccurrences_();
+  var filterDateKey = dia || '';
+  var filterTurno = normalizeTurnoValue_(turno);
 
   var filtered = occurrences.filter(function (occ) {
-    if (dia && normalize_(occ.dia) !== dia) {
-      return false;
+    if (filterDateKey) {
+      var occDateKey = toDateKey_(occ.dia);
+      if (occDateKey !== filterDateKey) {
+        return false;
+      }
     }
 
-    if (turno && normalize_(occ.turno) !== turno) {
-      return false;
+    if (filterTurno) {
+      if (normalizeTurnoValue_(occ.turno) !== filterTurno) {
+        return false;
+      }
     }
 
     return true;
@@ -1059,20 +1161,52 @@ function buildSheetViewByCategory_(category, dia, turno) {
   var diaIdx = headersNorm.indexOf('dia');
   var turnoIdx = headersNorm.indexOf('turno');
 
+  var filterDateKey = dia || '';
+  var filterTurno = normalizeTurnoValue_(turno);
+
+  var dateColIdx = SHEET_FILTER_COLUMNS.dateCol - 1;
+  var turnoColIdx = SHEET_FILTER_COLUMNS.turnoCol - 1;
+
+  var hasDateCol = dateColIdx >= 0 && dateColIdx < lastCol;
+  var hasTurnoCol = turnoColIdx >= 0 && turnoColIdx < lastCol;
+
   var filteredRows = values.filter(function (row) {
-    if (dia && diaIdx > -1) {
-      if (normalize_(row[diaIdx]) !== dia) return false;
+    if (filterDateKey) {
+      if (hasDateCol) {
+        var rowDateKey = toDateKey_(row[dateColIdx]);
+        if (rowDateKey !== filterDateKey) return false;
+      } else if (diaIdx > -1) {
+        var fallbackRowDateKey = toDateKey_(row[diaIdx]);
+        if (fallbackRowDateKey !== filterDateKey) return false;
+      }
     }
 
-    if (turno && turnoIdx > -1) {
-      if (normalize_(row[turnoIdx]) !== turno) return false;
+    if (filterTurno) {
+      if (hasTurnoCol) {
+        if (normalizeTurnoValue_(row[turnoColIdx]) !== filterTurno) return false;
+      } else if (turnoIdx > -1) {
+        if (normalizeTurnoValue_(row[turnoIdx]) !== filterTurno) return false;
+      }
     }
 
     return true;
   });
 
   var rows = filteredRows.slice(0, 120).map(function (row) {
-    return row.map(formatSheetCellForDisplay_);
+    return row.map(function (value, idx) {
+      var colIndex = idx + 1;
+      var options = {};
+
+      if (isTimeColumnForSheet_(sheetName, colIndex)) {
+        options.forceTime = true;
+      }
+
+      if (isDurationColumnForSheet_(sheetName, colIndex)) {
+        options.isDuration = true;
+      }
+
+      return formatSheetCellForDisplay_(value, options);
+    });
   });
 
   return {
@@ -1082,7 +1216,17 @@ function buildSheetViewByCategory_(category, dia, turno) {
   };
 }
 
-function formatSheetCellForDisplay_(value) {
+function formatSheetCellForDisplay_(value, options) {
+  options = options || {};
+
+  if (options.forceTime) {
+    return formatTimeValue_(value);
+  }
+
+  if (options.isDuration) {
+    return formatDurationValue_(value);
+  }
+
   if (value instanceof Date && !isNaN(value.getTime())) {
     var tz = Session.getScriptTimeZone() || 'America/Sao_Paulo';
     return Utilities.formatDate(value, tz, 'dd/MM/yyyy HH:mm');
