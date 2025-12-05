@@ -61,6 +61,14 @@ function normalize_(value) {
   return String(value || '').trim().toLowerCase();
 }
 
+function getActiveUserEmail_() {
+  try {
+    return Session.getActiveUser().getEmail() || '';
+  } catch (err) {
+    return '';
+  }
+}
+
 /**
  * Pega/Cria aba
  */
@@ -218,13 +226,7 @@ function buildOccurrenceFingerprint_(category, data, mapping) {
 }
 
 function getAuditInfo_(category, data, mapping) {
-  var createdBy = '';
-  try {
-    createdBy = Session.getActiveUser().getEmail() || '';
-  } catch (err) {
-    createdBy = '';
-  }
-
+  var createdBy = getActiveUserEmail_();
   var createdAt = new Date();
   var recordId = buildOccurrenceFingerprint_(category, data, mapping);
 
@@ -238,6 +240,32 @@ function getAuditInfo_(category, data, mapping) {
 function clearDashboardCache_() {
   try {
     CacheService.getScriptCache().remove('dashboardData');
+  } catch (err) {
+    // ignora erros de cache
+  }
+}
+
+function clearOccurrencesCache_() {
+  try {
+    CacheService.getScriptCache().remove('occurrencesData');
+  } catch (err) {
+    // ignora erros de cache
+  }
+}
+
+function getOccurrencesFromCache_() {
+  try {
+    var cached = CacheService.getScriptCache().get('occurrencesData');
+    return cached ? JSON.parse(cached) : null;
+  } catch (err) {
+    return null;
+  }
+}
+
+function setOccurrencesCache_(data) {
+  if (!data) return;
+  try {
+    CacheService.getScriptCache().put('occurrencesData', JSON.stringify(data), 300);
   } catch (err) {
     // ignora erros de cache
   }
@@ -296,12 +324,7 @@ function getFixedNotesSheet_() {
 
   var toAppend = [];
   var now = new Date();
-  var user = '';
-  try {
-    user = Session.getActiveUser().getEmail() || '';
-  } catch (err) {
-    user = '';
-  }
+  var user = getActiveUserEmail_();
 
   FIXED_NOTE_SECTIONS.forEach(function (sec) {
     if (!existing[normalize_(sec)]) {
@@ -361,12 +384,7 @@ function saveFixedNotes(payload) {
   }
 
   var now = new Date();
-  var user = '';
-  try {
-    user = Session.getActiveUser().getEmail() || '';
-  } catch (err) {
-    user = '';
-  }
+  var user = getActiveUserEmail_();
 
   incomingKeys.forEach(function (key) {
     var value = sanitizeValue_(payload[key]);
@@ -547,6 +565,7 @@ function saveOccurrence(payload) {
   appendOccurrence_(category, fields);
 
   clearDashboardCache_();
+  clearOccurrencesCache_();
 
   return {
     ok: true,
@@ -902,6 +921,9 @@ function searchOccurrences(query) {
  * Coleta todas as ocorrências das abas NIR
  */
 function collectOccurrences_() {
+  var cached = getOccurrencesFromCache_();
+  if (cached && cached.length) return cached;
+
   var ss = getSS();
   var out = [];
 
@@ -962,6 +984,8 @@ function collectOccurrences_() {
   out.sort(function (a, b) {
     return (b.order || 0) - (a.order || 0);
   });
+
+  setOccurrencesCache_(out);
 
   return out;
 }
@@ -1108,6 +1132,7 @@ function updateOccurrenceStatus(payload) {
   sh.getRange(targetRow, statusIdx + 1).setValue(newStatus || '');
 
   clearDashboardCache_();
+  clearOccurrencesCache_();
 
   return {
     ok: true,
