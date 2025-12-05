@@ -1021,13 +1021,29 @@ function getStatusBoardData(options) {
     var diaIdx = headersNorm.indexOf('dia');
     var turnoIdx = headersNorm.indexOf('turno');
 
+    var dateColIdx = SHEET_FILTER_COLUMNS.dateCol - 1;
+    var turnoColIdx = SHEET_FILTER_COLUMNS.turnoCol - 1;
+
+    var hasDateCol = dateColIdx >= 0 && dateColIdx < lastCol;
+    var hasTurnoCol = turnoColIdx >= 0 && turnoColIdx < lastCol;
+
     var values = sh.getRange(2, 1, lastRow - 1, lastCol).getValues();
 
     values.forEach(function (row, idx) {
-      var rowDateKey = diaIdx > -1 ? toDateKey_(row[diaIdx]) : '';
+      var rowDateKey = '';
+      if (hasDateCol) {
+        rowDateKey = toDateKey_(row[dateColIdx]);
+      } else if (diaIdx > -1) {
+        rowDateKey = toDateKey_(row[diaIdx]);
+      }
       if (dateFilterKey && rowDateKey !== dateFilterKey) return;
 
-      var rowTurno = turnoIdx > -1 ? normalizeTurnoValue_(row[turnoIdx]) : '';
+      var rowTurno = '';
+      if (hasTurnoCol) {
+        rowTurno = normalizeTurnoValue_(row[turnoColIdx]);
+      } else if (turnoIdx > -1) {
+        rowTurno = normalizeTurnoValue_(row[turnoIdx]);
+      }
       if (turnoFilter && rowTurno !== turnoFilter) return;
 
       var dataReserva = getValueByHeader_(headersNorm, row, [
@@ -1049,8 +1065,8 @@ function getStatusBoardData(options) {
 
       items.push({
         category: categoryName,
-        dia: diaIdx > -1 ? row[diaIdx] : '',
-        turno: turnoIdx > -1 ? row[turnoIdx] : '',
+        dia: hasDateCol ? row[dateColIdx] : (diaIdx > -1 ? row[diaIdx] : ''),
+        turno: hasTurnoCol ? row[turnoColIdx] : (turnoIdx > -1 ? row[turnoIdx] : ''),
         paciente: getValueByHeader_(headersNorm, row, ['nome do paciente', 'paciente']) || 'Paciente não informado',
         especialidade: getValueByHeader_(headersNorm, row, ['especialidade']),
         origem: getValueByHeader_(headersNorm, row, ['origem']),
