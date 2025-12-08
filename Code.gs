@@ -486,6 +486,46 @@ function getFieldMappings_() {
 /**
  * Lança uma nova linha na aba correta, baseado na categoria e nos campos
  */
+function ensureSheetStructure_(sheet, mapping) {
+  var headersNorm = getHeaderNormalized_(sheet);
+
+  if (!headersNorm.length) {
+    var baseHeaders = Object.keys(mapping).map(function (key) { return mapping[key]; });
+    var deduped = [];
+    baseHeaders.forEach(function (h) {
+      var norm = normalize_(h);
+      if (deduped.indexOf(norm) === -1) {
+        deduped.push(norm);
+      }
+    });
+
+    var finalHeaders = deduped.map(function (norm) {
+      return baseHeaders.find(function (h) { return normalize_(h) === norm; });
+    }).concat(['Registro ID', 'Criado por', 'Criado em']);
+
+    sheet.getRange(1, 1, 1, finalHeaders.length).setValues([finalHeaders]);
+    headersNorm = getHeaderNormalized_(sheet);
+  }
+
+  var missing = [];
+  Object.keys(mapping).forEach(function (key) {
+    var label = mapping[key];
+    if (headersNorm.indexOf(normalize_(label)) === -1) {
+      missing.push(label);
+    }
+  });
+
+  if (missing.length) {
+    sheet.insertColumnsAfter(sheet.getLastColumn() || 1, missing.length);
+    var currentHeaders = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+    var startIdx = currentHeaders.length - missing.length;
+    sheet.getRange(1, startIdx + 1, 1, missing.length).setValues([missing]);
+    headersNorm = getHeaderNormalized_(sheet);
+  }
+
+  return ensureAuditColumns_(sheet);
+}
+
 function appendOccurrence_(category, data) {
   var sheetName = NIR_SHEETS[category];
   if (!sheetName) {
@@ -493,14 +533,11 @@ function appendOccurrence_(category, data) {
   }
 
   var sheet = getOrCreateSheet_(sheetName);
-  var headerNorm = ensureAuditColumns_(sheet);
-
-  if (!headerNorm.length) {
-    throw new Error('A aba "' + sheetName + '" precisa ter o cabeçalho preenchido na Linha 1.');
-  }
 
   var fieldMappings = getFieldMappings_();
   var mapping = fieldMappings[category] || {};
+
+  var headerNorm = ensureSheetStructure_(sheet, mapping);
 
   if (mapping.status) {
     var normalizedStatus = sanitizeValue_(data.status);
