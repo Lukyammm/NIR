@@ -1,1310 +1,470 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html>
 <head>
-  <meta charset="UTF-8" />
-  <title>NIR – Ocorrências</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <link
-    rel="stylesheet"
-    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-    integrity="sha256-o9N1j7kP2K6Jk3vfavY1Z3nFGCG2N70b+AAU9MXHQ94="
-    crossorigin=""
-  />
+  <meta charset="UTF-8">
+  <title>Ocorrências do Plantão – NIR</title>
   <style>
     :root {
-      --bg-body: #eef2ff;
+      --bg-page: #f3f4f6;
       --bg-card: #ffffff;
-      --accent: #2563eb;
-      --accent-soft: rgba(37, 99, 235, 0.08);
-      --accent-strong: #1d4ed8;
-      --text-main: #0f172a;
-      --text-muted: #475569;
+      --bg-header: #f9fafb;
       --border-subtle: #e5e7eb;
-      --danger: #b91c1c;
-      --warning: #b45309;
-      --warning-soft: rgba(180, 83, 9, 0.12);
-      --success: #15803d;
-      --radius-lg: 18px;
-      --radius-pill: 999px;
-      --shadow-soft: 0 16px 36px rgba(15, 23, 42, 0.14);
-      --shadow-card: 0 10px 24px rgba(15, 23, 42, 0.08);
+      --border-strong: #d1d5db;
+      --accent: #2563eb;
+      --accent-soft: #dbeafe;
+      --accent-strong: #1d4ed8;
+      --text-main: #111827;
+      --text-soft: #6b7280;
+      --text-muted: #9ca3af;
+      --danger: #dc2626;
+      --success: #16a34a;
+      --warning: #eab308;
+      --radius-md: 8px;
+      --radius-lg: 12px;
+      --shadow-soft: 0 20px 40px rgba(15,23,42,0.12);
     }
 
     * {
       box-sizing: border-box;
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
-        sans-serif;
+      font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     }
 
     body {
       margin: 0;
-      padding: 24px;
-      background: radial-gradient(circle at 10% 10%, #dce7ff, #eef2ff 45%, #f8fafc);
+      padding: 16px;
+      background: var(--bg-page);
       color: var(--text-main);
-      position: relative;
-      overflow-x: hidden;
+      font-size: 14px;
     }
 
-    body::before,
-    body::after {
-      content: "";
-      position: fixed;
-      width: 380px;
-      height: 380px;
-      filter: blur(100px);
-      opacity: 0.4;
-      z-index: 0;
-    }
-
-    body::before {
-      top: -120px;
-      right: 0;
-      background: radial-gradient(circle at 30% 30%, #93c5fd, transparent 70%);
-    }
-
-    body::after {
-      bottom: -160px;
-      left: -40px;
-      background: radial-gradient(circle at 50% 50%, #c7d2fe, transparent 65%);
-    }
-
-    .app-shell,
-    .app {
-      max-width: 1180px;
+    .app-shell {
+      max-width: 1280px;
       margin: 0 auto;
-      position: relative;
-      z-index: 1;
-      display: flex;
-      flex-direction: column;
-      gap: 18px;
+      background: var(--bg-card);
+      border-radius: 16px;
+      box-shadow: var(--shadow-soft);
+      border: 1px solid var(--border-subtle);
+      overflow: hidden;
     }
 
     .app-header {
-      display: grid;
-      grid-template-columns: minmax(0, 2fr) minmax(0, 1.4fr);
-      gap: 14px;
-      align-items: center;
-      padding: 18px 20px;
-      background: linear-gradient(120deg, rgba(37, 99, 235, 0.1), #ffffff);
-      border-radius: var(--radius-lg);
-      border: 1px solid rgba(37, 99, 235, 0.12);
-      box-shadow: var(--shadow-card);
-    }
-
-    .header-brand {
-      display: flex;
-      gap: 14px;
-      align-items: flex-start;
-    }
-
-    .header-logo {
-      padding: 8px;
-      background: #fff;
-      border-radius: 14px;
-      box-shadow: 0 12px 28px rgba(15, 23, 42, 0.18);
-      border: 1px solid rgba(15, 23, 42, 0.06);
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    .header-logo img {
-      display: block;
-      height: 68px;
-      width: auto;
-      border-radius: 10px;
-      object-fit: contain;
-      filter: drop-shadow(0 6px 12px rgba(15, 23, 42, 0.15));
-    }
-
-    .page-tabs {
-      display: flex;
-      gap: 10px;
-      align-items: center;
-      padding: 0 4px;
-      flex-wrap: wrap;
-    }
-
-    .page-tab {
-      padding: 8px 14px;
-      border-radius: var(--radius-pill);
-      background: rgba(15, 23, 42, 0.06);
-      color: var(--text-muted);
-      border: 1px solid var(--border-subtle);
-      cursor: pointer;
-      font-weight: 600;
-      box-shadow: 0 6px 12px rgba(15, 23, 42, 0.1);
-      transition: all 0.15s ease;
-    }
-
-    .page-tab.active {
-      background: #0f172a;
-      color: #e0f2fe;
-      border-color: #0f172a;
-    }
-
-    .page {
-      display: none;
-    }
-
-    .page.active {
-      display: flex;
-      flex-direction: column;
-      gap: 18px;
-    }
-
-    .macro-layout {
-      display: grid;
-      grid-template-columns: minmax(0, 2.2fr) minmax(300px, 1fr);
-      gap: 18px;
-      align-items: start;
-    }
-
-    .macro-layout.single {
-      grid-template-columns: 1fr;
-    }
-
-    @media (max-width: 980px) {
-      .macro-layout {
-        grid-template-columns: 1fr;
-      }
-    }
-
-    .map-frame {
-      width: 100%;
-      height: 560px;
-      min-height: 520px;
-      border-radius: var(--radius-lg);
-      overflow: hidden;
-      border: 1px solid var(--border-subtle);
-      box-shadow: var(--shadow-card);
-    }
-
-    .macro-side {
-      display: grid;
-      gap: 10px;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      align-content: start;
-    }
-
-    .macro-summary {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-
-    .macro-row {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 10px 12px;
-      border-radius: 12px;
-      border: 1px solid var(--border-subtle);
-      background: #fff;
-      box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
-    }
-
-    .macro-row strong {
-      font-size: 1rem;
-    }
-
-    .macro-legend {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-      gap: 8px;
-      margin-top: 12px;
-    }
-
-    .macro-chip {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      padding: 8px 10px;
-      border-radius: 12px;
-      background: rgba(15, 23, 42, 0.04);
-      border: 1px solid var(--border-subtle);
-      font-weight: 600;
-    }
-
-    .macro-chip .dot {
-      box-shadow: none;
-    }
-
-    .macro-filter {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-    }
-
-    .app-header h1 {
-      margin: 0;
-      font-size: 1.6rem;
-      letter-spacing: 0.02em;
-    }
-
-    .app-header p {
-      margin: 6px 0 0;
-      font-size: 0.95rem;
-      color: var(--text-muted);
-      max-width: 620px;
-    }
-
-    .app-header .header-meta {
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-      align-items: flex-end;
-    }
-
-    .header-pill {
-      padding: 10px 16px;
-      border-radius: var(--radius-pill);
-      background: #0f172a;
-      font-size: 0.85rem;
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      color: #e0f2fe;
-      white-space: nowrap;
-      box-shadow: 0 12px 30px rgba(15, 23, 42, 0.35);
-    }
-
-    .menu-actions {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-      gap: 10px;
-    }
-
-    .menu-actions .menu-btn {
-      border-radius: 14px;
-      padding: 12px 14px;
-      background: #ffffff;
-      border: 1px solid var(--border-subtle);
-      color: var(--text-main);
-      box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
-      cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-      font-weight: 700;
-      letter-spacing: 0.01em;
-    }
-
-    .menu-actions .menu-btn:hover {
-      border-color: var(--accent);
-      color: var(--accent);
-      box-shadow: 0 12px 30px rgba(37, 99, 235, 0.2);
-    }
-
-    .header-pill span {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-    }
-
-    .dot {
-      width: 10px;
-      height: 10px;
-      border-radius: 50%;
-      background: #22c55e;
-      box-shadow: 0 0 0 6px rgba(34, 197, 94, 0.25);
-    }
-
-    .eyebrow {
-      text-transform: uppercase;
-      font-size: 0.72rem;
-      letter-spacing: 0.1em;
-      color: var(--text-muted);
-      margin: 0;
-    }
-
-    main {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
-      gap: 18px;
-    }
-
-    .content-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-      gap: 16px;
-      align-items: start;
-    }
-
-    .content-grid.two {
-      grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
-    }
-
-    .board-shell {
-      border: 1px solid var(--border-subtle);
-      padding: 20px 22px;
-      background: linear-gradient(135deg, #dbeafe, #ffffff);
-      border-radius: var(--radius-lg);
-      box-shadow: var(--shadow-card);
-      position: relative;
-      overflow: hidden;
-    }
-
-    .sheet-board {
-      display: grid;
-      gap: 14px;
-      background: linear-gradient(135deg, rgba(37, 99, 235, 0.1), #ffffff);
-      border: 1px solid rgba(37, 99, 235, 0.14);
-    }
-
-    .status-board .sheet-controls {
-      margin-top: 4px;
-    }
-
-    .status-list {
-      display: grid;
-      gap: 12px;
-      margin-top: 12px;
-    }
-
-    .status-card {
-      background: #fff;
-      border-radius: 14px;
-      border: 1px solid var(--border-subtle);
-      padding: 12px 14px;
-      box-shadow: var(--shadow-card);
-      display: grid;
-      gap: 8px;
-    }
-
-    .status-head {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 10px;
-      flex-wrap: wrap;
-    }
-
-    .status-meta {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-      gap: 8px;
-      color: var(--text-muted);
-      font-size: 0.9rem;
-    }
-
-    .status-pill {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      padding: 6px 10px;
-      border-radius: var(--radius-pill);
-      background: rgba(37, 99, 235, 0.08);
-      color: var(--text-main);
-      font-weight: 700;
-      border: 1px solid rgba(37, 99, 235, 0.14);
-    }
-
-    .status-pill .dot {
-      box-shadow: none;
-    }
-
-    .status-actions {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-      gap: 10px;
-      align-items: center;
-    }
-
-    .status-actions input {
-      width: 100%;
-    }
-
-    .badge.warning {
-      background: var(--warning-soft);
-      color: var(--warning);
-      border: 1px solid rgba(180, 83, 9, 0.3);
-    }
-
-    .sheet-header {
-      display: flex;
-      justify-content: space-between;
-      gap: 12px;
-      align-items: center;
-      flex-wrap: wrap;
-    }
-
-    .sheet-actions {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      align-items: center;
-    }
-
-    .sheet-category button {
-      padding: 8px 12px;
-      border-radius: 12px;
-      border: 1px solid var(--border-subtle);
-      background: #fff;
-      color: var(--text-main);
-      box-shadow: 0 8px 16px rgba(15, 23, 42, 0.08);
-    }
-
-    .sheet-category button.active {
-      background: var(--accent);
-      color: #fff;
-      border-color: var(--accent);
-      box-shadow: 0 12px 24px rgba(37, 99, 235, 0.25);
-    }
-
-    .sheet-controls {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-      gap: 10px;
-      align-items: end;
-    }
-
-    .sheet-summary {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 10px;
-    }
-
-    .pill {
-      border-radius: var(--radius-pill);
-      padding: 8px 12px;
-      border: 1px solid var(--border-subtle);
-      background: rgba(37, 99, 235, 0.06);
-      color: var(--text-main);
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      font-weight: 600;
-    }
-
-    .metric-card {
-      border: 1px solid var(--border-subtle);
-      border-radius: 12px;
-      padding: 10px 12px;
-      background: #fff;
-      box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
-    }
-
-    .metric-card small {
-      color: var(--text-muted);
-      font-size: 0.8rem;
-    }
-
-    .metric-card strong {
-      display: block;
-      font-size: 1.1rem;
-      margin-top: 4px;
-    }
-
-    .board-shell::after {
-      content: "";
-      position: absolute;
-      right: -60px;
-      top: -60px;
-      width: 220px;
-      height: 220px;
-      background: radial-gradient(circle at 50% 50%, rgba(37, 99, 235, 0.16), transparent 65%);
-      z-index: 0;
-    }
-
-    .board-shell > * {
-      position: relative;
-      z-index: 1;
-    }
-
-    .board-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 12px;
-      flex-wrap: wrap;
-    }
-
-    .board-title {
-      margin: 2px 0 0;
-      font-size: 1.3rem;
-      letter-spacing: 0.01em;
-    }
-
-    .board-kpis {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-      gap: 12px;
-      margin: 14px 0 6px;
-    }
-
-    .board-kpi {
-      padding: 14px 16px;
-      background: #fff;
-      border-radius: 14px;
-      text-align: left;
-      border: 1px solid var(--border-subtle);
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
-      position: relative;
-      overflow: hidden;
-    }
-
-    .board-kpi::after {
-      content: "";
-      position: absolute;
-      inset: 0;
-      background: linear-gradient(135deg, rgba(37, 99, 235, 0.05), transparent 50%);
-      pointer-events: none;
-    }
-
-    .board-kpi small {
-      display: inline-block;
-      font-size: 0.78rem;
-      color: var(--text-muted);
-      margin-bottom: 4px;
-    }
-
-    .board-kpi strong {
-      display: block;
-      font-size: 1.2rem;
-      font-weight: 800;
-    }
-
-    .board-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-      gap: 12px;
-    }
-
-    .board-card {
-      background: #fff;
-      border-radius: 12px;
-      border: 1px solid var(--border-subtle);
-      padding: 12px 14px;
-      min-height: 120px;
-    }
-
-    .board-card-title {
-      margin: 0 0 8px;
-      font-weight: 700;
-      color: var(--text-main);
-    }
-
-    .board-list {
-      list-style: disc;
-      padding-left: 18px;
-      margin: 0;
-      display: grid;
-      gap: 6px;
-    }
-
-    .filter-chips {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-    }
-
-    .chip {
-      border-radius: var(--radius-pill);
-      border: 1px solid var(--border-subtle);
-      padding: 6px 12px;
-      background: #f8fafc;
-      color: var(--text-main);
-      cursor: pointer;
-    }
-
-    .chip.active {
-      background: var(--accent-soft);
-      border-color: var(--accent);
-      color: var(--accent);
-    }
-
-    .table-wrapper {
-      width: 100%;
-      overflow-x: auto;
-    }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 0.88rem;
-    }
-
-    th,
-    td {
-      text-align: left;
-      padding: 10px 8px;
+      padding: 14px 20px;
+      background: linear-gradient(to right, #eff6ff, #ffffff);
       border-bottom: 1px solid var(--border-subtle);
     }
 
-    tbody tr:nth-child(even) {
-      background: #f8fafc;
-    }
-
-    tbody tr:hover {
-      background: rgba(37, 99, 235, 0.06);
-      transition: background 0.15s ease;
-    }
-
-    th {
-      font-size: 0.76rem;
-      color: var(--text-muted);
-      text-transform: uppercase;
-      letter-spacing: 0.02em;
-    }
-
-    .occ-columns {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-      gap: 16px;
-    }
-
-    .rel-hero {
-      display: flex;
-      justify-content: space-between;
-      gap: 12px;
-      align-items: center;
-      flex-wrap: wrap;
-    }
-
-    .rel-actions {
-      display: flex;
-      gap: 8px;
-      align-items: center;
-      flex-wrap: wrap;
-    }
-
-    .rel-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
-      gap: 16px;
-    }
-
-    .rel-card {
-      background: linear-gradient(135deg, rgba(37, 99, 235, 0.08), #fff);
-      border: 1px solid rgba(37, 99, 235, 0.18);
-      border-radius: var(--radius-lg);
-      padding: 16px;
-      box-shadow: var(--shadow-card);
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-      min-height: 420px;
-    }
-
-    .rel-card-header {
-      display: flex;
-      justify-content: space-between;
-      gap: 10px;
-      align-items: center;
-      flex-wrap: wrap;
-    }
-
-    .rel-body {
-      background: #f8fafc;
-      border: 1px dashed var(--border-subtle);
-      border-radius: 14px;
-      padding: 10px 12px;
-      position: relative;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      max-height: 620px;
-      overflow: auto;
-    }
-
-    .rel-pinned {
-      position: sticky;
-      top: 0;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      z-index: 2;
-    }
-
-    .rel-block {
-      border-radius: 12px;
-      padding: 10px 12px;
-      border: 1px solid rgba(15, 23, 42, 0.08);
-      box-shadow: 0 6px 12px rgba(15, 23, 42, 0.08);
-      line-height: 1.5;
-      white-space: pre-line;
-      font-size: 0.9rem;
-    }
-
-    .rel-block.enf {
-      background: #fff7e6;
-      border-color: #f59e0b;
-    }
-
-    .rel-block.med {
-      background: #ffe9e3;
-      border-color: #f97316;
-    }
-
-    .rel-block.exams {
-      background: #eef2ff;
-      border-color: #6366f1;
-    }
-
-    .rel-feed {
-      list-style: none;
-      padding: 0;
-      margin: 0;
-      display: grid;
-      gap: 8px;
-    }
-
-    .rel-feed li {
-      padding: 8px 10px;
-      background: #fff;
-      border-radius: 10px;
-      border: 1px solid var(--border-subtle);
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
-    }
-
-    .rel-feed .meta {
-      display: block;
-      font-size: 0.78rem;
-      color: var(--text-muted);
-      margin-bottom: 4px;
-    }
-
-    .modal-backdrop {
-      position: fixed;
-      inset: 0;
-      background: rgba(15, 23, 42, 0.4);
-      z-index: 40;
-    }
-
-    .fixed-modal-card {
-      position: fixed;
-      z-index: 50;
-      max-width: 720px;
-      width: calc(100% - 32px);
-      left: 50%;
-      top: 50%;
-      transform: translate(-50%, -50%);
-      max-height: 80vh;
-      overflow: auto;
-    }
-
-    .card {
-      background: linear-gradient(145deg, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.75));
-      border-radius: var(--radius-lg);
-      box-shadow: var(--shadow-soft);
-      padding: 18px 20px;
-      border: 1px solid rgba(15, 23, 42, 0.04);
-      backdrop-filter: blur(6px);
-    }
-
-    .card h2 {
-      margin: 0 0 12px;
-      font-size: 1.05rem;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 8px;
-    }
-
-    .card h2 span.badge {
-      font-size: 0.72rem;
-      padding: 3px 9px;
-      border-radius: var(--radius-pill);
-      background: var(--accent-soft);
-      color: var(--accent);
-    }
-
-    .hero-card {
-      display: grid;
-      grid-template-columns: 1.3fr 1fr;
-      gap: 14px;
-      align-items: center;
-      margin-bottom: 14px;
-    }
-
-    .hero-card .hero-title {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-
-    .hero-card .hero-title h2 {
-      margin: 0;
-      font-size: 1.2rem;
-    }
-
-    .hero-card .hero-grid {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 8px 10px;
-    }
-
-    .hero-chip {
-      border-radius: 12px;
-      border: 1px dashed var(--border-subtle);
-      padding: 8px 10px;
-      background: #f8fafc;
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-    }
-
-    .hero-chip span {
-      font-size: 0.75rem;
-      color: var(--text-muted);
-    }
-
-    .hero-chip strong {
-      font-size: 0.95rem;
-      color: var(--text-main);
-    }
-
-    .hero-actions {
-      display: flex;
-      gap: 8px;
-      align-items: center;
-      margin-top: 6px;
-      flex-wrap: wrap;
-    }
-
-    .alert-banner {
-      border-radius: 14px;
-      padding: 10px 12px;
-      background: var(--warning-soft);
-      color: var(--warning);
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      font-size: 0.86rem;
-      margin-top: 8px;
-    }
-
-    .alert-banner strong {
-      font-weight: 700;
-    }
-
-    .card.full-width {
-      grid-column: 1 / -1;
-    }
-
-    .field {
+    .app-title {
       display: flex;
       flex-direction: column;
       gap: 4px;
-      margin-bottom: 10px;
     }
 
-    .field label {
-      font-size: 0.78rem;
-      font-weight: 500;
-      color: var(--text-muted);
-    }
-
-    .field input,
-    .field select,
-    .field textarea {
-      border-radius: 10px;
-      border: 1px solid var(--border-subtle);
-      padding: 8px 9px;
-      font-size: 0.85rem;
-      outline: none;
-      background: #f9fafb;
-      transition: border-color 0.15s ease, box-shadow 0.15s ease,
-        background 0.15s ease;
-    }
-
-    .field input:focus,
-    .field select:focus,
-    .field textarea:focus {
-      border-color: var(--accent);
-      box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.15);
-      background: #ffffff;
-    }
-
-    .field textarea {
-      min-height: 80px;
-      resize: vertical;
-    }
-
-    .fields-grid {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 10px 14px;
-      margin-top: 8px;
-    }
-
-    .fields-grid .field.full {
-      grid-column: 1 / -1;
-    }
-
-    .fields-grid .field.sm {
-      grid-column: span 1;
-    }
-
-    .form-row {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 10px 14px;
-    }
-
-    .form-actions {
+    .app-title h1 {
+      margin: 0;
+      font-size: 18px;
+      font-weight: 600;
       display: flex;
-      justify-content: flex-end;
-      gap: 10px;
-      margin-top: 8px;
+      align-items: center;
+      gap: 8px;
+      color: var(--text-main);
     }
 
-    button {
+    .badge {
+      font-size: 11px;
+      padding: 2px 8px;
       border-radius: 999px;
-      border: none;
-      padding: 8px 16px;
-      font-size: 0.85rem;
-      font-weight: 500;
+      background: var(--accent-soft);
+      color: var(--accent-strong);
+      border: 1px solid #bfdbfe;
+    }
+
+    .app-subtitle {
+      font-size: 12px;
+      color: var(--text-soft);
+    }
+
+    .header-actions {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .status-pill {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      color: var(--text-soft);
+      background: #f9fafb;
+      padding: 4px 8px;
+      border-radius: 999px;
+      border: 1px solid var(--border-subtle);
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background: var(--warning);
+    }
+
+    .btn {
+      border-radius: 6px;
+      border: 1px solid transparent;
+      padding: 6px 12px;
+      font-size: 13px;
       cursor: pointer;
       display: inline-flex;
       align-items: center;
       gap: 6px;
-      transition: transform 0.1s ease, box-shadow 0.1s ease,
-        background 0.1s ease, opacity 0.1s ease;
+      background: #e5e7eb;
+      color: var(--text-main);
+      transition: 0.16s ease all;
     }
 
-    button:active {
-      transform: scale(0.97);
+    .btn:hover {
+      background: #d1d5db;
     }
 
     .btn-primary {
       background: var(--accent);
       color: #ffffff;
-      box-shadow: 0 12px 20px rgba(37, 99, 235, 0.25);
+      border-color: var(--accent-strong);
     }
 
-    .btn-primary:disabled {
-      opacity: 0.6;
-      box-shadow: none;
-      cursor: default;
+    .btn-primary:hover {
+      background: var(--accent-strong);
     }
 
-    .btn-ghost {
-      background: rgba(148, 163, 184, 0.06);
-      color: var(--text-muted);
+    .btn-danger {
+      background: #fee2e2;
+      color: var(--danger);
+      border-color: #fecaca;
     }
 
-    .btn-ghost:hover {
-      background: rgba(148, 163, 184, 0.15);
+    .btn-danger:hover {
+      background: #fecaca;
+    }
+
+    .btn-link {
+      background: transparent;
+      border-color: transparent;
+      color: var(--accent-strong);
+      padding-left: 0;
+      padding-right: 0;
     }
 
     .btn-small {
-      padding: 5px 10px;
-      font-size: 0.78rem;
+      padding: 4px 10px;
+      font-size: 12px;
     }
 
-    .segment {
-      display: inline-flex;
-      padding: 3px;
-      border-radius: var(--radius-pill);
-      background: #f3f4f6;
-      border: 1px solid var(--border-subtle);
-      gap: 2px;
-    }
-
-    .segment button {
-      border-radius: var(--radius-pill);
-      padding: 5px 10px;
-      font-size: 0.76rem;
-      box-shadow: none;
-      background: transparent;
-      color: var(--text-muted);
-    }
-
-    .segment button.active {
-      background: #ffffff;
-      color: var(--accent);
-      box-shadow: 0 5px 10px rgba(15, 23, 42, 0.15);
-    }
-
-    .muted {
-      font-size: 0.8rem;
-      color: var(--text-muted);
-    }
-
-    .latest-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-      gap: 12px;
-    }
-
-    .day-card {
-      border: 1px solid var(--border-subtle);
-      border-radius: 14px;
-      padding: 12px;
+    .content {
+      padding: 16px 20px 18px;
       background: #f9fafb;
     }
 
-    .day-card h3 {
-      margin: 0 0 8px;
-      font-size: 1rem;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .occ-list {
-      list-style: none;
-      margin: 0;
-      padding: 0;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-
-    .occ-item {
-      border-radius: 12px;
-      border: 1px solid rgba(148, 163, 184, 0.4);
-      padding: 8px 10px;
-      background: #fff;
-    }
-
-    .occ-head {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 8px;
-      margin-bottom: 4px;
-    }
-
-    .occ-title {
-      margin: 0;
-      font-size: 0.92rem;
-    }
-
-    .occ-meta {
-      display: flex;
-      gap: 6px;
-      flex-wrap: wrap;
-      font-size: 0.76rem;
-      color: var(--text-muted);
-    }
-
-    .search-row {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) auto;
-      gap: 10px;
-      align-items: center;
-    }
-
-    .search-row input {
-      width: 100%;
-    }
-
-    .search-results {
-      margin-top: 10px;
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-      gap: 10px;
-    }
-
-    .search-card {
+    .section {
+      background: var(--bg-card);
+      border-radius: var(--radius-lg);
       border: 1px solid var(--border-subtle);
-      border-radius: 12px;
-      padding: 10px;
-      background: #fff;
+      padding: 14px 16px 16px;
+      margin-bottom: 12px;
     }
 
-    .search-card h4 {
-      margin: 0 0 4px;
-      font-size: 0.95rem;
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 10px;
     }
 
-    .shift-grid {
+    .section-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-main);
+    }
+
+    .section-subtitle {
+      font-size: 12px;
+      color: var(--text-soft);
+    }
+
+    .chip {
+      font-size: 11px;
+      padding: 3px 8px;
+      border-radius: 999px;
+      border: 1px solid var(--border-subtle);
+      background: #f9fafb;
+      color: var(--text-soft);
+    }
+
+    .row-space {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+    }
+
+    /* KPIs */
+    .kpi-grid {
       display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
+      grid-template-columns: repeat(4, minmax(0, 1fr));
       gap: 10px;
       margin-top: 6px;
     }
 
-    .shift-card {
-      border-radius: 14px;
-      border: 1px solid var(--border-subtle);
-      padding: 10px 11px;
-      background: #f9fafb;
-      position: relative;
-      overflow: hidden;
+    .kpi-card {
+      background: #eff6ff;
+      border-radius: var(--radius-md);
+      padding: 10px 12px;
+      border: 1px solid #dbeafe;
     }
 
-    .shift-card::before {
-      content: "";
-      position: absolute;
-      inset: 0;
-      background: radial-gradient(
-        circle at top left,
-        rgba(37, 99, 235, 0.12),
-        transparent 60%
-      );
-      opacity: 0.7;
-      pointer-events: none;
+    .kpi-label {
+      font-size: 12px;
+      color: var(--text-soft);
+      margin-bottom: 2px;
     }
 
-    .shift-card h3 {
-      margin: 0 0 6px;
-      font-size: 0.9rem;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      position: relative;
-      z-index: 1;
+    .kpi-value {
+      font-size: 20px;
+      font-weight: 600;
+      color: var(--accent-strong);
     }
 
-    .shift-card h3 span.turno-pill {
-      font-size: 0.7rem;
-      padding: 2px 8px;
-      border-radius: var(--radius-pill);
-      background: rgba(15, 23, 42, 0.7);
-      color: #e5e7eb;
+    .kpi-tag {
+      font-size: 11px;
+      color: var(--text-soft);
     }
 
-    .shift-card ul {
-      list-style: none;
-      margin: 4px 0 6px;
-      padding: 0;
-      font-size: 0.78rem;
-      position: relative;
-      z-index: 1;
-    }
-
-    .shift-card ul li {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 8px;
-      padding: 2px 0;
-    }
-
-    .shift-card ul li span {
-      color: var(--text-muted);
-    }
-
-    .shift-card ul li strong {
-      font-variant-numeric: tabular-nums;
-    }
-
-    .shift-total {
-      display: flex;
-      justify-content: space-between;
-      font-size: 0.78rem;
-      padding-top: 4px;
-      margin-top: 4px;
-      border-top: 1px dashed rgba(148, 163, 184, 0.6);
-      position: relative;
-      z-index: 1;
-    }
-
-    .shift-total strong {
-      font-variant-numeric: tabular-nums;
-      color: var(--accent);
-    }
-
-    .rel-list {
-      margin: 4px 0 0;
-      padding: 0;
-      list-style: none;
-      max-height: 190px;
-      overflow-y: auto;
-    }
-
-    .rel-list li {
-      border-radius: 10px;
-      border: 1px solid rgba(148, 163, 184, 0.35);
-      padding: 6px 8px;
-      margin-bottom: 4px;
-      background: #f9fafb;
-    }
-
-    .rel-meta {
-      font-size: 0.72rem;
-      color: var(--text-muted);
-      display: block;
-      margin-bottom: 3px;
-    }
-
-    .rel-list p {
-      margin: 0;
-      font-size: 0.8rem;
-      white-space: pre-wrap;
-    }
-
-    .toast {
-      position: fixed;
-      bottom: 18px;
-      right: 18px;
-      border-radius: 999px;
-      padding: 9px 14px;
-      background: #111827;
-      color: #f9fafb;
-      font-size: 0.8rem;
+    /* Tabs */
+    .tabs {
       display: inline-flex;
+      border-radius: 999px;
+      background: #e5e7eb;
+      padding: 3px;
+      gap: 3px;
+    }
+
+    .tab {
+      border-radius: 999px;
+      padding: 4px 10px;
+      font-size: 12px;
+      border: none;
+      background: transparent;
+      color: var(--text-soft);
+      cursor: pointer;
+    }
+
+    .tab.active {
+      background: #ffffff;
+      color: var(--accent-strong);
+      box-shadow: 0 0 0 1px #d1d5db;
+    }
+
+    /* Tabelas */
+    .table-header-row {
+      display: flex;
+      justify-content: space-between;
       align-items: center;
+      margin-bottom: 6px;
+      margin-top: 4px;
+    }
+
+    .table-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-main);
+    }
+
+    .table-subtitle {
+      font-size: 12px;
+      color: var(--text-soft);
+    }
+
+    .table-wrapper {
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border-subtle);
+      overflow: auto;
+      background: #ffffff;
+      max-height: 320px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+      min-width: 720px;
+    }
+
+    thead {
+      background: #eff6ff;
+      border-bottom: 1px solid #dbeafe;
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+
+    th, td {
+      padding: 6px 8px;
+      border-bottom: 1px solid #edf2f7;
+      text-align: left;
+      white-space: nowrap;
+    }
+
+    th {
+      font-weight: 500;
+      color: var(--text-soft);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    tbody tr:nth-child(even) {
+      background-color: #f9fafb;
+    }
+
+    tbody tr:hover td {
+      background-color: #e5f0ff;
+    }
+
+    .btn-table {
+      border-radius: 4px;
+      border: 1px solid var(--border-strong);
+      background: #ffffff;
+      color: var(--danger);
+      font-size: 11px;
+      padding: 3px 8px;
+      cursor: pointer;
+    }
+
+    .btn-table:hover {
+      background: #fee2e2;
+      border-color: #fecaca;
+    }
+
+    .subsection-title {
+      font-size: 12px;
+      color: var(--text-soft);
+      margin: 10px 0 4px;
+      font-weight: 500;
+    }
+
+    .mt-2 { margin-top: 8px; }
+    .mt-4 { margin-top: 12px; }
+
+    /* Modais */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(15,23,42,0.45);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 50;
+    }
+
+    .modal-backdrop.visible {
+      display: flex;
+    }
+
+    .modal {
+      background: #ffffff;
+      border-radius: 12px;
+      box-shadow: 0 25px 50px rgba(15,23,42,0.35);
+      border: 1px solid var(--border-subtle);
+      max-width: 520px;
+      width: 100%;
+      max-height: 90vh;
+      overflow: auto;
+      padding: 16px 18px 14px;
+    }
+
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+
+    .modal-title {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text-main);
+    }
+
+    .modal-body {
+      font-size: 13px;
+    }
+
+    .modal-footer {
+      display: flex;
+      justify-content: flex-end;
       gap: 8px;
-      box-shadow: 0 18px 35px rgba(15, 23, 42, 0.45);
-      opacity: 0;
-      transform: translateY(10px);
-      pointer-events: none;
-      transition: opacity 0.18s ease, transform 0.18s ease;
+      margin-top: 12px;
     }
 
-    .toast.show {
-      opacity: 1;
-      transform: translateY(0);
-      pointer-events: auto;
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      margin-bottom: 8px;
     }
 
-    .toast.error {
-      background: var(--danger);
+    .field label {
+      font-size: 12px;
+      color: var(--text-soft);
     }
 
-    .chip {
-      font-size: 0.7rem;
-      padding: 2px 7px;
-      border-radius: var(--radius-pill);
-      background: rgba(148, 163, 184, 0.12);
-      color: var(--text-muted);
+    .field input,
+    .field select,
+    .field textarea {
+      border-radius: 6px;
+      border: 1px solid var(--border-strong);
+      padding: 6px 8px;
+      font-size: 13px;
+      outline: none;
+      background-color: #ffffff;
+      color: var(--text-main);
     }
 
-    @media (max-width: 900px) {
-      main {
-        grid-template-columns: minmax(0, 1fr);
+    .field input:focus,
+    .field select:focus,
+    .field textarea:focus {
+      border-color: var(--accent-strong);
+      box-shadow: 0 0 0 1px var(--accent-soft);
+    }
+
+    textarea {
+      resize: vertical;
+      min-height: 60px;
+    }
+
+    @media (max-width: 960px) {
+      .kpi-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
       }
-
-      .hero-card {
-        grid-template-columns: minmax(0, 1fr);
-      }
-
-      .hero-card .hero-grid {
-        grid-template-columns: minmax(0, 1fr);
-      }
-
-      .shift-grid {
-        grid-template-columns: minmax(0, 1fr);
+      .row-space {
+        flex-direction: column;
+        align-items: flex-start;
       }
     }
 
-    @media (max-width: 600px) {
-      body {
+    @media (max-width: 720px) {
+      .kpi-grid {
+        grid-template-columns: 1fr;
+      }
+      .content {
         padding: 12px;
       }
-
       .app-header {
-        grid-template-columns: minmax(0, 1fr);
+        flex-direction: column;
         align-items: flex-start;
-      }
-
-      .app-header .header-meta {
-        align-items: flex-start;
-      }
-
-      .fields-grid {
-        grid-template-columns: minmax(0, 1fr);
-      }
-
-      .form-row {
-        grid-template-columns: minmax(0, 1fr);
+        gap: 8px;
       }
     }
   </style>
@@ -1312,2611 +472,734 @@
 <body>
   <div class="app-shell">
     <header class="app-header">
-      <div class="header-brand">
-        <div class="header-logo">
-          <img src="https://i.ibb.co/hxbRMNvV/logo-HUC.jpg" alt="Hospital Universitário logo" loading="lazy" />
-        </div>
-        <div>
-          <p class="eyebrow">Central integrada</p>
-          <h1>NIR – Ocorrências</h1>
-          <p>Registro de reservas, procedimentos e relatórios por turno em uma interface única.</p>
-        </div>
+      <div class="app-title">
+        <h1>
+          Ocorrências do Plantão – NIR
+          <span class="badge">UIB • HUWC</span>
+        </h1>
+        <span id="plantaoResumo" class="app-subtitle">
+          Nenhum plantão ativo. Clique em "Abrir Plantão" para iniciar.
+        </span>
       </div>
-      <div class="header-meta">
-        <div class="header-pill">
-          <span><span class="dot"></span> WebApp conectado à planilha</span>
+      <div class="header-actions">
+        <div class="status-pill">
+          <span id="dotStatus" class="status-dot"></span>
+          <span id="statusText">Sem plantão ativo</span>
         </div>
-        <div class="menu-actions">
-          <button class="menu-btn" id="menu-open-occurrence">➕ Nova ocorrência</button>
-          <button class="menu-btn" data-page-jump="page-relatorios" data-target="#relatorio-turno">🩺 Relatório do turno</button>
-          <button class="menu-btn" data-page-jump="page-analytics" data-target="#painel-plantao">📊 Painel de plantão</button>
-          <button class="menu-btn" data-page-jump="page-mapa" data-target="#mapa-macros">🗺️ Mapa Ceará</button>
-          <button class="menu-btn" data-page-jump="page-relatorios" data-target="#relatorio-aba">📝 Relatório de Ocorrências</button>
-        </div>
+        <button class="btn btn-link btn-small" onclick="abrirModalEquipeEdicao()">
+          👥 Equipe do Plantão
+        </button>
+        <button class="btn btn-small" onclick="salvarPlantao()">
+          💾 Salvar Equipe
+        </button>
+        <button class="btn btn-primary btn-small" onclick="abrirPlantao()">
+          ▶ Abrir Plantão
+        </button>
+        <button class="btn btn-danger btn-small" onclick="encerrarPlantao()">
+          ⏹ Encerrar
+        </button>
       </div>
     </header>
 
-    <div class="page-tabs">
-      <button class="page-tab active" id="tab-analytics" data-page="page-analytics">
-        Ocorrências NIR
-      </button>
-      <button class="page-tab" id="tab-mapa" data-page="page-mapa">
-        Mapa Ceará
-      </button>
-      <button class="page-tab" id="tab-relatorios" data-page="page-relatorios">
-        Relatório de Ocorrências
-      </button>
-    </div>
-
-    <div id="page-analytics" class="page active">
-      <section class="card" id="painel-plantao">
-        <div class="hero-card">
-          <div class="hero-title">
-            <h2>Plantão atual</h2>
-            <p class="muted" id="shift-subtitle">Carregando informações do plantão...</p>
-            <div class="hero-actions">
-              <button class="btn-primary" id="btn-open-occurrence">Nova ocorrência</button>
-              <button class="btn-ghost" id="btn-open-shift">Abrir / Atualizar plantão</button>
-              <button class="btn-ghost" id="btn-refresh-shift">Recarregar dados</button>
-            </div>
-            <div id="shift-alert" class="alert-banner" style="display: none;"></div>
-          </div>
-          <div class="hero-grid" id="shift-grid">
-            <div class="hero-chip">
-              <span>Médico(a)</span>
-              <strong id="shift-medico">—</strong>
-            </div>
-            <div class="hero-chip">
-              <span>Enfermeiro(a)</span>
-              <strong id="shift-enfermeiro">—</strong>
-            </div>
-            <div class="hero-chip">
-              <span>Enfermeiro(a) Sombra</span>
-              <strong id="shift-sombra">—</strong>
-            </div>
-            <div class="hero-chip">
-              <span>Auxiliar Administrativo</span>
-              <strong id="shift-aux">—</strong>
-            </div>
-            <div class="hero-chip">
-              <span>Data do Plantão</span>
-              <strong id="shift-data">—</strong>
-            </div>
-            <div class="hero-chip">
-              <span>Dia da Semana</span>
-              <strong id="shift-dia">—</strong>
-            </div>
-            <div class="hero-chip">
-              <span>Turno</span>
-              <strong id="shift-turno">—</strong>
-            </div>
-            <div class="hero-chip">
-              <span>Última atualização</span>
-              <strong id="shift-updated">—</strong>
-            </div>
-          </div>
-        </div>
-      </section>
-      <section class="card full-width sheet-board status-board" id="status-board">
-        <div class="sheet-header">
+    <div class="content">
+      <!-- KPIs -->
+      <section class="section">
+        <div class="section-header">
           <div>
-            <p class="muted" style="margin: 0; font-weight: 600; letter-spacing: 0.01em;">
-              Ocorrências em andamento
-            </p>
-            <h2 class="board-title" style="margin-top: 4px;">
-              Atualize o status direto pelo sistema
-            </h2>
-            <p class="muted" style="margin: 6px 0 0;">
-              Registros do dia e turno filtrados ficam visíveis aqui até receberem um novo status.
-            </p>
+            <div class="section-title">Indicadores do Plantão</div>
+            <div class="section-subtitle">Resumo das reservas, negativas e admissões</div>
           </div>
-          <div class="sheet-actions">
-            <div class="sheet-category" id="status-category-group"></div>
-            <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
-              <button class="btn-ghost" id="btn-status-refresh">Atualizar lista</button>
-              <button class="btn-primary" id="btn-status-apply-shift">Aplicar Plantão Atual</button>
-            </div>
+          <div class="chip">
+            Plantão atual
           </div>
         </div>
-
-        <div class="sheet-controls">
-          <div class="field">
-            <label for="status-day">Dia (data)</label>
-            <input type="date" id="status-day" />
+        <div class="kpi-grid">
+          <div class="kpi-card">
+            <div class="kpi-label">Pacientes Alocados</div>
+            <div class="kpi-value" id="kpi-alocados">0</div>
+            <div class="kpi-tag">Confirmadas + Vascular</div>
           </div>
-          <div class="field">
-            <label for="status-turno">Turno</label>
-            <select id="status-turno">
-              <option value="">Todos</option>
-              <option value="MT">MT</option>
-              <option value="SN">SN</option>
-            </select>
+          <div class="kpi-card">
+            <div class="kpi-label">Reservas Confirmadas</div>
+            <div class="kpi-value" id="kpi-confirmadas">0</div>
+            <div class="kpi-tag">Ativas</div>
           </div>
-        </div>
-
-        <div class="status-list" id="status-list">
-          <p class="muted">Carregando ocorrências com status aberto...</p>
+          <div class="kpi-card">
+            <div class="kpi-label">Reservas Canceladas</div>
+            <div class="kpi-value" id="kpi-canceladas">0</div>
+            <div class="kpi-tag">Negadas</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Admitidos na UIB</div>
+            <div class="kpi-value" id="kpi-admitidos">0</div>
+            <div class="kpi-tag">Plantão anterior</div>
+          </div>
         </div>
       </section>
-      <section class="card full-width sheet-board" id="aba-dia">
-        <div class="sheet-header">
+
+      <!-- Pacientes / Reservas -->
+      <section class="section">
+        <div class="row-space">
           <div>
-            <p class="muted" style="margin: 0; font-weight: 600; letter-spacing: 0.01em;">
-              Aba diária (Dia + Turno)
-            </p>
-            <h2 id="sheet-title" class="board-title" style="margin-top: 4px;">
-              Filtre o dia e o turno para ver a coluna da planilha
-            </h2>
-            <p class="muted" id="sheet-subtitle" style="margin: 6px 0 0;">
-              Escolha a categoria e o turno para montar a mesma visão da sua aba original.
-            </p>
-          </div>
-          <div class="sheet-actions">
-            <div class="sheet-category" id="sheet-category-group"></div>
-            <div style="display: flex; gap: 8px;">
-              <button class="btn-ghost" id="btn-sheet-refresh">Atualizar</button>
-              <button class="btn-primary" id="btn-sheet-today">Aplicar Plantão Atual</button>
+            <div class="section-title">Pacientes e Reservas</div>
+            <div class="section-subtitle" id="tituloPrincipal">
+              PACIENTES COM RESERVA CONFIRMADA
             </div>
           </div>
-        </div>
-
-        <div class="sheet-controls">
-          <div class="field">
-            <label for="sheet-day">Dia (data)</label>
-            <input type="date" id="sheet-day" />
-          </div>
-          <div class="field">
-            <label for="sheet-turno">Turno</label>
-            <select id="sheet-turno">
-              <option value="">Todos</option>
-              <option value="MT">MT</option>
-              <option value="SN">SN</option>
-            </select>
+          <div class="tabs">
+            <button class="tab active" data-view="confirmadas" onclick="mudarView(this)">Confirmadas</button>
+            <button class="tab" data-view="vascular" onclick="mudarView(this)">Proced. Vascular</button>
+            <button class="tab" data-view="negadas" onclick="mudarView(this)">Reservas Negadas</button>
+            <button class="tab" data-view="anterior" onclick="mudarView(this)">Plantão Anterior</button>
           </div>
         </div>
 
-        <div class="sheet-summary" id="sheet-summary">
-          <div class="metric-card">
-            <small>Total encontrado</small>
-            <strong id="sheet-total">0</strong>
+        <div class="table-header-row">
+          <div>
+            <div class="table-title" id="tableTitlePrincipal">Reservas Confirmadas</div>
+            <div class="table-subtitle" id="tableSubtitlePrincipal">Pacientes com reserva confirmada para UIB</div>
           </div>
-          <div class="metric-card">
-            <small>Categoria atual</small>
-            <strong id="sheet-category-label">—</strong>
-          </div>
-          <div class="metric-card">
-            <small>Turno escolhido</small>
-            <strong id="sheet-turno-label">—</strong>
-          </div>
-        </div>
-
-        <div class="table-wrapper">
-          <table>
-            <thead id="sheet-table-head">
-              <tr>
-                <th>Categoria</th>
-                <th>Paciente</th>
-                <th>Especialidade</th>
-                <th>Origem</th>
-                <th>Status</th>
-                <th>Turno</th>
-                <th>Data/Hora</th>
-                <th>Observação</th>
-              </tr>
-            </thead>
-            <tbody id="sheet-table-body">
-              <tr>
-                <td colspan="8" class="muted">Selecione dia e turno para carregar.</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      <section class="card" id="dashboard-turnos">
-          <h2>
-            Últimos turnos
-            <span class="badge">Resumo das 4 categorias</span>
-          </h2>
-          <p class="muted" style="margin-top: 0; margin-bottom: 6px;">
-            Mostra o turno atual, anterior e o anterior ao anterior (quando
-            existirem registros nas abas do histórico).
-          </p>
-        <div id="dashboard-shifts" class="shift-grid">
-          <p class="muted">Carregando dados do painel...</p>
-        </div>
-      </section>
-    </div>
-
-  <div id="page-mapa" class="page">
-    <section class="card full-width" id="mapa-macros">
-      <div class="sheet-header">
-        <div>
-          <p class="muted" style="margin: 0; font-weight: 600; letter-spacing: 0.01em;">
-            Macrorregiões de Saúde do Ceará
-          </p>
-          <h2 class="board-title" style="margin-top: 4px;">Mapa interativo (Base de Dados 1)</h2>
-          <p class="muted" style="margin: 6px 0 0;">
-            Mostra a distribuição das linhas pela coluna T (Macrorregião). Clique ou filtre para destacar
-            uma macrorregião específica.
-          </p>
-        </div>
-        <div class="macro-filter">
-          <label for="macro-filter-select">Filtrar macrorregião</label>
-          <select id="macro-filter-select">
-            <option value="">Todas</option>
-            <option value="Cariri">Cariri</option>
-            <option value="Fortaleza">Fortaleza</option>
-            <option value="Norte">Norte</option>
-            <option value="Litoral Leste / Jaguaribe">Litoral Leste / Jaguaribe</option>
-            <option value="Sertão Central">Sertão Central</option>
-            <option value="Outros">Outros</option>
-            <option value="Sem macrorregião">Sem macrorregião</option>
-          </select>
-        </div>
-      </div>
-
-      <div class="macro-layout">
-        <div>
-          <div id="macro-map" class="map-frame"></div>
-          <div id="macro-legend" class="macro-legend"></div>
-        </div>
-        <div class="macro-side">
-          <div class="metric-card">
-            <small>Total de registros com macrorregião</small>
-            <strong id="macro-total">0</strong>
-          </div>
-          <div class="metric-card">
-            <small>Fonte dos dados</small>
-            <strong>Base de Dados 1 • Coluna T</strong>
-          </div>
-          <div class="macro-summary" id="macro-summary">
-            <div class="macro-row">
-              <span class="muted">Carregando distribuição...</span>
-              <strong>—</strong>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-  </div>
-
-  <div id="page-relatorios" class="page">
-    <section class="card full-width rel-hero" id="relatorio-aba">
-      <div>
-        <p class="muted" style="margin: 0; font-weight: 600; letter-spacing: 0.01em;">
-          Relatório de Ocorrências (linhas fixas)
-        </p>
-        <h2 style="margin: 6px 0 8px;">Cabeçalho fixo de enfermagem e médico</h2>
-        <p class="muted" style="margin: 0; max-width: 720px;">
-          As duas primeiras linhas ficam fixas e são persistentes na planilha. Edite o texto fixo ou acrescente novas linhas quando precisar, sem perder o padrão das observações.
-        </p>
-      </div>
-      <div class="rel-actions">
-        <button class="btn-ghost" id="btn-reload-fixed">Recarregar blocos</button>
-        <button class="btn-primary" id="btn-edit-fixed">Configurar linhas fixas</button>
-      </div>
-    </section>
-
-    <section class="card" id="relatorio-turno">
-      <h2>
-        Relatório do turno
-        <span class="badge">Enfermagem / Médico</span>
-      </h2>
-
-      <div class="form-row">
-        <div class="field">
-          <label for="rel-dia">Dia</label>
-          <input type="text" id="rel-dia" placeholder="Ex.: 21/10/2025 ou texto" />
-        </div>
-        <div class="field">
-          <label for="rel-turno">Turno</label>
-          <input type="text" id="rel-turno" placeholder="Ex.: MATUTINO / NOTURNO" />
-        </div>
-      </div>
-
-      <div class="field">
-        <label>Tipo de relatório</label>
-        <div class="segment" id="rel-tipo-segment">
-          <button type="button" class="segmented-btn active" data-tipo="ENF">
-            Enfermagem
-          </button>
-          <button type="button" class="segmented-btn" data-tipo="MED">
-            Médico
+          <button class="btn btn-primary btn-small" onclick="abrirModalRegistroPrincipal()">
+            + Adicionar Registro
           </button>
         </div>
-      </div>
 
-      <div class="field">
-        <label for="rel-texto">Relatório de Ocorrências</label>
-        <textarea id="rel-texto" placeholder="Descreva as ocorrências relevantes deste turno..."></textarea>
-      </div>
-
-      <div class="form-actions">
-        <button type="button" id="btn-rel-save" class="btn-primary btn-small">
-          Salvar relatório
-        </button>
-      </div>
-
-      <div class="field" style="margin-top: 4px;">
-        <label>Relatórios recentes</label>
-        <div id="rel-recentes" class="muted">Carregando...</div>
-      </div>
-    </section>
-
-    <div class="rel-grid">
-      <section class="rel-card">
-        <header class="rel-card-header">
-          <div>
-            <p class="eyebrow" style="margin-bottom: 6px;">Enfermagem</p>
-            <h3 style="margin: 0;">Relato de Ocorrências de Enfermagem</h3>
-          </div>
-          <span class="badge">Linhas fixas</span>
-        </header>
-        <div class="rel-body">
-          <div class="rel-pinned">
-            <div class="rel-block enf" id="fixed-enfermagem"></div>
-            <div class="rel-block exams" id="fixed-exames-enf"></div>
-          </div>
-          <p class="muted" style="margin: 4px 0;">Registros do turno continuam armazenados nas abas REL ENF/REL MED. Aqui você fixa as linhas de cabeçalho.</p>
-          <ul class="rel-feed" id="rel-feed-enf"></ul>
+        <div class="table-wrapper" id="tabelaPrincipalWrapper">
+          <!-- tabela principal via JS -->
         </div>
-      </section>
 
-      <section class="rel-card">
-        <header class="rel-card-header">
-          <div>
-            <p class="eyebrow" style="margin-bottom: 6px;">Médica</p>
-            <h3 style="margin: 0;">Relato de Ocorrências Médica</h3>
+        <!-- BLOQUEIOS -->
+        <div class="mt-4">
+          <div class="table-header-row">
+            <div>
+              <div class="subsection-title">Bloqueados para Manutenção</div>
+            </div>
+            <button class="btn btn-small" onclick="abrirModalRegistro('BLOQUEADOS_MANUTENCAO')">
+              + Adicionar Manutenção
+            </button>
           </div>
-          <span class="badge">Linhas fixas</span>
-        </header>
-        <div class="rel-body">
-          <div class="rel-pinned">
-            <div class="rel-block med" id="fixed-medica"></div>
-            <div class="rel-block exams" id="fixed-exames"></div>
+          <div class="table-wrapper" id="tabelaManutencaoWrapper" style="max-height: 220px;">
+            <!-- tabela -->
           </div>
-          <p class="muted" style="margin: 4px 0;">Visualize rapidamente as notas fixas e as últimas entradas médicas.</p>
-          <ul class="rel-feed" id="rel-feed-med"></ul>
+        </div>
+
+        <div class="mt-4">
+          <div class="table-header-row">
+            <div>
+              <div class="subsection-title">Bloqueados por Isolamento</div>
+            </div>
+            <button class="btn btn-small" onclick="abrirModalRegistro('BLOQUEADOS_ISOLAMENTO')">
+              + Adicionar Isolamento
+            </button>
+          </div>
+          <div class="table-wrapper" id="tabelaIsolamentoWrapper" style="max-height: 220px;">
+            <!-- tabela -->
+          </div>
         </div>
       </section>
     </div>
-
-    <section class="card full-width" style="margin-top: 6px;">
-      <h3 style="margin-top: 0;">Como usar</h3>
-      <ul class="board-list" style="gap: 4px;">
-        <li>Abra “Configurar linhas fixas” para editar as duas primeiras linhas (enfermagem, médica e exames).</li>
-        <li>O texto é salvo na aba <strong>OBS FIXAS</strong> da planilha, compartilhado com toda a equipe.</li>
-        <li>As listas abaixo mostram as últimas entradas gravadas nas abas REL ENF e REL MED.</li>
-      </ul>
-    </section>
   </div>
 
-  <div id="nova-ocorrencia-modal" style="display: none;">
-    <div class="modal-backdrop" id="nova-ocorrencia-backdrop"></div>
-    <div class="card fixed-modal-card">
-      <div class="sheet-header" style="margin-bottom: 12px;">
-        <div>
-          <p class="muted" style="margin: 0; font-weight: 600; letter-spacing: 0.01em;">Registro rápido</p>
-          <h2 style="margin: 2px 0 0;">Nova ocorrência</h2>
-        </div>
-        <button class="btn-ghost" id="btn-close-occurrence">Fechar</button>
+  <!-- MODAL EQUIPE -->
+  <div id="modalEquipeBackdrop" class="modal-backdrop">
+    <div class="modal">
+      <div class="modal-header">
+        <div class="modal-title">Equipe do Plantão</div>
+        <button class="btn btn-link btn-small" onclick="fecharModalEquipe()">Fechar</button>
       </div>
-
-      <div class="field">
-        <label for="category">Tipo de ocorrência</label>
-        <select id="category">
-          <option value="RESERVA CONFIRMADA">RESERVA CONFIRMADA</option>
-          <option value="PROCEDIMENTO CONFIRMADO">PROCEDIMENTO CONFIRMADO</option>
-          <option value="RESERVA NEGADA">RESERVA NEGADA</option>
-          <option value="PLANTÃO ANTERIOR">PLANTÃO ANTERIOR</option>
-        </select>
-      </div>
-
-      <div id="dynamic-fields" class="fields-grid"></div>
-
-      <div class="form-actions" style="margin-top: 10px;">
-        <button type="button" id="btn-clear" class="btn-ghost btn-small">
-          Limpar
-        </button>
-        <button type="button" id="btn-save" class="btn-primary">
-          Salvar ocorrência
-        </button>
-      </div>
-    </div>
-  </div>
-
-  <datalist id="status-suggestions">
-    <option value="Em andamento"></option>
-    <option value="Em espera"></option>
-    <option value="Concluído"></option>
-    <option value="Cancelado"></option>
-  </datalist>
-
-  <div id="shift-modal" style="display: none;">
-    <div id="shift-modal-backdrop" style="position: fixed; inset: 0; background: rgba(15, 23, 42, 0.4); z-index: 40;"></div>
-    <div id="shift-modal-card" class="card" style="position: fixed; z-index: 50; max-width: 520px; width: calc(100% - 32px); left: 50%; top: 50%; transform: translate(-50%, -50%);">
-      <h2 style="margin-top: 0;">Abrir/Atualizar plantão</h2>
-      <div class="fields-grid">
+      <div class="modal-body">
         <div class="field">
-          <label for="shift-data-input">Data do plantão</label>
-          <input type="date" id="shift-data-input" />
+          <label>ID do Plantão</label>
+          <input id="me-id" type="text" readonly placeholder="Será gerado ao abrir plantão">
         </div>
+
         <div class="field">
-          <label for="shift-dia-input">Dia da semana</label>
-          <input type="text" id="shift-dia-input" placeholder="Ex.: Segunda-feira" />
+          <label>Data do Plantão</label>
+          <input id="me-data" type="date">
         </div>
+
         <div class="field">
-          <label for="shift-turno-input">Turno</label>
-          <select id="shift-turno-input">
-            <option value="">Selecione</option>
-            <option value="MT">MT</option>
-            <option value="SN">SN</option>
+          <label>Dia da Semana</label>
+          <input id="me-dia" type="text" placeholder="Ex: Segunda">
+        </div>
+
+        <div class="field">
+          <label>Turno</label>
+          <select id="me-turno">
+            <option value="">Selecione...</option>
+            <option>Manhã</option>
+            <option>Tarde</option>
+            <option>Noite</option>
           </select>
         </div>
+
         <div class="field">
-          <label for="shift-medico-input">Médico(a)</label>
-          <input type="text" id="shift-medico-input" />
+          <label>Médico(a) 1</label>
+          <input id="me-med1" type="text">
         </div>
         <div class="field">
-          <label for="shift-enfermeiro-input">Enfermeiro(a)</label>
-          <input type="text" id="shift-enfermeiro-input" />
+          <label>Médico(a) 2</label>
+          <input id="me-med2" type="text">
+        </div>
+
+        <div class="field">
+          <label>Enfermeiro(a) 1</label>
+          <input id="me-enf1" type="text">
         </div>
         <div class="field">
-          <label for="shift-sombra-input">Enfermeiro(a) Sombra</label>
-          <input type="text" id="shift-sombra-input" placeholder="Não se aplica" />
+          <label>Enfermeiro(a) 2</label>
+          <input id="me-enf2" type="text">
         </div>
-        <div class="field full">
-          <label for="shift-aux-input">Auxiliar Administrativo</label>
-          <input type="text" id="shift-aux-input" />
+
+        <div class="field">
+          <label>Auxiliar Administrativo</label>
+          <input id="me-aux" type="text">
+        </div>
+
+        <div class="field">
+          <label>Abertura</label>
+          <input id="me-abertura" type="text" readonly>
+        </div>
+
+        <div class="field">
+          <label>Encerramento</label>
+          <input id="me-encerramento" type="text" readonly>
         </div>
       </div>
-      <div class="form-actions" style="margin-top: 14px;">
-        <button type="button" class="btn-ghost" id="btn-cancel-shift">Cancelar</button>
-        <button type="button" class="btn-primary" id="btn-save-shift">Salvar plantão</button>
+      <div class="modal-footer">
+        <button class="btn btn-small" onclick="fecharModalEquipe()">Cancelar</button>
+        <button class="btn btn-primary btn-small" onclick="salvarEquipeModal()">
+          Salvar
+        </button>
       </div>
     </div>
   </div>
 
-  <div id="fixed-modal" style="display: none;">
-    <div class="modal-backdrop" id="fixed-modal-backdrop"></div>
-    <div class="card fixed-modal-card">
-      <h2 style="margin-top: 0;">Configurar linhas fixas</h2>
-      <p class="muted" style="margin-top: 2px;">Edite os blocos de Enfermagem, Médica e Exames. O texto é salvo de forma compartilhada na planilha.</p>
-      <div class="fields-grid">
-        <div class="field full">
-          <label for="fixed-enf-input">Enfermagem</label>
-          <textarea id="fixed-enf-input" rows="6"></textarea>
-        </div>
-        <div class="field full">
-          <label for="fixed-med-input">Médica</label>
-          <textarea id="fixed-med-input" rows="6"></textarea>
-        </div>
-        <div class="field full">
-          <label for="fixed-exames-input">Exames</label>
-          <textarea id="fixed-exames-input" rows="6"></textarea>
-        </div>
+  <!-- MODAL REGISTRO -->
+  <div id="modalRegistroBackdrop" class="modal-backdrop">
+    <div class="modal">
+      <div class="modal-header">
+        <div class="modal-title" id="modalRegistroTitulo">Novo Registro</div>
+        <button class="btn btn-link btn-small" onclick="fecharModalRegistro()">Fechar</button>
       </div>
-      <div class="form-actions" style="margin-top: 14px;">
-        <button type="button" class="btn-ghost" id="btn-cancel-fixed">Cancelar</button>
-        <button type="button" class="btn-primary" id="btn-save-fixed">Salvar linhas fixas</button>
+      <div class="modal-body" id="modalRegistroBody">
+        <!-- campos via JS -->
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-small" onclick="fecharModalRegistro()">Cancelar</button>
+        <button class="btn btn-primary btn-small" onclick="salvarRegistroModal()">
+          Salvar
+        </button>
       </div>
     </div>
   </div>
 
-  <div id="toast" class="toast"></div>
-
-  <script
-    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-    integrity="sha256-o9N1j7kP2K6Jk3vfavY1Z3nFGCG2N70b+AAU9MXHQ94="
-    crossorigin=""
-  ></script>
   <script>
-    (function () {
-      "use strict";
+    let estadoAtual = {
+      view: "confirmadas",
+      principalModulo: "RESERVA_CONFIRMADA",
+      moduloRegistroAtual: null,
+      plantaoAtivo: false
+    };
 
-      // Config de campos por categoria (deve bater com o mapeamento do Code.gs)
-      const CATEGORY_CONFIG = {
-        "RESERVA CONFIRMADA": [
-          { key: "tipo", label: "Tipo", required: true, width: "sm" },
-          { key: "fastmedic", label: "Fastmedic", width: "sm" },
-          {
-            key: "nomePaciente",
-            label: "Nome do Paciente",
-            required: true,
-            width: "full",
-          },
-          {
-            key: "leitoReservado",
-            label: "Leito Reservado",
-            width: "sm",
-          },
-          {
-            key: "especialidade",
-            label: "Especialidade",
-            required: true,
-            width: "sm",
-          },
-          { key: "origem", label: "Origem", required: true, width: "sm" },
-          {
-            key: "status",
-            label: "Status",
-            required: true,
-            width: "sm",
-            type: "select",
-            options: STATUS_OPTIONS,
-            defaultValue: STATUS_OPTIONS[0],
-          },
-          {
-            key: "dataReserva",
-            label: "Data da Reserva",
-            type: "date",
-            required: true,
-            width: "sm",
-          },
-          {
-            key: "horaReserva",
-            label: "Hora da Reserva",
-            type: "time",
-            required: true,
-            width: "sm",
-          },
-          {
-            key: "dataConfirmacao",
-            label: "Data da Confirmação",
-            type: "date",
-            width: "sm",
-          },
-          {
-            key: "horaConfirmacao",
-            label: "Hora da Confirmação",
-            type: "time",
-            width: "sm",
-          },
-          {
-            key: "tempoEntre",
-            label: "Tempo entre Alocação e Aceite",
-            width: "sm",
-          },
-          {
-            key: "chegou",
-            label: 'Chegou (ex.: "Sim" / "Não")',
-            width: "sm",
-          },
-          {
-            key: "observacao",
-            label: "Observação",
-            type: "textarea",
-            width: "full",
-          },
-          {
-            key: "dia",
-            label: "Dia",
-            required: true,
-            width: "sm",
-          },
-          {
-            key: "turno",
-            label: "Turno",
-            required: true,
-            width: "sm",
-          },
-        ],
-        "PROCEDIMENTO CONFIRMADO": [
-          { key: "tipo", label: "Tipo", required: true, width: "sm" },
-          { key: "fastmedic", label: "Fastmedic", width: "sm" },
-          {
-            key: "nomePaciente",
-            label: "Nome do Paciente",
-            required: true,
-            width: "full",
-          },
-          {
-            key: "leitoReservado",
-            label: "Leito Reservado",
-            width: "sm",
-          },
-          {
-            key: "especialidade",
-            label: "Especialidade",
-            required: true,
-            width: "sm",
-          },
-          { key: "origem", label: "Origem", required: true, width: "sm" },
-          {
-            key: "status",
-            label: "Status",
-            required: true,
-            width: "sm",
-            type: "select",
-            options: STATUS_OPTIONS,
-            defaultValue: STATUS_OPTIONS[0],
-          },
-          {
-            key: "dataReserva",
-            label: "Data da Reserva",
-            type: "date",
-            required: true,
-            width: "sm",
-          },
-          {
-            key: "horaReserva",
-            label: "Hora da Reserva",
-            type: "time",
-            required: true,
-            width: "sm",
-          },
-          {
-            key: "dataConfirmacao",
-            label: "Data da Confirmação",
-            type: "date",
-            width: "sm",
-          },
-          {
-            key: "horaConfirmacao",
-            label: "Hora da Confirmação",
-            type: "time",
-            width: "sm",
-          },
-          {
-            key: "tempoEntre",
-            label: "Tempo entre Alocação e Aceite",
-            width: "sm",
-          },
-          {
-            key: "observacao",
-            label: "Observação",
-            type: "textarea",
-            width: "full",
-          },
-          {
-            key: "dia",
-            label: "Dia",
-            required: true,
-            width: "sm",
-          },
-          {
-            key: "turno",
-            label: "Turno",
-            required: true,
-            width: "sm",
-          },
-        ],
-        "RESERVA NEGADA": [
-          { key: "tipo", label: "Tipo", required: true, width: "sm" },
-          { key: "fastmedic", label: "Fastmedic", width: "sm" },
-          {
-            key: "nomePaciente",
-            label: "Nome do Paciente",
-            required: true,
-            width: "full",
-          },
-          { key: "origem", label: "Origem", required: true, width: "sm" },
-          {
-            key: "especialidade",
-            label: "Especialidade",
-            required: true,
-            width: "sm",
-          },
-          {
-            key: "justificativa",
-            label: "Justificativa",
-            type: "textarea",
-            width: "full",
-          },
-          {
-            key: "dataReserva",
-            label: "Data da Reserva",
-            type: "date",
-            required: true,
-            width: "sm",
-          },
-          {
-            key: "horaReserva",
-            label: "Hora da Reserva",
-            type: "time",
-            required: true,
-            width: "sm",
-          },
-          {
-            key: "dataCancelamento",
-            label: "Data do Cancelamento",
-            type: "date",
-            width: "sm",
-          },
-          {
-            key: "horaCancelamento",
-            label: "Hora do Cancelamento",
-            type: "time",
-            width: "sm",
-          },
-          {
-            key: "tempoEntre",
-            label: "Tempo entre Alocação e Cancelamento",
-            width: "sm",
-          },
-          {
-            key: "justificativaComplementar",
-            label: "Justificativa Complementar",
-            type: "textarea",
-            width: "full",
-          },
-          {
-            key: "dia",
-            label: "Dia",
-            required: true,
-            width: "sm",
-          },
-          {
-            key: "turno",
-            label: "Turno",
-            required: true,
-            width: "sm",
-          },
-        ],
-        "PLANTÃO ANTERIOR": [
-          { key: "tipo", label: "Tipo", required: true, width: "sm" },
-          { key: "fastmedic", label: "Fastmedic", width: "sm" },
-          {
-            key: "nomePaciente",
-            label: "Nome do Paciente",
-            required: true,
-            width: "full",
-          },
-          {
-            key: "leitoReservado",
-            label: "Leito Reservado",
-            width: "sm",
-          },
-          {
-            key: "especialidade",
-            label: "Especialidade",
-            required: true,
-            width: "sm",
-          },
-          { key: "origem", label: "Origem", required: true, width: "sm" },
-          {
-            key: "status",
-            label: "Status",
-            required: true,
-            width: "sm",
-            type: "select",
-            options: STATUS_OPTIONS,
-            defaultValue: STATUS_OPTIONS[0],
-          },
-          {
-            key: "dataReserva",
-            label: "Data da Reserva",
-            type: "date",
-            required: true,
-            width: "sm",
-          },
-          {
-            key: "horaReserva",
-            label: "Hora da Reserva",
-            type: "time",
-            required: true,
-            width: "sm",
-          },
-          {
-            key: "dataAdmissao",
-            label: "Data de Admissão",
-            type: "date",
-            width: "sm",
-          },
-          {
-            key: "horaAdmissao",
-            label: "Hora da Admissão",
-            type: "time",
-            width: "sm",
-          },
-          {
-            key: "tempoDecorrido",
-            label: "Tempo Decorrido",
-            width: "sm",
-          },
-          {
-            key: "chegou",
-            label: 'Chegou (ex.: "Sim" / "Não")',
-            width: "sm",
-          },
-          {
-            key: "observacao",
-            label: "Observação",
-            type: "textarea",
-            width: "full",
-          },
-          {
-            key: "dia",
-            label: "Dia",
-            required: true,
-            width: "sm",
-          },
-          {
-            key: "turno",
-            label: "Turno",
-            required: true,
-            width: "sm",
-          },
-        ],
-      };
+    const viewToModulo = {
+      confirmadas: "RESERVA_CONFIRMADA",
+      vascular: "PROCEDIMENTO_VASCULAR",
+      negadas: "RESERVA_NEGADA",
+      anterior: "PLANTAO_ANTERIOR"
+    };
 
-      let currentRelTipo = "ENF";
-      let isSaving = false;
-      let isStatusSaving = false;
-      let currentStatusCategory = "TODOS";
-      let fixedNotes = { enfermagem: "", medica: "", exames: "" };
-      const STATUS_OPTIONS = [
-        "Em andamento",
-        "Em espera",
-        "Concluído",
-        "Cancelado",
-      ];
-      const STATUS_SUGGESTIONS = STATUS_OPTIONS;
-      const weekdayLabels = [
-        "Domingo",
-        "Segunda-feira",
-        "Terça-feira",
-        "Quarta-feira",
-        "Quinta-feira",
-        "Sexta-feira",
-        "Sábado",
-      ];
+    const moduleConfig = {
+      "RESERVA_CONFIRMADA": {
+        titulo: "Nova Reserva Confirmada",
+        campos: [
+          { name: "tipo", label: "Tipo", type: "text" },
+          { name: "fastmedic", label: "Fastmedic", type: "text" },
+          { name: "nome", label: "Nome do Paciente", type: "text" },
+          { name: "leito", label: "Leito Reservado", type: "text" },
+          { name: "especialidade", label: "Especialidade", type: "text" },
+          { name: "origem", label: "Origem", type: "text" },
+          { name: "status", label: "Status", type: "text" },
+          { name: "dataReserva", label: "Data da Reserva", type: "date" },
+          { name: "horaReserva", label: "Hora da Reserva", type: "time" },
+          { name: "dataConfirmacao", label: "Data da Confirmação", type: "date" },
+          { name: "horaConfirmacao", label: "Hora da Confirmação", type: "time" },
+          { name: "chegou", label: "Chegou (SIM/NÃO)", type: "text" },
+          { name: "observacao", label: "Observação", type: "textarea" }
+        ]
+      },
+      "PROCEDIMENTO_VASCULAR": {
+        titulo: "Novo Procedimento Vascular",
+        campos: [
+          { name: "tipo", label: "Tipo", type: "text" },
+          { name: "fastmedic", label: "Fastmedic", type: "text" },
+          { name: "nome", label: "Nome do Paciente", type: "text" },
+          { name: "leito", label: "Leito Reservado", type: "text" },
+          { name: "especialidade", label: "Especialidade", type: "text" },
+          { name: "origem", label: "Origem", type: "text" },
+          { name: "status", label: "Status", type: "text" },
+          { name: "dataReserva", label: "Data da Reserva", type: "date" },
+          { name: "horaReserva", label: "Hora da Reserva", type: "time" },
+          { name: "dataConfirmacao", label: "Data da Confirmação", type: "date" },
+          { name: "horaConfirmacao", label: "Hora da Confirmação", type: "time" },
+          { name: "chegou", label: "Chegou (SIM/NÃO)", type: "text" },
+          { name: "observacao", label: "Observação", type: "textarea" }
+        ]
+      },
+      "RESERVA_NEGADA": {
+        titulo: "Nova Reserva Negada",
+        campos: [
+          { name: "tipo", label: "Tipo", type: "text" },
+          { name: "fastmedic", label: "Fastmedic", type: "text" },
+          { name: "nome", label: "Nome do Paciente", type: "text" },
+          { name: "origem", label: "Origem", type: "text" },
+          { name: "especialidade", label: "Especialidade", type: "text" },
+          { name: "justificativa", label: "Justificativa", type: "textarea" },
+          { name: "dataReserva", label: "Data da Reserva", type: "date" },
+          { name: "horaReserva", label: "Hora da Reserva", type: "time" },
+          { name: "dataCancelamento", label: "Data do Cancelamento", type: "date" },
+          { name: "horaCancelamento", label: "Hora do Cancelamento", type: "time" }
+        ]
+      },
+      "PLANTAO_ANTERIOR": {
+        titulo: "Adicionar Paciente do Plantão Anterior",
+        campos: [
+          { name: "tipo", label: "Tipo", type: "text" },
+          { name: "fastmedic", label: "Fastmedic", type: "text" },
+          { name: "nome", label: "Nome do Paciente", type: "text" },
+          { name: "leito", label: "Leito Reservado", type: "text" },
+          { name: "especialidade", label: "Especialidade", type: "text" },
+          { name: "origem", label: "Origem", type: "text" },
+          { name: "status", label: "Status", type: "text" },
+          { name: "dataReserva", label: "Data da Reserva", type: "date" },
+          { name: "horaReserva", label: "Hora da Reserva", type: "time" },
+          { name: "dataAdmissao", label: "Data de Admissão", type: "date" },
+          { name: "horaAdmissao", label: "Hora de Admissão", type: "time" },
+          { name: "chegou", label: "Chegou (SIM/NÃO)", type: "text" },
+          { name: "observacao", label: "Observação", type: "textarea" }
+        ]
+      },
+      "BLOQUEADOS_MANUTENCAO": {
+        titulo: "Novo Leito Bloqueado para Manutenção",
+        campos: [
+          { name: "leito", label: "Leito", type: "text" },
+          { name: "unidade", label: "Unidade", type: "text" },
+          { name: "manutencaoAcionada", label: "Manutenção Acionada", type: "text" },
+          { name: "dataInicio", label: "Data de Início", type: "date" },
+          { name: "previsaoReparo", label: "Previsão de Reparo", type: "date" },
+          { name: "observacao", label: "Observação", type: "textarea" }
+        ]
+      },
+      "BLOQUEADOS_ISOLAMENTO": {
+        titulo: "Novo Leito em Isolamento",
+        campos: [
+          { name: "unidade", label: "Unidade", type: "text" },
+          { name: "leito", label: "Leito", type: "text" },
+          { name: "paciente", label: "Paciente", type: "text" },
+          { name: "tipoIsolamento", label: "Tipo de Isolamento", type: "text" },
+          { name: "patologia", label: "Patologia", type: "text" },
+          { name: "inicioIsolamento", label: "Início do Isolamento", type: "date" },
+          { name: "tempoPrevisto", label: "Tempo Previsto", type: "text" },
+          { name: "observacao", label: "Observação", type: "textarea" }
+        ]
+      }
+    };
 
-      const MACRO_REGION_CONFIG = {
-        Cariri: { color: "#e41a1c", center: [-7.2, -39.3], radius: 75000 },
-        Fortaleza: { color: "#377eb8", center: [-3.73, -38.52], radius: 65000 },
-        Norte: { color: "#4daf4a", center: [-3.7, -40.5], radius: 80000 },
-        "Litoral Leste / Jaguaribe": {
-          color: "#984ea3",
-          center: [-4.8, -37.9],
-          radius: 75000,
+    function formatarDataHora(d) {
+      if (!d) return "";
+      try {
+        const dt = new Date(d);
+        if (isNaN(dt)) return "";
+        const dia = String(dt.getDate()).padStart(2, "0");
+        const mes = String(dt.getMonth() + 1).padStart(2, "0");
+        const ano = dt.getFullYear();
+        const hh = String(dt.getHours()).padStart(2, "0");
+        const mm = String(dt.getMinutes()).padStart(2, "0");
+        return `${dia}/${mes}/${ano} ${hh}:${mm}`;
+      } catch (e) {
+        return "";
+      }
+    }
+
+    function carregarApp(view) {
+      const v = view || estadoAtual.view;
+      google.script.run
+        .withSuccessHandler(function (data) {
+          preencherPlantao(data.plantao);
+          preencherIndicadores(data.indicadores);
+          estadoAtual.principalModulo = data.principalNome;
+          renderTabela("tabelaPrincipalWrapper", data.principal, true, data.principalNome);
+          renderTabela("tabelaManutencaoWrapper", data.manutencao, false, "BLOQUEADOS_MANUTENCAO");
+          renderTabela("tabelaIsolamentoWrapper", data.isolamento, false, "BLOQUEADOS_ISOLAMENTO");
+          atualizarStatus(data.plantao);
+          atualizarTitulosPrincipal(v);
+        })
+        .getAppData(v);
+    }
+
+    function preencherPlantao(pl) {
+      const resumo = document.getElementById("plantaoResumo");
+      const dot = document.getElementById("dotStatus");
+      const text = document.getElementById("statusText");
+
+      if (!pl || !pl.id) {
+        estadoAtual.plantaoAtivo = false;
+        resumo.textContent = 'Nenhum plantão ativo. Clique em "Abrir Plantão" para iniciar.';
+        dot.style.background = "#eab308";
+        text.textContent = "Sem plantão ativo";
+
+        // limpa modal equipe
+        document.getElementById("me-id").value = "";
+        document.getElementById("me-data").value = "";
+        document.getElementById("me-dia").value = "";
+        document.getElementById("me-turno").value = "";
+        document.getElementById("me-med1").value = "";
+        document.getElementById("me-med2").value = "";
+        document.getElementById("me-enf1").value = "";
+        document.getElementById("me-enf2").value = "";
+        document.getElementById("me-aux").value = "";
+        document.getElementById("me-abertura").value = "";
+        document.getElementById("me-encerramento").value = "";
+        return;
+      }
+
+      estadoAtual.plantaoAtivo = true;
+
+      let dataStr = "-";
+      if (pl.data) {
+        if (Object.prototype.toString.call(pl.data) === "[object Date]") {
+          dataStr = pl.data.toISOString().slice(0, 10);
+        } else {
+          dataStr = pl.data;
+        }
+      }
+
+      resumo.textContent =
+        `Plantão ${pl.id} • ${pl.diaSemana || "Dia não informado"} • ${pl.turno || "Turno não informado"} • Data: ${dataStr}`;
+      dot.style.background = "#16a34a";
+      text.textContent = "Plantão ativo";
+
+      // Preenche modal equipe com dados atuais
+      document.getElementById("me-id").value = pl.id || "";
+      if (dataStr && dataStr !== "-") document.getElementById("me-data").value = dataStr;
+      document.getElementById("me-dia").value = pl.diaSemana || "";
+      document.getElementById("me-turno").value = pl.turno || "";
+      document.getElementById("me-med1").value = pl.medico1 || "";
+      document.getElementById("me-med2").value = pl.medico2 || "";
+      document.getElementById("me-enf1").value = pl.enf1 || "";
+      document.getElementById("me-enf2").value = pl.enf2 || "";
+      document.getElementById("me-aux").value = pl.aux || "";
+      document.getElementById("me-abertura").value = formatarDataHora(pl.abertura);
+      document.getElementById("me-encerramento").value = formatarDataHora(pl.encerramento);
+    }
+
+    function preencherIndicadores(ind) {
+      if (!ind) return;
+      document.getElementById("kpi-alocados").textContent = ind.alocados || 0;
+      document.getElementById("kpi-confirmadas").textContent = ind.reservasConfirmadas || 0;
+      document.getElementById("kpi-canceladas").textContent = ind.reservasCanceladas || 0;
+      document.getElementById("kpi-admitidos").textContent = ind.admitidosUIB || 0;
+    }
+
+    function atualizarStatus(pl) {
+      const dot = document.getElementById("dotStatus");
+      const text = document.getElementById("statusText");
+      if (pl && pl.id) {
+        dot.style.background = "#16a34a";
+        text.textContent = "Plantão ativo";
+      } else {
+        dot.style.background = "#eab308";
+        text.textContent = "Sem plantão ativo";
+      }
+    }
+
+    function atualizarTitulosPrincipal(view) {
+      const map = {
+        confirmadas: {
+          principal: "PACIENTES COM RESERVA CONFIRMADA",
+          title: "Reservas Confirmadas",
+          subtitle: "Pacientes com reserva confirmada para UIB"
         },
-        "Sertão Central": { color: "#ff7f00", center: [-5.1, -39.4], radius: 80000 },
+        vascular: {
+          principal: "PACIENTES COM PROCEDIMENTO - VASCULAR",
+          title: "Procedimentos Vasculares",
+          subtitle: "Reservas vinculadas a procedimentos vasculares"
+        },
+        negadas: {
+          principal: "PACIENTES COM RESERVA NEGADA",
+          title: "Reservas Negadas",
+          subtitle: "Reservas canceladas/negadas no plantão"
+        },
+        anterior: {
+          principal: "PACIENTES COM RESERVA CONFIRMADA DO PLANTÃO ANTERIOR",
+          title: "Plantão Anterior",
+          subtitle: "Pacientes admitidos na UIB no plantão anterior"
+        }
       };
-      const MACRO_REGION_ORDER = Object.keys(MACRO_REGION_CONFIG);
-      let macroMapInstance = null;
-      let macroLayers = {};
-      let macroCounts = {};
-      let macroMapNeedsRender = false;
+      const cfg = map[view] || map.confirmadas;
+      document.getElementById("tituloPrincipal").textContent = cfg.principal;
+      document.getElementById("tableTitlePrincipal").textContent = cfg.title;
+      document.getElementById("tableSubtitlePrincipal").textContent = cfg.subtitle;
+    }
 
-      const elTabAnalytics = document.getElementById("tab-analytics");
-      const elTabMapa = document.getElementById("tab-mapa");
-      const elTabRelatorios = document.getElementById("tab-relatorios");
-      const elPageAnalytics = document.getElementById("page-analytics");
-      const elPageMapa = document.getElementById("page-mapa");
-      const elPageRelatorios = document.getElementById("page-relatorios");
+    function mudarView(btn) {
+      const view = btn.getAttribute("data-view");
+      estadoAtual.view = view;
+      document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+      btn.classList.add("active");
+      carregarApp(view);
+    }
 
-      const elSheetCategoryGroup = document.getElementById(
-        "sheet-category-group"
-      );
-      const elStatusCategoryGroup = document.getElementById(
-        "status-category-group"
-      );
-      const elSheetTableHead = document.getElementById("sheet-table-head");
-      const elSheetDay = document.getElementById("sheet-day");
-      const elSheetTurno = document.getElementById("sheet-turno");
-      const elSheetTableBody = document.getElementById("sheet-table-body");
-      const elSheetTotal = document.getElementById("sheet-total");
-      const elSheetCategoryLabel = document.getElementById(
-        "sheet-category-label"
-      );
-      const elSheetTurnoLabel = document.getElementById("sheet-turno-label");
-      const elBtnSheetRefresh = document.getElementById("btn-sheet-refresh");
-      const elBtnSheetToday = document.getElementById("btn-sheet-today");
-      const elSheetSubtitle = document.getElementById("sheet-subtitle");
-      const elStatusDay = document.getElementById("status-day");
-      const elStatusTurno = document.getElementById("status-turno");
-      const elStatusList = document.getElementById("status-list");
-      const elBtnStatusRefresh = document.getElementById("btn-status-refresh");
-      const elBtnStatusApplyShift = document.getElementById(
-        "btn-status-apply-shift"
-      );
-      const elStatusSuggestions = document.getElementById(
-        "status-suggestions"
-      );
-      let currentSheetCategory = "RESERVA CONFIRMADA";
-      const DEFAULT_SHEET_HEADERS = [
-        "Categoria",
-        "Paciente",
-        "Especialidade",
-        "Origem",
-        "Status",
-        "Turno",
-        "Data/Hora",
-        "Observação",
-      ];
-      let currentSheetHeaders = DEFAULT_SHEET_HEADERS;
+    // ABRIR PLANTÃO -> SEMPRE MODAL LIMPO
+    function abrirPlantao() {
+      if (estadoAtual.plantaoAtivo) {
+        alert("Já existe um plantão ativo. Use 'Encerrar' para fechar ou 'Equipe do Plantão' para editar a equipe.");
+        return;
+      }
 
-      const elBoardShiftLabel = document.getElementById("board-shift-label");
-      const elBoardKpis = document.getElementById("board-kpis");
-      const elBoardPrevList = document.getElementById("board-previous-list");
+      // modal LIMPO
+      document.getElementById("me-id").value = "";
+      document.getElementById("me-data").value = "";
+      document.getElementById("me-dia").value = "";
+      document.getElementById("me-turno").value = "";
+      document.getElementById("me-med1").value = "";
+      document.getElementById("me-med2").value = "";
+      document.getElementById("me-enf1").value = "";
+      document.getElementById("me-enf2").value = "";
+      document.getElementById("me-aux").value = "";
+      document.getElementById("me-abertura").value = "";
+      document.getElementById("me-encerramento").value = "";
 
-      const elCategory = document.getElementById("category");
-      const elDynamicFields = document.getElementById("dynamic-fields");
-      const elBtnSave = document.getElementById("btn-save");
-      const elBtnClear = document.getElementById("btn-clear");
-      const elBtnOpenOccurrence = document.getElementById("btn-open-occurrence");
-      const elMenuOpenOccurrence = document.getElementById("menu-open-occurrence");
-      const elOccurrenceModal = document.getElementById("nova-ocorrencia-modal");
-      const elOccurrenceBackdrop = document.getElementById(
-        "nova-ocorrencia-backdrop"
-      );
-      const elBtnCloseOccurrence = document.getElementById(
-        "btn-close-occurrence"
-      );
-      const elDash = document.getElementById("dashboard-shifts");
-      const elToast = document.getElementById("toast");
-      const elRelDia = document.getElementById("rel-dia");
-      const elRelTurno = document.getElementById("rel-turno");
-      const elRelTexto = document.getElementById("rel-texto");
-      const elRelSegment = document.getElementById("rel-tipo-segment");
-      const elBtnRelSave = document.getElementById("btn-rel-save");
-      const elRelRecentes = document.getElementById("rel-recentes");
-      const elRelFeedEnf = document.getElementById("rel-feed-enf");
-      const elRelFeedMed = document.getElementById("rel-feed-med");
-      const elFixedEnfermagem = document.getElementById("fixed-enfermagem");
-      const elFixedMedica = document.getElementById("fixed-medica");
-      const elFixedExames = document.getElementById("fixed-exames");
-      const elFixedExamesEnf = document.getElementById("fixed-exames-enf");
-      const elBtnReloadFixed = document.getElementById("btn-reload-fixed");
-      const elBtnEditFixed = document.getElementById("btn-edit-fixed");
-      const elFixedModal = document.getElementById("fixed-modal");
-      const elFixedModalBackdrop = document.getElementById("fixed-modal-backdrop");
-      const elFixedEnfInput = document.getElementById("fixed-enf-input");
-      const elFixedMedInput = document.getElementById("fixed-med-input");
-      const elFixedExamesInput = document.getElementById("fixed-exames-input");
-      const elBtnCancelFixed = document.getElementById("btn-cancel-fixed");
-      const elBtnSaveFixed = document.getElementById("btn-save-fixed");
-      const elTargetButtons = document.querySelectorAll("[data-target]");
-      const elMacroMap = document.getElementById("macro-map");
-      const elMacroLegend = document.getElementById("macro-legend");
-      const elMacroSummary = document.getElementById("macro-summary");
-      const elMacroTotal = document.getElementById("macro-total");
-      const elMacroFilterSelect = document.getElementById("macro-filter-select");
+      document.getElementById("modalEquipeBackdrop").classList.add("visible");
+    }
 
-      // Plantão
-      const elShiftSubtitle = document.getElementById("shift-subtitle");
-      const elShiftAlert = document.getElementById("shift-alert");
-      const elShiftMedico = document.getElementById("shift-medico");
-      const elShiftEnfermeiro = document.getElementById("shift-enfermeiro");
-      const elShiftSombra = document.getElementById("shift-sombra");
-      const elShiftAux = document.getElementById("shift-aux");
-      const elShiftData = document.getElementById("shift-data");
-      const elShiftDia = document.getElementById("shift-dia");
-      const elShiftTurno = document.getElementById("shift-turno");
-      const elShiftUpdated = document.getElementById("shift-updated");
-      const elBtnOpenShift = document.getElementById("btn-open-shift");
-      const elBtnRefreshShift = document.getElementById("btn-refresh-shift");
+    function encerrarPlantao() {
+      if (!estadoAtual.plantaoAtivo) {
+        alert("Não há plantão ativo para encerrar.");
+        return;
+      }
+      if (!confirm("Encerrar o plantão atual e salvar no histórico?")) return;
+      google.script.run
+        .withSuccessHandler(function () {
+          carregarApp();
+        })
+        .encerrarPlantao();
+    }
 
-      const elShiftModal = document.getElementById("shift-modal");
-      const elShiftModalBackdrop = document.getElementById("shift-modal-backdrop");
-      const elShiftDataInput = document.getElementById("shift-data-input");
-      const elShiftDiaInput = document.getElementById("shift-dia-input");
-      const elShiftTurnoInput = document.getElementById("shift-turno-input");
-      const elShiftMedicoInput = document.getElementById("shift-medico-input");
-      const elShiftEnfermeiroInput = document.getElementById("shift-enfermeiro-input");
-      const elShiftSombraInput = document.getElementById("shift-sombra-input");
-      const elShiftAuxInput = document.getElementById("shift-aux-input");
-      const elBtnCancelShift = document.getElementById("btn-cancel-shift");
-      const elBtnSaveShift = document.getElementById("btn-save-shift");
-      let currentShiftData = null;
+    // BOTÃO "Salvar Equipe" na header (edição rápida)
+    function salvarPlantao() {
+      if (!estadoAtual.plantaoAtivo) {
+        alert('Nenhum plantão ativo. Use "Abrir Plantão" para iniciar.');
+        return;
+      }
 
-      document.addEventListener("DOMContentLoaded", function () {
-        buildSheetCategories();
-        buildStatusCategories();
-        buildStatusSuggestionList();
-        buildFieldsFor(elCategory.value);
-        bindPageTabs();
-        bindEvents();
-        prefillSheetFiltersWithToday();
-        prefillStatusFiltersWithToday();
-        loadSheetView();
-        loadStatusBoard();
-        loadShiftInfo();
-        loadDashboard();
-        loadRelatorios();
-        loadFixedNotes();
-        loadMacroRegions();
+      const dados = {
+        data: document.getElementById("me-data").value,
+        diaSemana: document.getElementById("me-dia").value,
+        turno: document.getElementById("me-turno").value,
+        medico1: document.getElementById("me-med1").value,
+        medico2: document.getElementById("me-med2").value,
+        enf1: document.getElementById("me-enf1").value,
+        enf2: document.getElementById("me-enf2").value,
+        aux: document.getElementById("me-aux").value
+      };
+
+      google.script.run
+        .withSuccessHandler(function () {
+          alert("Equipe do plantão salva.");
+          carregarApp();
+        })
+        .salvarPlantaoConfig(dados);
+    }
+
+    // MODAL EQUIPE
+    function abrirModalEquipeEdicao() {
+      // Se não tiver plantão ativo, abre modal mas não salva como edição — só serve pra preparar?
+      // Pela tua regra, edição sempre é com plantão ativo.
+      if (!estadoAtual.plantaoAtivo) {
+        alert('Nenhum plantão ativo. Use "Abrir Plantão" para iniciar um novo plantão.');
+        return;
+      }
+      document.getElementById("modalEquipeBackdrop").classList.add("visible");
+    }
+
+    function fecharModalEquipe() {
+      document.getElementById("modalEquipeBackdrop").classList.remove("visible");
+    }
+
+    // Salvar vindo do modal:
+    // - se NÃO tiver plantão ativo -> cria plantão novo (criarPlantaoComEquipe)
+    // - se tiver plantão ativo -> só edita (salvarPlantaoConfig)
+    function salvarEquipeModal() {
+      const dados = {
+        data: document.getElementById("me-data").value,
+        diaSemana: document.getElementById("me-dia").value,
+        turno: document.getElementById("me-turno").value,
+        medico1: document.getElementById("me-med1").value,
+        medico2: document.getElementById("me-med2").value,
+        enf1: document.getElementById("me-enf1").value,
+        enf2: document.getElementById("me-enf2").value,
+        aux: document.getElementById("me-aux").value
+      };
+
+      if (!estadoAtual.plantaoAtivo) {
+        // CRIAR PLANTÃO NOVO
+        google.script.run
+          .withSuccessHandler(function () {
+            fecharModalEquipe();
+            carregarApp();
+          })
+          .criarPlantaoComEquipe(dados);
+      } else {
+        // EDITAR PLANTÃO EXISTENTE
+        google.script.run
+          .withSuccessHandler(function () {
+            fecharModalEquipe();
+            carregarApp();
+          })
+          .salvarPlantaoConfig(dados);
+      }
+    }
+
+    // TABELAS
+    function renderTabela(wrapperId, tabela, mostrarAcaoExcluir, moduloNome) {
+      const wrapper = document.getElementById(wrapperId);
+      wrapper.innerHTML = "";
+
+      if (!tabela || !tabela.headers || tabela.headers.length === 0) {
+        wrapper.innerHTML = '<div style="padding:8px 10px;font-size:12px;color:#6b7280;">Nenhum dado cadastrado.</div>';
+        return;
+      }
+
+      const table = document.createElement("table");
+      const thead = document.createElement("thead");
+      const trh = document.createElement("tr");
+
+      tabela.headers.forEach((h, idx) => {
+        const th = document.createElement("th");
+        th.textContent = h || `Col ${idx+1}`;
+        trh.appendChild(th);
       });
 
-      function bindEvents() {
-        elCategory.addEventListener("change", function () {
-          buildFieldsFor(this.value);
-        });
-
-        elBtnSave.addEventListener("click", handleSaveOccurrence);
-        elBtnClear.addEventListener("click", clearForm);
-
-        if (elBtnSheetRefresh) {
-          elBtnSheetRefresh.addEventListener("click", loadSheetView);
-        }
-        if (elBtnSheetToday) {
-          elBtnSheetToday.addEventListener("click", function () {
-            applyShiftToSheetFilters();
-            loadSheetView();
-          });
-        }
-
-        if (elBtnStatusRefresh) {
-          elBtnStatusRefresh.addEventListener("click", loadStatusBoard);
-        }
-
-        if (elBtnStatusApplyShift) {
-          elBtnStatusApplyShift.addEventListener("click", function () {
-            applyShiftToStatusFilters();
-            loadStatusBoard();
-          });
-        }
-
-        if (elStatusDay) {
-          elStatusDay.addEventListener("change", loadStatusBoard);
-        }
-
-        if (elStatusTurno) {
-          elStatusTurno.addEventListener("change", loadStatusBoard);
-        }
-
-        if (elSheetTurno) {
-          elSheetTurno.addEventListener("change", function () {
-            elSheetTurnoLabel.textContent = this.value || "Todos";
-          });
-        }
-
-        if (elRelSegment) {
-          const buttons = elRelSegment.querySelectorAll(".segmented-btn");
-          buttons.forEach(function (btn) {
-            btn.addEventListener("click", function () {
-              buttons.forEach(function (b) {
-                b.classList.remove("active");
-              });
-              this.classList.add("active");
-              currentRelTipo = this.dataset.tipo || "ENF";
-            });
-          });
-        }
-
-        elBtnRelSave.addEventListener("click", handleSaveRelatorio);
-
-        if (elBtnEditFixed) {
-          elBtnEditFixed.addEventListener("click", openFixedModal);
-        }
-
-        if (elBtnReloadFixed) {
-          elBtnReloadFixed.addEventListener("click", loadFixedNotes);
-        }
-
-        if (elBtnCancelFixed) {
-          elBtnCancelFixed.addEventListener("click", closeFixedModal);
-        }
-
-        if (elFixedModalBackdrop) {
-          elFixedModalBackdrop.addEventListener("click", closeFixedModal);
-        }
-
-        if (elBtnSaveFixed) {
-          elBtnSaveFixed.addEventListener("click", handleSaveFixedNotes);
-        }
-
-        [elBtnOpenOccurrence, elMenuOpenOccurrence].forEach(function (btn) {
-          if (!btn) return;
-          btn.addEventListener("click", openOccurrenceModal);
-        });
-
-        if (elBtnCloseOccurrence) {
-          elBtnCloseOccurrence.addEventListener("click", closeOccurrenceModal);
-        }
-
-        if (elOccurrenceBackdrop) {
-          elOccurrenceBackdrop.addEventListener("click", closeOccurrenceModal);
-        }
-
-        elTargetButtons.forEach(function (btn) {
-          btn.addEventListener("click", function () {
-            const target = this.dataset.target;
-            const pageJump = this.dataset.pageJump;
-            if (pageJump) switchPage(pageJump);
-            if (!target) return;
-            const el = document.querySelector(target);
-            if (el) {
-              el.scrollIntoView({ behavior: "smooth", block: "start" });
-            }
-          });
-        });
-
-        elBtnOpenShift.addEventListener("click", openShiftModal);
-        elBtnRefreshShift.addEventListener("click", loadShiftInfo);
-        elBtnCancelShift.addEventListener("click", closeShiftModal);
-        elBtnSaveShift.addEventListener("click", handleSaveShift);
-        elShiftModalBackdrop.addEventListener("click", closeShiftModal);
-        elShiftDataInput.addEventListener("change", handleShiftDateChange);
-
-        if (elMacroFilterSelect) {
-          elMacroFilterSelect.addEventListener("change", function () {
-            applyMacroFilter(this.value);
-          });
-        }
+      if (mostrarAcaoExcluir) {
+        const thAcao = document.createElement("th");
+        thAcao.textContent = "Ação";
+        trh.appendChild(thAcao);
       }
 
-      function loadMacroRegions() {
-        if (elMacroSummary) {
-          elMacroSummary.innerHTML =
-            '<div class="macro-row"><span class="muted">Atualizando dados...</span><strong>...</strong></div>';
-        }
-
-        google.script.run
-          .withSuccessHandler(function (res) {
-            renderMacroRegions(res || {});
-          })
-          .withFailureHandler(function (err) {
-            console.log(err);
-            showToast("Não foi possível carregar as macrorregiões.", true);
-            renderMacroRegions({});
-          })
-          .getMacroRegionData();
-      }
-
-      function renderMacroRegions(data) {
-        macroCounts = data && data.counts ? data.counts : {};
-
-        if (elMacroTotal) {
-          elMacroTotal.textContent = data && data.total ? data.total : 0;
-        }
-
-        updateMacroSummary();
-        buildMacroLegend();
-        macroMapNeedsRender = true;
-
-        if (isMapaPageActive()) {
-          renderMacroMap();
-        }
-      }
-
-      function ensureMacroMap() {
-        if (macroMapInstance || !elMacroMap || typeof L === "undefined") {
-          return macroMapInstance;
-        }
-
-        macroMapInstance = L.map("macro-map", { zoomControl: true }).setView(
-          [-5.2, -39.5],
-          6.9
-        );
-
-        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-          maxZoom: 12,
-          attribution: '&copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a> contribuidores',
-        }).addTo(macroMapInstance);
-
-        return macroMapInstance;
-      }
-
-      function renderMacroMap() {
-        if (!elMacroMap || typeof L === "undefined") return;
-
-        ensureMacroMap();
-
-        if (!macroMapInstance) return;
-
-        // Aguarda o elemento ficar visível para calcular o tamanho corretamente
-        requestAnimationFrame(function () {
-          macroMapInstance.invalidateSize();
-
-          if (macroMapNeedsRender) {
-            drawMacroLayers();
-            macroMapNeedsRender = false;
-          }
-        });
-      }
-
-      function drawMacroLayers() {
-        if (!macroMapInstance || typeof L === "undefined") return;
-
-        Object.keys(macroLayers).forEach(function (key) {
-          if (macroLayers[key] && macroMapInstance.hasLayer(macroLayers[key])) {
-            macroMapInstance.removeLayer(macroLayers[key]);
-          }
-        });
-
-        macroLayers = {};
-
-        MACRO_REGION_ORDER.forEach(function (name) {
-          var cfg = MACRO_REGION_CONFIG[name] || {};
-          var count = (macroCounts && macroCounts[name]) || 0;
-          var circle = L.circle(cfg.center || [-5.2, -39.5], {
-            radius: cfg.radius || 75000,
-            color: cfg.color || "#0f172a",
-            weight: 2,
-            opacity: 0.9,
-            fillColor: cfg.color || "#0f172a",
-            fillOpacity: 0.35,
-          });
-
-          circle.bindTooltip(
-            '<strong>' + name + '</strong><br />' + count + ' registro(s)',
-            { direction: "top" }
-          );
-
-          circle.on("click", function () {
-            if (elMacroFilterSelect) {
-              elMacroFilterSelect.value = name;
-            }
-            applyMacroFilter(name);
-          });
-
-          circle.addTo(macroMapInstance);
-          macroLayers[name] = circle;
-        });
-
-        applyMacroFilter(elMacroFilterSelect ? elMacroFilterSelect.value : "");
-      }
-
-      function buildMacroLegend() {
-        if (!elMacroLegend) return;
-        elMacroLegend.innerHTML = "";
-
-        MACRO_REGION_ORDER.forEach(function (name) {
-          var cfg = MACRO_REGION_CONFIG[name] || {};
-          var item = document.createElement("div");
-          item.className = "macro-chip";
-
-          var dot = document.createElement("span");
-          dot.className = "dot";
-          dot.style.backgroundColor = cfg.color || "#0f172a";
-          item.appendChild(dot);
-
-          var label = document.createElement("span");
-          label.textContent = name;
-          item.appendChild(label);
-
-          elMacroLegend.appendChild(item);
-        });
-      }
-
-      function updateMacroSummary() {
-        if (!elMacroSummary) return;
-
-        var counts = macroCounts || {};
-        var order = MACRO_REGION_ORDER.concat(["Outros", "Sem macrorregião"]);
-        elMacroSummary.innerHTML = "";
-
-        if (!order.length) {
-          var empty = document.createElement("div");
-          empty.className = "macro-row";
-          empty.innerHTML = '<span class="muted">Sem dados</span><strong>0</strong>';
-          elMacroSummary.appendChild(empty);
-          return;
-        }
-
-        order.forEach(function (name) {
-          var row = document.createElement("div");
-          row.className = "macro-row";
-
-          var left = document.createElement("div");
-          left.style.display = "flex";
-          left.style.alignItems = "center";
-          left.style.gap = "8px";
-
-          var dot = document.createElement("span");
-          dot.className = "dot";
-          dot.style.backgroundColor = (MACRO_REGION_CONFIG[name] && MACRO_REGION_CONFIG[name].color) || "#94a3b8";
-          dot.style.boxShadow = "none";
-          left.appendChild(dot);
-
-          var label = document.createElement("span");
-          label.textContent = name;
-          left.appendChild(label);
-
-          var value = document.createElement("strong");
-          value.textContent = counts[name] || 0;
-
-          row.appendChild(left);
-          row.appendChild(value);
-          elMacroSummary.appendChild(row);
-        });
-      }
-
-      function applyMacroFilter(value) {
-        if (!macroMapInstance) return;
-
-        var target = value || "";
-
-        MACRO_REGION_ORDER.forEach(function (name) {
-          var layer = macroLayers[name];
-          if (!layer) return;
-          var show = !target || target === name;
-          if (show) {
-            if (!macroMapInstance.hasLayer(layer)) {
-              layer.addTo(macroMapInstance);
-            }
-          } else {
-            if (macroMapInstance.hasLayer(layer)) {
-              macroMapInstance.removeLayer(layer);
-            }
-          }
-        });
-
-        if (target && MACRO_REGION_CONFIG[target]) {
-          macroMapInstance.flyTo(MACRO_REGION_CONFIG[target].center, 7.2, {
-            duration: 0.6,
-          });
-        } else {
-          macroMapInstance.flyTo([-5.2, -39.5], 6.9, { duration: 0.6 });
-        }
-      }
-
-      function loadShiftInfo() {
-        if (elShiftSubtitle) {
-          elShiftSubtitle.textContent = "Carregando informações do plantão...";
-        }
-
-        google.script.run
-          .withSuccessHandler(renderShiftInfo)
-          .withFailureHandler(function (err) {
-            console.log(err);
-            if (elShiftSubtitle) {
-              elShiftSubtitle.textContent = "Não foi possível carregar o plantão.";
-            }
-            showToast("Erro ao carregar plantão.", true);
-          })
-          .getShiftInfo();
-      }
-
-      function renderShiftInfo(data) {
-        currentShiftData = data || {};
-        const safe = function (val) {
-          return val ? String(val) : "Não definido";
-        };
-
-        if (elShiftMedico) elShiftMedico.textContent = safe(data.medico);
-        if (elShiftEnfermeiro)
-          elShiftEnfermeiro.textContent = safe(data.enfermeiro);
-        if (elShiftSombra) elShiftSombra.textContent = safe(data.enfermeiroSombra);
-        if (elShiftAux) elShiftAux.textContent = safe(data.auxiliar);
-        if (elShiftData)
-          elShiftData.textContent = formatDateDisplay(data.dataPlantao) || "—";
-        if (elShiftDia) elShiftDia.textContent = safe(data.diaSemana);
-        if (elShiftTurno) elShiftTurno.textContent = safe(data.turno);
-        if (elShiftUpdated)
-          elShiftUpdated.textContent = formatDateTimeDisplay(data.registradoEm);
-
-        updateBoardShiftLabel(data);
-
-        if (elShiftSubtitle) {
-          elShiftSubtitle.textContent = data && data.dataPlantao
-            ? "Plantão em andamento"
-            : "Cadastre o plantão atual para iniciar.";
-        }
-
-        updateShiftAlert(data);
-        applyShiftToSheetFilters();
-        loadSheetView();
-      }
-
-      function updateShiftAlert(data) {
-        if (!elShiftAlert) return;
-        const evaluation = evaluateShiftStatus(data);
-        if (evaluation.shouldWarn) {
-          elShiftAlert.style.display = "flex";
-          elShiftAlert.innerHTML =
-            '<strong>Atenção:</strong> ' + (evaluation.message || "Atualize o plantão agora.");
-        } else {
-          elShiftAlert.style.display = "none";
-        }
-      }
-
-      function evaluateShiftStatus(data) {
-        if (!data || (!data.dataPlantao && !data.turno)) {
-          return {
-            shouldWarn: true,
-            message: "Nenhum plantão ativo. Clique em \"Abrir plantão\".",
-          };
-        }
-
-        const now = new Date();
-        const turno = String(data.turno || "").toLowerCase();
-        const dataPlantao = normalizeDateValue(data.dataPlantao);
-        const registradoEm = normalizeDateValue(data.registradoEm);
-
-        if (!dataPlantao) {
-          return {
-            shouldWarn: true,
-            message: "Data do plantão inválida. Atualize os dados.",
-          };
-        }
-
-        const diffHours = (now.getTime() - dataPlantao.getTime()) / (1000 * 60 * 60);
-        if (diffHours >= 12) {
-          return {
-            shouldWarn: true,
-            message: "Plantão registrado há mais de 12h. Altere para o novo turno (07h/19h).",
-          };
-        }
-
-        const hour = now.getHours();
-        if (hour >= 7 && hour < 19 && turno.includes("noite")) {
-          return {
-            shouldWarn: true,
-            message: "Já passou das 07h. Atualize para o turno do dia.",
-          };
-        }
-
-        if ((hour >= 19 || hour < 7) && turno.includes("manh")) {
-          return {
-            shouldWarn: true,
-            message: "Já passou das 19h. Atualize para o turno da noite.",
-          };
-        }
-
-        if (registradoEm) {
-          const diffSinceReg = (now.getTime() - registradoEm.getTime()) / (1000 * 60 * 60);
-          if (diffSinceReg >= 12) {
-            return {
-              shouldWarn: true,
-              message: "Mais de 12h desde a última atualização. Confirme o plantão atual.",
-            };
-          }
-        }
-
-        return { shouldWarn: false, message: "" };
-      }
-
-      function openShiftModal() {
-        if (!elShiftModal) return;
-        elShiftModal.style.display = "block";
-
-        const today = new Date();
-        const d =
-          normalizeDateValue(currentShiftData && currentShiftData.dataPlantao) || today;
-        elShiftDataInput.value = formatDateForInput(d);
-        elShiftDiaInput.value = currentShiftData?.diaSemana || getWeekdayLabel(d) || "";
-        elShiftTurnoInput.value = currentShiftData?.turno || "";
-        elShiftMedicoInput.value = currentShiftData?.medico || "";
-        elShiftEnfermeiroInput.value = currentShiftData?.enfermeiro || "";
-        elShiftSombraInput.value = currentShiftData?.enfermeiroSombra || "";
-        elShiftAuxInput.value = currentShiftData?.auxiliar || "";
-      }
-
-      function closeShiftModal() {
-        if (elShiftModal) {
-          elShiftModal.style.display = "none";
-        }
-      }
-
-      function handleSaveShift() {
-        const payload = {
-          dataPlantao: elShiftDataInput.value,
-          diaSemana: elShiftDiaInput.value,
-          turno: elShiftTurnoInput.value,
-          medico: elShiftMedicoInput.value,
-          enfermeiro: elShiftEnfermeiroInput.value,
-          enfermeiroSombra: elShiftSombraInput.value,
-          auxiliar: elShiftAuxInput.value,
-        };
-
-        if (!payload.dataPlantao || !payload.turno) {
-          showToast("Data do plantão e turno são obrigatórios.", true);
-          return;
-        }
-
-        if (!payload.diaSemana) {
-          const normalized = normalizeDateValue(payload.dataPlantao);
-          payload.diaSemana = normalized ? getWeekdayLabel(normalized) : "";
-        }
-
-        google.script.run
-          .withSuccessHandler(function (res) {
-            if (res && res.ok) {
-              showToast(res.message || "Plantão salvo.");
-            }
-            closeShiftModal();
-            loadShiftInfo();
-          })
-          .withFailureHandler(function (err) {
-            console.log(err);
-            showToast("Erro ao salvar plantão.", true);
-          })
-          .saveShift(payload);
-      }
-
-      function buildSheetCategories() {
-        if (!elSheetCategoryGroup) return;
-        elSheetCategoryGroup.innerHTML = "";
-        const cats = [
-          "TODOS",
-          "RESERVA CONFIRMADA",
-          "PROCEDIMENTO CONFIRMADO",
-          "RESERVA NEGADA",
-          "PLANTÃO ANTERIOR",
-        ];
-
-        cats.forEach(function (cat) {
-          const btn = document.createElement("button");
-          btn.textContent = cat;
-          btn.className = cat === currentSheetCategory ? "active" : "";
-          btn.addEventListener("click", function () {
-            currentSheetCategory = cat;
-            const allBtns = elSheetCategoryGroup.querySelectorAll("button");
-            allBtns.forEach(function (b) { b.classList.remove("active"); });
-            btn.classList.add("active");
-            elSheetCategoryLabel.textContent = cat;
-            loadSheetView();
-          });
-          elSheetCategoryGroup.appendChild(btn);
-        });
-
-        elSheetCategoryLabel.textContent = currentSheetCategory;
-      }
-
-      function buildStatusCategories() {
-        if (!elStatusCategoryGroup) return;
-        elStatusCategoryGroup.innerHTML = "";
-        const cats = [
-          "TODOS",
-          "RESERVA CONFIRMADA",
-          "PROCEDIMENTO CONFIRMADO",
-          "RESERVA NEGADA",
-          "PLANTÃO ANTERIOR",
-        ];
-
-        cats.forEach(function (cat) {
-          const btn = document.createElement("button");
-          btn.textContent = cat;
-          btn.className = cat === currentStatusCategory ? "active" : "";
-          btn.addEventListener("click", function () {
-            currentStatusCategory = cat;
-            const allBtns = elStatusCategoryGroup.querySelectorAll("button");
-            allBtns.forEach(function (b) { b.classList.remove("active"); });
-            btn.classList.add("active");
-            loadStatusBoard();
-          });
-          elStatusCategoryGroup.appendChild(btn);
-        });
-      }
-
-      function buildStatusSuggestionList() {
-        if (!elStatusSuggestions) return;
-        elStatusSuggestions.innerHTML = "";
-        STATUS_SUGGESTIONS.forEach(function (label) {
-          const opt = document.createElement("option");
-          opt.value = label;
-          elStatusSuggestions.appendChild(opt);
-        });
-      }
-
-      function switchPage(pageId) {
-        if (!pageId) return;
-        const tabs = [elTabAnalytics, elTabMapa, elTabRelatorios];
-        const pages = [elPageAnalytics, elPageMapa, elPageRelatorios];
-
-        tabs.forEach(function (tab) {
-          if (!tab) return;
-          tab.classList.toggle("active", tab.dataset.page === pageId);
-        });
-
-        pages.forEach(function (p) {
-          if (!p) return;
-          p.classList.toggle("active", p.id === pageId);
-        });
-
-        if (pageId === "page-mapa") {
-          renderMacroMap();
-        }
-      }
-
-      function isMapaPageActive() {
-        return elPageMapa && elPageMapa.classList.contains("active");
-      }
-
-      function bindPageTabs() {
-        [elTabAnalytics, elTabMapa, elTabRelatorios].forEach(function (tab) {
-          if (!tab) return;
-          tab.addEventListener("click", function () {
-            switchPage(this.dataset.page);
-          });
-        });
-      }
-
-      function prefillSheetFiltersWithToday() {
-        if (!elSheetDay) return;
-        const today = new Date();
-        elSheetDay.value = formatDateForInput(today);
-        elSheetTurnoLabel.textContent = "Todos";
-      }
-
-      function prefillStatusFiltersWithToday() {
-        if (!elStatusDay) return;
-        const today = new Date();
-        elStatusDay.value = formatDateForInput(today);
-      }
-
-      function applyShiftToSheetFilters() {
-        if (!currentShiftData) {
-          prefillSheetFiltersWithToday();
-          if (elSheetSubtitle)
-            elSheetSubtitle.textContent =
-              "Use o botão de plantão para preencher automaticamente quando houver dados.";
-          return;
-        }
-
-        if (currentShiftData.dataPlantao && elSheetDay) {
-          elSheetDay.value = formatDateForInput(
-            normalizeDateValue(currentShiftData.dataPlantao)
-          );
-        }
-
-        if (currentShiftData.turno && elSheetTurno) {
-          elSheetTurno.value = currentShiftData.turno;
-          elSheetTurnoLabel.textContent = currentShiftData.turno;
-        }
-
-        if (elSheetSubtitle) {
-          elSheetSubtitle.textContent =
-            "Visão sincronizada com o plantão atual registrado.";
-        }
-      }
-
-      function applyShiftToStatusFilters() {
-        if (!currentShiftData) {
-          prefillStatusFiltersWithToday();
-          return;
-        }
-
-        if (currentShiftData.dataPlantao && elStatusDay) {
-          elStatusDay.value = formatDateForInput(
-            normalizeDateValue(currentShiftData.dataPlantao)
-          );
-        }
-
-        if (currentShiftData.turno && elStatusTurno) {
-          elStatusTurno.value = currentShiftData.turno;
-        }
-      }
-
-      function loadSheetView() {
-        if (!elSheetTableBody) return;
-        const colSpan = (currentSheetHeaders && currentSheetHeaders.length)
-          ? currentSheetHeaders.length
-          : DEFAULT_SHEET_HEADERS.length;
-        elSheetTableBody.innerHTML =
-          `<tr><td colspan="${colSpan}" class="muted">Carregando coluna do dia...</td></tr>`;
-
-        const payload = {
-          category: currentSheetCategory,
-          dia: elSheetDay ? elSheetDay.value : "",
-          turno: elSheetTurno ? elSheetTurno.value : "",
-        };
-
-        elSheetCategoryLabel.textContent = currentSheetCategory;
-        elSheetTurnoLabel.textContent = payload.turno || "Todos";
-
-        google.script.run
-          .withSuccessHandler(renderSheetView)
-          .withFailureHandler(function () {
-            const colSpan = (currentSheetHeaders && currentSheetHeaders.length)
-              ? currentSheetHeaders.length
-              : DEFAULT_SHEET_HEADERS.length;
-            elSheetTableBody.innerHTML =
-              `<tr><td colspan="${colSpan}" class="muted">Erro ao carregar dados.</td></tr>`;
-          })
-          .getSheetView(payload);
-      }
-
-      function renderSheetView(res) {
-        if (!elSheetTableBody) return;
-        const headers =
-          (res && Array.isArray(res.headers) && res.headers.length)
-            ? res.headers
-            : DEFAULT_SHEET_HEADERS;
-
-        currentSheetHeaders = headers;
-        renderSheetHead(headers);
-
-        const rows = (res && Array.isArray(res.rows) ? res.rows : []) || [];
-        const total = (res && typeof res.total === "number")
-          ? res.total
-          : rows.length;
-
-        elSheetTotal.textContent = total;
-        elSheetTableBody.innerHTML = "";
-
-        if (!rows.length) {
-          const tr = document.createElement("tr");
-          const td = document.createElement("td");
-          td.colSpan = headers.length || DEFAULT_SHEET_HEADERS.length;
-          td.className = "muted";
-          td.textContent = "Nenhum registro para os filtros escolhidos.";
-          tr.appendChild(td);
-          elSheetTableBody.appendChild(tr);
-          return;
-        }
-
-        rows.slice(0, 80).forEach(function (row) {
-          const tr = document.createElement("tr");
-          (row || []).forEach(function (val) {
-            const td = document.createElement("td");
-            td.textContent = val;
-            tr.appendChild(td);
-          });
-          elSheetTableBody.appendChild(tr);
-        });
-      }
-
-      function renderSheetHead(headers) {
-        if (!elSheetTableHead) return;
+      thead.appendChild(trh);
+      table.appendChild(thead);
+
+      const tbody = document.createElement("tbody");
+      (tabela.rows || []).forEach(row => {
         const tr = document.createElement("tr");
-        (headers && headers.length ? headers : DEFAULT_SHEET_HEADERS).forEach(
-          function (label) {
-            const th = document.createElement("th");
-            th.textContent = label;
-            tr.appendChild(th);
-          }
-        );
-        elSheetTableHead.innerHTML = "";
-        elSheetTableHead.appendChild(tr);
-      }
-
-      function loadStatusBoard() {
-        if (!elStatusList) return;
-
-        elStatusList.innerHTML =
-          '<p class="muted">Carregando ocorrências em andamento...</p>';
-
-        const payload = {
-          category: currentStatusCategory,
-          dia: elStatusDay ? elStatusDay.value : "",
-          turno: elStatusTurno ? elStatusTurno.value : "",
-        };
-
-        google.script.run
-          .withSuccessHandler(renderStatusBoard)
-          .withFailureHandler(function (err) {
-            console.log(err);
-            elStatusList.innerHTML =
-              '<p class="muted">Não foi possível carregar as ocorrências.</p>';
-          })
-          .getStatusBoardData(payload);
-      }
-
-      function renderStatusBoard(res) {
-        if (!elStatusList) return;
-        const items = (res && Array.isArray(res.items) ? res.items : []) || [];
-
-        elStatusList.innerHTML = "";
-
-        if (!items.length) {
-          elStatusList.innerHTML =
-            '<p class="muted">Nenhuma ocorrência em andamento para os filtros.</p>';
-          return;
-        }
-
-        items.slice(0, 30).forEach(function (item) {
-          elStatusList.appendChild(buildStatusCard(item));
-        });
-      }
-
-      function buildStatusCard(item) {
-        const card = document.createElement("div");
-        card.className = "status-card";
-
-        const head = document.createElement("div");
-        head.className = "status-head";
-
-        const catPill = document.createElement("div");
-        catPill.className = "status-pill";
-        const catDot = document.createElement("span");
-        catDot.className = "dot";
-        catDot.style.background = "#2563eb";
-        catPill.appendChild(catDot);
-        catPill.appendChild(document.createTextNode(item.category || ""));
-
-        const statusPill = document.createElement("div");
-        statusPill.className = "status-pill";
-        const statusDot = document.createElement("span");
-        statusDot.className = "dot";
-        statusDot.style.background = resolveStatusColor(item.status);
-        statusPill.appendChild(statusDot);
-        statusPill.appendChild(
-          document.createTextNode(item.status || "Sem status informado")
-        );
-
-        head.appendChild(catPill);
-        head.appendChild(statusPill);
-
-        const meta = document.createElement("div");
-        meta.className = "status-meta";
-        meta.innerHTML = `
-          <span><strong>Paciente:</strong> ${item.paciente || "—"}</span>
-          <span><strong>Especialidade:</strong> ${item.especialidade || "—"}</span>
-          <span><strong>Origem:</strong> ${item.origem || "—"}</span>
-          <span><strong>Dia/Turno:</strong> ${
-            item.dia || "Sem dia"
-          } · ${item.turno || "—"}</span>
-        `;
-
-        const actions = document.createElement("div");
-        actions.className = "status-actions";
-
-        const statusInput = document.createElement("input");
-        statusInput.type = "text";
-        statusInput.placeholder = "Novo status";
-        statusInput.value = item.status || "";
-        statusInput.setAttribute("list", "status-suggestions");
-
-        const statusNote = document.createElement("div");
-        statusNote.className = "muted";
-        statusNote.textContent = item.observacao || "Sem observação.";
-
-        const btn = document.createElement("button");
-        btn.className = "btn-primary";
-        btn.textContent = "Salvar status";
-
-        if (!item.recordId) {
-          btn.disabled = true;
-          btn.title = "Registro sem ID. Salve novamente a ocorrência pelo formulário.";
-          const warn = document.createElement("span");
-          warn.className = "badge warning";
-          warn.textContent = "Registro antigo sem ID";
-          head.appendChild(warn);
-        }
-
-        btn.addEventListener("click", function () {
-          handleStatusUpdate(item, statusInput, btn);
+        row.forEach((cell, idx) => {
+          const td = document.createElement("td");
+          td.textContent = cell === null || cell === undefined ? "" : cell;
+          tr.appendChild(td);
         });
 
-        actions.appendChild(statusInput);
-        actions.appendChild(btn);
-
-        card.appendChild(head);
-        card.appendChild(meta);
-        card.appendChild(statusNote);
-        card.appendChild(actions);
-
-        return card;
-      }
-
-      function resolveStatusColor(status) {
-        const text = String(status || "").toLowerCase();
-        if (!text) return "#2563eb";
-        if (text.indexOf("cancel") > -1) return "#b91c1c";
-        if (text.indexOf("conclu") > -1 || text.indexOf("alta") > -1) return "#15803d";
-        if (text.indexOf("espera") > -1) return "#f59e0b";
-        if (text.indexOf("andamento") > -1) return "#b45309";
-        return "#2563eb";
-      }
-
-      function handleStatusUpdate(item, inputEl, btnEl) {
-        if (isStatusSaving) return;
-        if (!item || !item.recordId) {
-          showToast("Registro sem ID. Salve novamente pelo formulário.", true);
-          return;
-        }
-
-        const value = (inputEl?.value || "").trim();
-        if (!value) {
-          showToast("Informe o novo status.", true);
-          return;
-        }
-
-        isStatusSaving = true;
-        if (btnEl) {
-          btnEl.disabled = true;
-          btnEl.textContent = "Salvando...";
-        }
-
-        google.script.run
-          .withSuccessHandler(function (res) {
-            isStatusSaving = false;
-            if (btnEl) {
-              btnEl.disabled = false;
-              btnEl.textContent = "Salvar status";
+        if (mostrarAcaoExcluir) {
+          const tdAcao = document.createElement("td");
+          const btn = document.createElement("button");
+          btn.className = "btn-table";
+          btn.textContent = "Excluir";
+          const id = row[0];
+          btn.onclick = function () {
+            if (!id) {
+              alert("Registro sem ID definido (primeira coluna).");
+              return;
             }
-            showToast((res && res.message) || "Status atualizado.");
-            loadStatusBoard();
-            loadSheetView();
-            loadDashboard();
-          })
-          .withFailureHandler(function (err) {
-            isStatusSaving = false;
-            if (btnEl) {
-              btnEl.disabled = false;
-              btnEl.textContent = "Salvar status";
-            }
-            showToast(
-              (err && err.message) || "Não foi possível atualizar o status.",
-              true
-            );
-          })
-          .updateOccurrenceStatus({
-            category: item.category,
-            recordId: item.recordId,
-            status: value,
-          });
-      }
-
-      function formatDateForInput(date) {
-        if (!(date instanceof Date)) return "";
-        const yyyy = date.getFullYear();
-        const mm = String(date.getMonth() + 1).padStart(2, "0");
-        const dd = String(date.getDate()).padStart(2, "0");
-        return `${yyyy}-${mm}-${dd}`;
-      }
-
-      function formatDateDisplay(value) {
-        const d = normalizeDateValue(value);
-        if (!d) return "";
-        const dd = String(d.getDate()).padStart(2, "0");
-        const mm = String(d.getMonth() + 1).padStart(2, "0");
-        const yy = d.getFullYear();
-        return `${dd}/${mm}/${yy}`;
-      }
-
-      function formatDateTimeDisplay(value) {
-        const d = normalizeDateValue(value);
-        if (!d) return "";
-        const date = formatDateDisplay(d);
-        const hh = String(d.getHours()).padStart(2, "0");
-        const min = String(d.getMinutes()).padStart(2, "0");
-        return `${date} ${hh}:${min}`;
-      }
-
-      function updateBoardShiftLabel(data) {
-        if (!elBoardShiftLabel) return;
-        const date = formatDateDisplay(data && data.dataPlantao) || "Sem data";
-        const turno = (data && data.turno) || "Sem turno";
-        const assessor =
-          (data && (data.auxiliar || data.medico || data.enfermeiro)) ||
-          "Assessor não informado";
-        elBoardShiftLabel.textContent = `${date} • ${turno} • ${assessor}`;
-      }
-
-      function getWeekdayLabel(date) {
-        if (!(date instanceof Date)) return "";
-        return weekdayLabels[date.getDay()] || "";
-      }
-
-      function handleShiftDateChange() {
-        const normalized = normalizeDateValue(elShiftDataInput.value);
-        if (!normalized) return;
-        elShiftDiaInput.value = getWeekdayLabel(normalized);
-      }
-
-      function normalizeDateValue(value) {
-        if (!value) return null;
-        if (value instanceof Date && !isNaN(value.getTime())) return value;
-        if (typeof value === "string") {
-          const trimmed = value.trim();
-          if (!trimmed) return null;
-
-          // yyyy-mm-dd
-          const iso = /^([0-9]{4})-([0-9]{2})-([0-9]{2})$/;
-          const matchIso = trimmed.match(iso);
-          if (matchIso) {
-            const y = Number(matchIso[1]);
-            const m = Number(matchIso[2]) - 1;
-            const d = Number(matchIso[3]);
-            const dt = new Date(y, m, d);
-            return isNaN(dt.getTime()) ? null : dt;
-          }
-
-          // dd/mm/yyyy
-          const parts = trimmed.split("/");
-          if (parts.length === 3) {
-            const d = Number(parts[0]);
-            const m = Number(parts[1]) - 1;
-            const y = Number(parts[2]);
-            const dt = new Date(y, m, d);
-            return isNaN(dt.getTime()) ? null : dt;
-          }
-        }
-        return null;
-      }
-
-      function buildFieldsFor(category) {
-        const config = CATEGORY_CONFIG[category] || [];
-        elDynamicFields.innerHTML = "";
-
-        config.forEach(function (field) {
-          const wrap = document.createElement("div");
-          wrap.className = "field";
-
-          if (field.width === "full") {
-            wrap.classList.add("full");
-          } else if (field.width === "sm") {
-            wrap.classList.add("sm");
-          }
-
-          const label = document.createElement("label");
-          label.textContent = field.label;
-
-          let input;
-          if (field.type === "textarea") {
-            input = document.createElement("textarea");
-          } else if (field.type === "select") {
-            input = document.createElement("select");
-            const opts = Array.isArray(field.options) ? field.options : [];
-            opts.forEach(function (opt) {
-              const option = document.createElement("option");
-              option.value = opt;
-              option.textContent = opt;
-              input.appendChild(option);
-            });
-          } else {
-            input = document.createElement("input");
-            input.type = field.type || "text";
-          }
-
-          input.id = "field-" + field.key;
-          input.dataset.key = field.key;
-
-          if (field.placeholder) {
-            input.placeholder = field.placeholder;
-          }
-
-          if (field.defaultValue) {
-            input.value = field.defaultValue;
-          }
-
-          wrap.appendChild(label);
-          wrap.appendChild(input);
-          elDynamicFields.appendChild(wrap);
-        });
-      }
-
-      function collectOccurrenceForm() {
-        const category = elCategory.value;
-        const config = CATEGORY_CONFIG[category] || [];
-        const values = {};
-        const missing = [];
-
-        config.forEach(function (field) {
-          const el = document.getElementById("field-" + field.key);
-          if (!el) return;
-          const raw = el.value || "";
-          const val = raw.trim();
-
-          if (field.required && !val) {
-            missing.push(field.label);
-          }
-
-          values[field.key] = val;
-        });
-
-        if (missing.length) {
-          showToast(
-            "Preencha: " + missing.slice(0, 4).join(", ") + (missing.length > 4 ? "..." : ""),
-            true
-          );
-          return null;
+            if (!confirm("Excluir esse registro?")) return;
+            google.script.run
+              .withSuccessHandler(function () {
+                carregarApp();
+              })
+              .excluirRegistro(moduloNome, String(id));
+          };
+          tdAcao.appendChild(btn);
+          tr.appendChild(tdAcao);
         }
 
-        return {
-          category: category,
-          fields: values,
-        };
+        tbody.appendChild(tr);
+      });
+
+      table.appendChild(tbody);
+      wrapper.appendChild(table);
+    }
+
+    // MODAL REGISTRO
+    function abrirModalRegistroPrincipal() {
+      const modulo = viewToModulo[estadoAtual.view] || "RESERVA_CONFIRMADA";
+      abrirModalRegistro(modulo);
+    }
+
+    function abrirModalRegistro(modulo) {
+      estadoAtual.moduloRegistroAtual = modulo;
+      const cfg = moduleConfig[modulo];
+      if (!cfg) {
+        alert("Formulário não configurado para: " + modulo);
+        return;
       }
 
-      function clearForm() {
-        const inputs = elDynamicFields.querySelectorAll("input, textarea");
-        inputs.forEach(function (el) {
-          el.value = "";
-        });
-      }
+      document.getElementById("modalRegistroTitulo").textContent = cfg.titulo;
+      const body = document.getElementById("modalRegistroBody");
+      body.innerHTML = "";
 
-      function setSaving(flag) {
-        isSaving = flag;
-        elBtnSave.disabled = flag;
-        elBtnRelSave.disabled = flag;
-      }
+      cfg.campos.forEach(campo => {
+        const wrapper = document.createElement("div");
+        wrapper.className = "field";
 
-      function openOccurrenceModal() {
-        if (!elOccurrenceModal) return;
-        elOccurrenceModal.style.display = "block";
-      }
+        const label = document.createElement("label");
+        label.textContent = campo.label;
+        wrapper.appendChild(label);
 
-      function closeOccurrenceModal() {
-        if (!elOccurrenceModal) return;
-        elOccurrenceModal.style.display = "none";
-      }
-
-      function handleSaveOccurrence() {
-        if (isSaving) return;
-
-        const payload = collectOccurrenceForm();
-        if (!payload) return;
-
-        setSaving(true);
-
-        google.script.run
-          .withSuccessHandler(function (res) {
-            setSaving(false);
-            showToast((res && res.message) || "Ocorrência salva.");
-            clearForm();
-            closeOccurrenceModal();
-            loadDashboard();
-          })
-          .withFailureHandler(function (err) {
-            setSaving(false);
-            showToast(
-              (err && err.message) || "Erro ao salvar ocorrência.",
-              true
-            );
-          })
-          .saveOccurrence(payload);
-      }
-
-      function handleSaveRelatorio() {
-        if (isSaving) return;
-
-        const dia = (elRelDia.value || "").trim();
-        const turno = (elRelTurno.value || "").trim();
-        const texto = (elRelTexto.value || "").trim();
-
-        if (!texto) {
-          showToast("Escreva o texto do relatório.", true);
-          return;
+        let input;
+        if (campo.type === "textarea") {
+          input = document.createElement("textarea");
+        } else {
+          input = document.createElement("input");
+          input.type = campo.type;
         }
+        input.id = "mr-" + campo.name;
+        wrapper.appendChild(input);
 
-        const payload = {
-          tipo: currentRelTipo,
-          dia: dia,
-          turno: turno,
-          texto: texto,
-        };
+        body.appendChild(wrapper);
+      });
 
-        setSaving(true);
+      document.getElementById("modalRegistroBackdrop").classList.add("visible");
+    }
 
-        google.script.run
-          .withSuccessHandler(function (res) {
-            setSaving(false);
-            showToast((res && res.message) || "Relatório salvo.");
-            elRelTexto.value = "";
-            loadRelatorios();
-          })
-          .withFailureHandler(function (err) {
-            setSaving(false);
-            showToast(
-              (err && err.message) || "Erro ao salvar relatório.",
-              true
-            );
-          })
-          .saveRelatorio(payload);
+    function fecharModalRegistro() {
+      document.getElementById("modalRegistroBackdrop").classList.remove("visible");
+      estadoAtual.moduloRegistroAtual = null;
+    }
+
+    function salvarRegistroModal() {
+      const modulo = estadoAtual.moduloRegistroAtual;
+      if (!modulo) {
+        fecharModalRegistro();
+        return;
       }
 
-      function loadDashboard() {
-        google.script.run
-          .withSuccessHandler(renderDashboard)
-          .withFailureHandler(function (err) {
-            console.log(err);
-            elDash.innerHTML =
-              '<p class="muted">Não foi possível carregar o painel.</p>';
-          })
-          .getDashboardData();
-      }
-
-      function renderDashboard(data) {
-        elDash.innerHTML = "";
-        if (!data || !data.shifts || !data.shifts.length) {
-          elDash.innerHTML =
-            '<p class="muted">Ainda não há dados suficientes para o painel.</p>';
-          return;
-        }
-
-        renderBoardKpis(data);
-        renderBoardPrevious(data);
-
-        const categories = [
-          "RESERVA CONFIRMADA",
-          "PROCEDIMENTO CONFIRMADO",
-          "RESERVA NEGADA",
-          "PLANTÃO ANTERIOR",
-        ];
-
-        data.shifts.forEach(function (shift) {
-          const card = document.createElement("div");
-          card.className = "shift-card";
-
-          const h3 = document.createElement("h3");
-          const diaText = shift.dia || "Sem dia";
-          const turnoText = shift.turno || "Sem turno";
-
-          const tSpan = document.createElement("span");
-          tSpan.textContent = diaText;
-
-          const turnoPill = document.createElement("span");
-          turnoPill.className = "turno-pill";
-          turnoPill.textContent = turnoText;
-
-          h3.appendChild(tSpan);
-          h3.appendChild(turnoPill);
-
-          const ul = document.createElement("ul");
-
-          categories.forEach(function (cat) {
-            const li = document.createElement("li");
-            const span = document.createElement("span");
-            span.textContent = cat;
-
-            const strong = document.createElement("strong");
-            strong.textContent =
-              (shift.counts && shift.counts[cat]) ? shift.counts[cat] : 0;
-
-            li.appendChild(span);
-            li.appendChild(strong);
-            ul.appendChild(li);
-          });
-
-          const totalDiv = document.createElement("div");
-          totalDiv.className = "shift-total";
-          const totalLabel = document.createElement("span");
-          totalLabel.textContent = "Total de registros";
-
-          const totalVal = document.createElement("strong");
-          totalVal.textContent = shift.total || 0;
-
-          totalDiv.appendChild(totalLabel);
-          totalDiv.appendChild(totalVal);
-
-          card.appendChild(h3);
-          card.appendChild(ul);
-          card.appendChild(totalDiv);
-
-          elDash.appendChild(card);
-        });
-      }
-
-      function renderBoardKpis(data) {
-        if (!elBoardKpis) return;
-        const first = (data && data.shifts && data.shifts[0]) || null;
-        const counts = (first && first.counts) || {};
-
-        const items = [
-          {
-            label: "Número de Pacientes Alocados no Plantão",
-            value: first ? first.total || 0 : 0,
-            subtitle: "Total geral registrado",
-          },
-          {
-            label: "Reservas Pendentes de Chegada (Plantão Anterior)",
-            value: counts["PLANTÃO ANTERIOR"] || 0,
-            subtitle: "Plantão anterior",
-          },
-          {
-            label: "Total de Reservas Confirmadas",
-            value: counts["RESERVA CONFIRMADA"] || 0,
-            subtitle: "Chegadas aguardadas",
-          },
-          {
-            label: "Número de Leitos Bloqueados por Isolamento",
-            value: 0,
-            subtitle: "Atualize conforme necessário",
-          },
-          {
-            label: "Total de Reservas Canceladas",
-            value: counts["RESERVA NEGADA"] || 0,
-            subtitle: "Cancelamentos",
-          },
-          {
-            label: "Número de Leitos Bloqueados para Manutenção",
-            value: 0,
-            subtitle: "Manutenção programada",
-          },
-          {
-            label: "Pacientes Admitidos na UIB",
-            value: 0,
-            subtitle: "Últimas 24h",
-          },
-          {
-            label: "Número de Pacientes Aguardando Transferência Externa",
-            value: 0,
-            subtitle: "Filas externas",
-          },
-        ];
-
-        elBoardKpis.innerHTML = "";
-        items.forEach(function (item) {
-          const div = document.createElement("div");
-          div.className = "board-kpi";
-          div.innerHTML =
-            `<small>${item.label}</small>` +
-            `<strong>${item.value}</strong>` +
-            `<div style="font-size:0.8rem;color:var(--text-muted);">${item.subtitle}</div>`;
-          elBoardKpis.appendChild(div);
-        });
-      }
-
-      function renderBoardPrevious(data) {
-        if (!elBoardPrevList) return;
-        elBoardPrevList.innerHTML = "";
-        const prev = (data && data.shifts && data.shifts[1]) || null;
-        if (!prev) {
-          const li = document.createElement("li");
-          li.className = "muted";
-          li.textContent = "Sem plantão anterior registrado.";
-          elBoardPrevList.appendChild(li);
-          return;
-        }
-
-        const header = document.createElement("li");
-        header.textContent = `${prev.dia || "Sem dia"} • ${prev.turno || "Sem turno"}`;
-        elBoardPrevList.appendChild(header);
-
-        const total = document.createElement("li");
-        total.textContent = `Total de registros: ${prev.total || 0}`;
-        elBoardPrevList.appendChild(total);
-
-        Object.keys(prev.counts || {})
-          .filter(function (key) {
-            return (prev.counts && prev.counts[key]) > 0;
-          })
-          .forEach(function (key) {
-            const li = document.createElement("li");
-            li.textContent = `${key}: ${prev.counts[key]}`;
-            elBoardPrevList.appendChild(li);
-          });
-      }
-
-      function loadRelatorios() {
-        elRelRecentes.textContent = "Carregando...";
-
-        google.script.run
-          .withSuccessHandler(renderRelatorios)
-          .withFailureHandler(function (err) {
-            console.log(err);
-            elRelRecentes.innerHTML =
-              '<p class="muted">Não foi possível carregar os relatórios.</p>';
-          })
-          .getRelatoriosRecentes(10);
-      }
-
-      function renderRelatorios(lista) {
-        elRelRecentes.innerHTML = "";
-
-        if (!lista || !lista.length) {
-          elRelRecentes.innerHTML =
-            '<p class="muted">Sem relatórios recentes.</p>';
-          return;
-        }
-
-        const ul = document.createElement("ul");
-        ul.className = "rel-list";
-
-        lista.forEach(function (r) {
-          const li = document.createElement("li");
-
-          const meta = document.createElement("span");
-          meta.className = "rel-meta";
-
-          const tipoLabel = r.tipo === "ENF" ? "Enfermagem" : "Médico";
-
-          let dataStr = "";
-          if (r.data) {
-            try {
-              const d = new Date(r.data);
-              if (!isNaN(d.getTime())) {
-                const dd = String(d.getDate()).padStart(2, "0");
-                const mm = String(d.getMonth() + 1).padStart(2, "0");
-                const yy = d.getFullYear();
-                dataStr = dd + "/" + mm + "/" + yy;
-              }
-            } catch (e) {}
-          }
-
-          const partes = [];
-          partes.push(tipoLabel);
-          if (r.dia) partes.push(String(r.dia));
-          if (r.turno) partes.push(String(r.turno));
-          if (dataStr) partes.push(dataStr);
-
-          meta.textContent = partes.join(" · ");
-
-          const p = document.createElement("p");
-          p.textContent = r.texto || "";
-
-          li.appendChild(meta);
-          li.appendChild(p);
-          ul.appendChild(li);
-        });
-
-        elRelRecentes.appendChild(ul);
-
-        renderOccurrenceColumns(lista);
-      }
-
-      function renderOccurrenceColumns(lista) {
-        if (!elOccEnfermagem || !elOccMedica) return;
-        elOccEnfermagem.innerHTML = "";
-        elOccMedica.innerHTML = "";
-
-        const grouped = { ENF: [], MED: [] };
-        (lista || []).forEach(function (item) {
-          if (item && (item.tipo === "ENF" || item.tipo === "MED")) {
-            grouped[item.tipo].push(item);
-          }
-        });
-
-        function fillList(listEl, items, emptyText) {
-          if (!items.length) {
-            const li = document.createElement("li");
-            li.className = "muted";
-            li.textContent = emptyText;
-            listEl.appendChild(li);
-            return;
-          }
-
-          items.slice(0, 6).forEach(function (r) {
-            const li = document.createElement("li");
-            li.innerHTML = `<strong>${r.dia || "Sem dia"}</strong> · ${
-              r.turno || "Sem turno"
-            } – ${r.texto || ""}`;
-            listEl.appendChild(li);
-          });
-        }
-
-        fillList(
-          elOccEnfermagem,
-          grouped.ENF,
-          "Sem ocorrências de enfermagem."
-        );
-        fillList(elOccMedica, grouped.MED, "Sem ocorrências médicas.");
-
-        renderRelFeed(
-          elRelFeedEnf,
-          grouped.ENF,
-          "Sem ocorrências de enfermagem."
-        );
-        renderRelFeed(
-          elRelFeedMed,
-          grouped.MED,
-          "Sem ocorrências médicas."
-        );
-      }
-
-      function renderRelFeed(listEl, items, emptyText) {
-        if (!listEl) return;
-        listEl.innerHTML = "";
-
-        if (!items || !items.length) {
-          const li = document.createElement("li");
-          li.className = "muted";
-          li.textContent = emptyText;
-          listEl.appendChild(li);
-          return;
-        }
-
-        items.slice(0, 6).forEach(function (r) {
-          const li = document.createElement("li");
-
-          const meta = document.createElement("span");
-          meta.className = "meta";
-
-          const parts = [];
-          if (r.dia) parts.push(String(r.dia));
-          if (r.turno) parts.push(String(r.turno));
-          if (r.data) parts.push(formatDateDisplay(r.data));
-          meta.textContent = parts.join(" • ") || "Sem data";
-
-          const txt = document.createElement("p");
-          txt.style.margin = "0";
-          txt.textContent = r.texto || "";
-
-          li.appendChild(meta);
-          li.appendChild(txt);
-          listEl.appendChild(li);
-        });
-      }
-
-      function openFixedModal() {
-        if (!elFixedModal) return;
-        elFixedModal.style.display = "block";
-
-        if (elFixedEnfInput) {
-          elFixedEnfInput.value = fixedNotes.enfermagem || "";
-        }
-        if (elFixedMedInput) {
-          elFixedMedInput.value = fixedNotes.medica || "";
-        }
-        if (elFixedExamesInput) {
-          elFixedExamesInput.value = fixedNotes.exames || "";
-        }
-      }
-
-      function closeFixedModal() {
-        if (!elFixedModal) return;
-        elFixedModal.style.display = "none";
-      }
-
-      function renderFixedNotes() {
-        const fallback = "Sem texto cadastrado.";
-
-        if (elFixedEnfermagem) {
-          elFixedEnfermagem.textContent = fixedNotes.enfermagem || fallback;
-        }
-        if (elFixedMedica) {
-          elFixedMedica.textContent = fixedNotes.medica || fallback;
-        }
-        if (elFixedExames) {
-          elFixedExames.textContent = fixedNotes.exames || fallback;
-        }
-        if (elFixedExamesEnf) {
-          elFixedExamesEnf.textContent = fixedNotes.exames || fallback;
-        }
-      }
-
-      function loadFixedNotes() {
-        if (elBtnReloadFixed) {
-          elBtnReloadFixed.disabled = true;
-        }
-
-        google.script.run
-          .withSuccessHandler(function (res) {
-            if (elBtnReloadFixed) {
-              elBtnReloadFixed.disabled = false;
-            }
-            if (res && res.notes) {
-              fixedNotes = res.notes;
-              renderFixedNotes();
-            }
-          })
-          .withFailureHandler(function (err) {
-            console.log(err);
-            if (elBtnReloadFixed) {
-              elBtnReloadFixed.disabled = false;
-            }
-            showToast(
-              (err && err.message) || "Erro ao carregar linhas fixas.",
-              true
-            );
-          })
-          .getFixedNotes();
-      }
-
-      function handleSaveFixedNotes() {
-        const payload = {
-          enfermagem: (elFixedEnfInput?.value || "").trim(),
-          medica: (elFixedMedInput?.value || "").trim(),
-          exames: (elFixedExamesInput?.value || "").trim(),
-        };
-
-        google.script.run
-          .withSuccessHandler(function (res) {
-            if (res && res.notes) {
-              fixedNotes = res.notes;
-              renderFixedNotes();
-            }
-            closeFixedModal();
-            showToast("Linhas fixas salvas.");
-          })
-          .withFailureHandler(function (err) {
-            console.log(err);
-            showToast(
-              (err && err.message) || "Erro ao salvar linhas fixas.",
-              true
-            );
-          })
-          .saveFixedNotes(payload);
-      }
-
-      let toastTimeout;
-      function showToast(message, isError) {
-        if (!elToast) return;
-
-        if (toastTimeout) {
-          clearTimeout(toastTimeout);
-        }
-
-        elToast.textContent = message || "";
-        elToast.classList.remove("error");
-        if (isError) {
-          elToast.classList.add("error");
-        }
-
-        elToast.classList.add("show");
-
-        toastTimeout = setTimeout(function () {
-          elToast.classList.remove("show");
-        }, 3500);
-      }
-    })();
+      const cfg = moduleConfig[modulo];
+      const registro = {};
+      cfg.campos.forEach(campo => {
+        const el = document.getElementById("mr-" + campo.name);
+        registro[campo.name] = el ? el.value : "";
+      });
+
+      google.script.run
+        .withSuccessHandler(function () {
+          fecharModalRegistro();
+          carregarApp();
+        })
+        .adicionarRegistro(modulo, registro);
+    }
+
+    document.addEventListener("DOMContentLoaded", function () {
+      carregarApp("confirmadas");
+    });
   </script>
 </body>
 </html>
