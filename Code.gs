@@ -263,8 +263,9 @@ function getPlantaoConfig_() {
   if (!aba) return null;
 
   const valores = aba.getRange("A2:K2").getValues()[0];
-
   const possuiConteudo = valores.some((v) => v !== "" && v !== null);
+  const tz = Session.getScriptTimeZone() || "America/Sao_Paulo";
+
   if (possuiConteudo && !valores[0]) {
     const idRecuperado = gerarID_();
     valores[0] = idRecuperado;
@@ -277,9 +278,14 @@ function getPlantaoConfig_() {
     );
   }
 
+  const aberturaDt = normalizarDataHora_(valores[9], tz);
+  const encerramentoDt = normalizarDataHora_(valores[10], tz);
+  const agora = new Date();
+  const plantaoAtivo = Boolean(valores[0] || (possuiConteudo && (!encerramentoDt || agora < encerramentoDt)));
+
   return {
-    id: valores[0] || "",
-    data: valores[1] || "",
+    id: plantaoAtivo ? valores[0] || "" : "",
+    data: normalizarDataSimples_(valores[1], tz),
     diaSemana: valores[2] || "",
     turno: valores[3] || "",
     medico1: valores[4] || "",
@@ -287,8 +293,8 @@ function getPlantaoConfig_() {
     enf1: valores[6] || "",
     enf2: valores[7] || "",
     aux: valores[8] || "",
-    abertura: valores[9] || "",
-    encerramento: valores[10] || ""
+    abertura: aberturaDt || "",
+    encerramento: encerramentoDt || ""
   };
 }
 
@@ -551,4 +557,46 @@ function registrarEvento_(modulo, idRegistro, tipo, obs) {
     new Date(),
     obs || ""
   ]);
+}
+
+function normalizarDataHora_(valor, tz) {
+  if (!valor) return null;
+  const timezone = tz || Session.getScriptTimeZone() || "America/Sao_Paulo";
+
+  if (Object.prototype.toString.call(valor) === "[object Date]") {
+    if (isNaN(valor)) return null;
+    return ajustarParaTimezone_(valor, timezone);
+  }
+
+  const str = String(valor).trim();
+  if (!str) return null;
+
+  const m = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:[ T](\d{1,2}):(\d{1,2}))?/);
+  if (m) {
+    const dia = Number(m[1]);
+    const mes = Number(m[2]) - 1;
+    const ano = Number(m[3]);
+    const hora = Number(m[4] || 0);
+    const minuto = Number(m[5] || 0);
+    return ajustarParaTimezone_(new Date(ano, mes, dia, hora, minuto), timezone);
+  }
+
+  const dt = new Date(str);
+  if (isNaN(dt)) return null;
+  return ajustarParaTimezone_(dt, timezone);
+}
+
+function normalizarDataSimples_(valor, tz) {
+  const dt = normalizarDataHora_(valor, tz);
+  if (!dt) return "";
+  const timezone = tz || Session.getScriptTimeZone() || "America/Sao_Paulo";
+  return Utilities.formatDate(dt, timezone, "yyyy-MM-dd");
+}
+
+function ajustarParaTimezone_(dateObj, tz) {
+  if (!dateObj) return null;
+  const timezone = tz || Session.getScriptTimeZone() || "America/Sao_Paulo";
+  const iso = Utilities.formatDate(dateObj, timezone, "yyyy-MM-dd'T'HH:mm:ss'Z'");
+  const ajustado = new Date(iso);
+  return isNaN(ajustado) ? null : ajustado;
 }
