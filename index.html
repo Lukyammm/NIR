@@ -1054,25 +1054,38 @@
     }
 
     function parseDataFlexivel(valor) {
-      if (!valor) return null;
+      if (valor === null || valor === undefined || valor === "") return null;
       if (Object.prototype.toString.call(valor) === "[object Date]") {
         return isNaN(valor) ? null : new Date(valor);
+      }
+
+      if (typeof valor === "number") {
+        const base = new Date(Date.UTC(1899, 11, 30));
+        const millis = valor * 24 * 60 * 60 * 1000;
+        const dtSerial = new Date(base.getTime() + millis);
+        return isNaN(dtSerial) ? null : dtSerial;
       }
 
       const str = String(valor).trim();
       if (!str) return null;
 
-      const br = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:[ T](\d{1,2}):(\d{1,2}))?/);
+      const normalizado = str.replace(/\s+/g, " ").replace(/-/g, "/");
+      const br = normalizado.match(/^(\d{1,2})[\/\.](\d{1,2})[\/\.](\d{2,4})(?:[ T](\d{1,2})[:hH]?(\d{1,2}))?/);
       if (br) {
         const dia = Number(br[1]);
         const mes = Number(br[2]) - 1;
-        const ano = Number(br[3]);
+        let ano = Number(br[3]);
+        if (ano < 100) ano += 2000;
         const hora = Number(br[4] || 0);
         const minuto = Number(br[5] || 0);
-        return new Date(ano, mes, dia, hora, minuto);
+        const candidato = new Date(ano, mes, dia, hora, minuto);
+        if (!isNaN(candidato)) return candidato;
       }
 
-      const dt = new Date(str.replace(" ", "T"));
+      const isoLike = new Date(str.replace(/ /g, "T"));
+      if (!isNaN(isoLike)) return isoLike;
+
+      const dt = new Date(str);
       return isNaN(dt) ? null : dt;
     }
 
