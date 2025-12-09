@@ -544,6 +544,35 @@
         gap: 8px;
       }
     }
+
+    /* Loading */
+    .hidden { display: none !important; }
+    .loading-indicator {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      background: #eef2ff;
+      border: 1px solid #c7d2fe;
+      border-radius: 999px;
+      color: #4338ca;
+      font-size: 12px;
+      box-shadow: 0 10px 20px rgba(67,56,202,0.12);
+    }
+
+    .spinner {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      border: 2px solid #c7d2fe;
+      border-top-color: #4f46e5;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
   </style>
 </head>
 <body>
@@ -580,6 +609,10 @@
               <div class="status-pill">
                 <span id="dotStatus" class="status-dot"></span>
                 <span id="statusText">Sem plantão ativo</span>
+              </div>
+              <div id="loadingIndicator" class="loading-indicator hidden" aria-live="polite">
+                <span class="spinner" aria-hidden="true"></span>
+                <span id="loadingText">Processando...</span>
               </div>
               <button class="btn btn-link btn-small" onclick="abrirModalEquipeEdicao()">
                 👥 Equipe do Plantão
@@ -950,9 +983,18 @@
       }
     }
 
+    function setLoading(visivel, mensagem) {
+      const indicador = document.getElementById("loadingIndicator");
+      const texto = document.getElementById("loadingText");
+      if (!indicador || !texto) return;
+      if (mensagem) texto.textContent = mensagem;
+      indicador.classList.toggle("hidden", !visivel);
+    }
+
     function carregarApp(view) {
       if (!googleScriptDisponivel) return;
       const v = view || estadoAtual.view;
+      setLoading(true, "Carregando dados...");
       google.script.run
         .withSuccessHandler(function (data) {
           preencherPlantao(data.plantao);
@@ -963,6 +1005,12 @@
           renderTabela("tabelaIsolamentoWrapper", data.isolamento, false, "BLOQUEADOS_ISOLAMENTO");
           atualizarStatus(data.plantao);
           atualizarTitulosPrincipal(v);
+          setLoading(false);
+        })
+        .withFailureHandler(function (err) {
+          console.error(err);
+          alert("Erro ao carregar dados: " + err.message);
+          setLoading(false);
         })
         .getAppData(v);
     }
@@ -1134,10 +1182,17 @@
         aux: document.getElementById("me-aux").value
       };
 
+      setLoading(true, "Salvando equipe...");
       google.script.run
         .withSuccessHandler(function () {
           alert("Equipe do plantão salva.");
           carregarApp();
+          setLoading(false);
+        })
+        .withFailureHandler(function (err) {
+          console.error(err);
+          alert("Erro ao salvar o plantão: " + err.message);
+          setLoading(false);
         })
         .salvarPlantaoConfig(dados);
     }
@@ -1172,12 +1227,19 @@
         aux: document.getElementById("me-aux").value
       };
 
+      setLoading(true, estadoAtual.plantaoAtivo ? "Atualizando plantão..." : "Abrindo plantão...");
       if (!estadoAtual.plantaoAtivo) {
         // CRIAR PLANTÃO NOVO
         google.script.run
           .withSuccessHandler(function () {
             fecharModalEquipe();
             carregarApp();
+            setLoading(false);
+          })
+          .withFailureHandler(function (err) {
+            console.error(err);
+            alert("Erro ao abrir o plantão: " + err.message);
+            setLoading(false);
           })
           .criarPlantaoComEquipe(dados);
       } else {
@@ -1186,6 +1248,12 @@
           .withSuccessHandler(function () {
             fecharModalEquipe();
             carregarApp();
+            setLoading(false);
+          })
+          .withFailureHandler(function (err) {
+            console.error(err);
+            alert("Erro ao salvar o plantão: " + err.message);
+            setLoading(false);
           })
           .salvarPlantaoConfig(dados);
       }
@@ -1241,9 +1309,16 @@
               return;
             }
             if (!confirm("Excluir esse registro?")) return;
+            setLoading(true, "Excluindo registro...");
             google.script.run
               .withSuccessHandler(function () {
                 carregarApp();
+                setLoading(false);
+              })
+              .withFailureHandler(function (err) {
+                console.error(err);
+                alert("Erro ao excluir: " + err.message);
+                setLoading(false);
               })
               .excluirRegistro(moduloNome, String(id));
           };
@@ -1319,10 +1394,17 @@
         registro[campo.name] = el ? el.value : "";
       });
 
+      setLoading(true, "Salvando registro...");
       google.script.run
         .withSuccessHandler(function () {
           fecharModalRegistro();
           carregarApp();
+          setLoading(false);
+        })
+        .withFailureHandler(function (err) {
+          console.error(err);
+          alert("Erro ao salvar: " + err.message);
+          setLoading(false);
         })
         .adicionarRegistro(modulo, registro);
     }
