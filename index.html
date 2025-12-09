@@ -649,6 +649,9 @@
                 <span class="spinner" aria-hidden="true"></span>
                 <span id="loadingText">Processando...</span>
               </div>
+              <button class="btn btn-small" onclick="carregarApp()" title="Recarrega dados da planilha">
+                ⟳ Atualizar dados
+              </button>
               <button class="btn btn-link btn-small" onclick="abrirModalEquipeEdicao()">
                 👥 Equipe do Plantão
               </button>
@@ -1110,6 +1113,7 @@
     function carregarApp(view) {
       if (!googleScriptDisponivel) return;
       const v = view || estadoAtual.view;
+      estadoAtual.view = v;
       setLoading(true, "Carregando dados...");
       google.script.run
         .withSuccessHandler(function (data) {
