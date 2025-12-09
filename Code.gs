@@ -581,30 +581,53 @@ function registrarEvento_(modulo, idRegistro, tipo, obs) {
 }
 
 function normalizarDataHora_(valor, tz) {
-  if (!valor) return null;
-  const timezone = tz || Session.getScriptTimeZone() || "America/Sao_Paulo";
+  try {
+    if (valor === null || valor === undefined || valor === "") return null;
+    const timezone = tz || Session.getScriptTimeZone() || "America/Sao_Paulo";
 
-  if (Object.prototype.toString.call(valor) === "[object Date]") {
-    if (isNaN(valor)) return null;
-    return ajustarParaTimezone_(valor, timezone);
+    // Valores já em Date (inclusive vindos da planilha)
+    if (Object.prototype.toString.call(valor) === "[object Date]") {
+      if (isNaN(valor)) return null;
+      return ajustarParaTimezone_(valor, timezone);
+    }
+
+    // Serial numérico da planilha (dias desde 1899-12-30)
+    if (typeof valor === "number") {
+      const base = new Date(Date.UTC(1899, 11, 30));
+      const millis = valor * 24 * 60 * 60 * 1000;
+      const dtSerial = new Date(base.getTime() + millis);
+      return ajustarParaTimezone_(dtSerial, timezone);
+    }
+
+    const str = String(valor).trim();
+    if (!str) return null;
+
+    const normalizado = str.replace(/\s+/g, " ").replace(/-/g, "/");
+    const m = normalizado.match(/^(\d{1,2})[\/\.](\d{1,2})[\/\.](\d{2,4})(?:[ T](\d{1,2})[:hH]?(\d{1,2}))?/);
+    if (m) {
+      const dia = Number(m[1]);
+      const mes = Number(m[2]) - 1;
+      let ano = Number(m[3]);
+      if (ano < 100) ano += 2000; // permite 2 dígitos
+      const hora = Number(m[4] || 0);
+      const minuto = Number(m[5] || 0);
+      const candidato = new Date(ano, mes, dia, hora, minuto);
+      return isNaN(candidato) ? null : ajustarParaTimezone_(candidato, timezone);
+    }
+
+    // ISO-like (2024-05-01 10:30 ou 2024-05-01T10:30)
+    const isoLike = new Date(str.replace(/ /g, "T"));
+    if (!isNaN(isoLike)) {
+      return ajustarParaTimezone_(isoLike, timezone);
+    }
+
+    // Último recurso: tentativa direta
+    const dt = new Date(str);
+    return isNaN(dt) ? null : ajustarParaTimezone_(dt, timezone);
+  } catch (e) {
+    Logger.log("normalizarDataHora_ falhou para valor: " + valor + " -> " + e);
+    return null;
   }
-
-  const str = String(valor).trim();
-  if (!str) return null;
-
-  const m = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:[ T](\d{1,2}):(\d{1,2}))?/);
-  if (m) {
-    const dia = Number(m[1]);
-    const mes = Number(m[2]) - 1;
-    const ano = Number(m[3]);
-    const hora = Number(m[4] || 0);
-    const minuto = Number(m[5] || 0);
-    return ajustarParaTimezone_(new Date(ano, mes, dia, hora, minuto), timezone);
-  }
-
-  const dt = new Date(str);
-  if (isNaN(dt)) return null;
-  return ajustarParaTimezone_(dt, timezone);
 }
 
 function normalizarDataSimples_(valor, tz) {
