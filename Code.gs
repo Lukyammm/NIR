@@ -1,5 +1,7 @@
+const PLANILHA_ID = "1vnnGQEkAjP9eTRLWWSb2lSngwGTRYa_rtk6DsG8HGqc";
+
 function onOpen() {
-  const ui = SpreadsheetApp.getUi();
+  const ui = getSpreadsheet_().getUi();
   ui.createMenu("Ocorrências NIR")
     .addItem("Criar Estrutura Ocorrências", "criarEstruturaNIR")
     .addItem("Abrir Ocorrências (Sidebar)", "abrirWebAppSidebar")
@@ -23,7 +25,7 @@ function doGet() {
 // 1) CRIAÇÃO DE ABAS
 // ========================
 function criarEstruturaNIR() {
-  const ss = SpreadsheetApp.getActive();
+  const ss = getSpreadsheet_();
 
   const abasVivas = {
     "CONFIG_PLANTAO": [
@@ -148,7 +150,7 @@ function criarAbas_(ss, estrutura) {
 
 // Criar novo plantão COM equipe (usado pelo modal ao abrir plantão)
 function criarPlantaoComEquipe(dados) {
-  const ss = SpreadsheetApp.getActive();
+  const ss = getSpreadsheet_();
   const aba = ss.getSheetByName("CONFIG_PLANTAO");
   if (!aba) return;
 
@@ -184,7 +186,7 @@ function criarPlantaoComEquipe(dados) {
 
 // Editar equipe/plantão já existente
 function salvarPlantaoConfig(dados) {
-  const ss = SpreadsheetApp.getActive();
+  const ss = getSpreadsheet_();
   const aba = ss.getSheetByName("CONFIG_PLANTAO");
   if (!aba) return;
 
@@ -214,7 +216,7 @@ function salvarPlantaoConfig(dados) {
 }
 
 function encerrarPlantao() {
-  const ss = SpreadsheetApp.getActive();
+  const ss = getSpreadsheet_();
   const conf = ss.getSheetByName("CONFIG_PLANTAO");
   if (!conf) return;
 
@@ -241,7 +243,7 @@ function encerrarPlantao() {
 // 3) FRONTEND: GET / INDICADORES
 // ========================
 function getAppData(viewType) {
-  const ss = SpreadsheetApp.getActive();
+  const ss = getSpreadsheet_();
 
   const viewMap = {
     "confirmadas": "RESERVA_CONFIRMADA",
@@ -263,7 +265,7 @@ function getAppData(viewType) {
 }
 
 function getPlantaoConfig_() {
-  const ss = SpreadsheetApp.getActive();
+  const ss = getSpreadsheet_();
   const aba = ss.getSheetByName("CONFIG_PLANTAO");
   if (!aba) return null;
 
@@ -304,7 +306,7 @@ function getPlantaoConfig_() {
 }
 
 function getTabela_(sheetName) {
-  const ss = SpreadsheetApp.getActive();
+  const ss = getSpreadsheet_();
   const sheet = ss.getSheetByName(sheetName);
   if (!sheet) return { headers: [], rows: [] };
 
@@ -323,7 +325,7 @@ function getTabela_(sheetName) {
 }
 
 function getIndicadores_() {
-  const ss = SpreadsheetApp.getActive();
+  const ss = getSpreadsheet_();
 
   const confirmadas = ss.getSheetByName("RESERVA_CONFIRMADA");
   const vascular = ss.getSheetByName("PROCEDIMENTO_VASCULAR");
@@ -347,7 +349,7 @@ function getIndicadores_() {
 // 4) INSERIR REGISTRO
 // ========================
 function adicionarRegistro(modulo, registro) {
-  const ss = SpreadsheetApp.getActive();
+  const ss = getSpreadsheet_();
   const plantao = getPlantaoConfig_();
   const plantaoId = plantao && plantao.id ? plantao.id : "";
 
@@ -507,7 +509,7 @@ function excluirRegistro(modulo, id) {
   const conf = mapa[modulo];
   if (!conf) return;
 
-  const ss = SpreadsheetApp.getActive();
+  const ss = getSpreadsheet_();
   const sheet = ss.getSheetByName(conf.aba);
   if (!sheet) return;
 
@@ -549,7 +551,7 @@ function gerarID_() {
 }
 
 function registrarEvento_(modulo, idRegistro, tipo, obs) {
-  const ss = SpreadsheetApp.getActive();
+  const ss = getSpreadsheet_();
   const log = ss.getSheetByName("LOG_NIR");
   if (!log) return;
 
@@ -604,4 +606,11 @@ function ajustarParaTimezone_(dateObj, tz) {
   const iso = Utilities.formatDate(dateObj, timezone, "yyyy-MM-dd'T'HH:mm:ss'Z'");
   const ajustado = new Date(iso);
   return isNaN(ajustado) ? null : ajustado;
+}
+
+function getSpreadsheet_() {
+  if (!PLANILHA_ID) {
+    throw new Error("PLANILHA_ID não configurado para o WebApp.");
+  }
+  return SpreadsheetApp.openById(PLANILHA_ID);
 }
