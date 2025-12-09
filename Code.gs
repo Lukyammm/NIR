@@ -264,6 +264,19 @@ function getPlantaoConfig_() {
 
   const valores = aba.getRange("A2:K2").getValues()[0];
 
+  const possuiConteudo = valores.some((v) => v !== "" && v !== null);
+  if (possuiConteudo && !valores[0]) {
+    const idRecuperado = gerarID_();
+    valores[0] = idRecuperado;
+    aba.getRange("A2").setValue(idRecuperado);
+    registrarEvento_(
+      "PLANTAO",
+      idRecuperado,
+      "ID_RECUPERADO",
+      "ID preenchido automaticamente ao detectar CONFIG_PLANTAO com dados sem ID"
+    );
+  }
+
   return {
     id: valores[0] || "",
     data: valores[1] || "",
