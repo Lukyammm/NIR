@@ -286,6 +286,41 @@
       gap: 12px;
     }
 
+    /* Equipe do plantão */
+    .team-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 10px;
+      margin-top: 8px;
+    }
+
+    .team-card {
+      background: #f8fafc;
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 8px 10px;
+    }
+
+    .team-label {
+      font-size: 11px;
+      color: var(--text-muted);
+      letter-spacing: 0.02em;
+      margin-bottom: 2px;
+      text-transform: uppercase;
+    }
+
+    .team-value {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-main);
+    }
+
+    .team-empty {
+      padding: 6px 8px;
+      color: var(--text-soft);
+      font-size: 12px;
+    }
+
     /* KPIs */
     .kpi-grid {
       display: grid;
@@ -630,6 +665,54 @@
           </header>
 
           <div class="content">
+      <!-- Equipe do plantão -->
+      <section class="section">
+        <div class="section-header">
+          <div>
+            <div class="section-title">Equipe do Plantão</div>
+            <div class="section-subtitle">Mostrada automaticamente para o plantão ativo</div>
+          </div>
+          <div class="chip" id="equipeStatusChip">Nenhum plantão ativo</div>
+        </div>
+        <div id="equipeSemPlantao" class="team-empty">
+          Nenhum plantão ativo. Clique em "Abrir Plantão" para definir a equipe.
+        </div>
+        <div id="equipeGrid" class="team-grid hidden" aria-live="polite">
+          <div class="team-card">
+            <div class="team-label">Data</div>
+            <div class="team-value" id="eq-data">-</div>
+          </div>
+          <div class="team-card">
+            <div class="team-label">Dia</div>
+            <div class="team-value" id="eq-dia">-</div>
+          </div>
+          <div class="team-card">
+            <div class="team-label">Turno</div>
+            <div class="team-value" id="eq-turno">-</div>
+          </div>
+          <div class="team-card">
+            <div class="team-label">Médico(a) 1</div>
+            <div class="team-value" id="eq-med1">-</div>
+          </div>
+          <div class="team-card">
+            <div class="team-label">Médico(a) 2</div>
+            <div class="team-value" id="eq-med2">-</div>
+          </div>
+          <div class="team-card">
+            <div class="team-label">Enfermeiro(a) 1</div>
+            <div class="team-value" id="eq-enf1">-</div>
+          </div>
+          <div class="team-card">
+            <div class="team-label">Enfermeiro(a) 2</div>
+            <div class="team-value" id="eq-enf2">-</div>
+          </div>
+          <div class="team-card">
+            <div class="team-label">Auxiliar Administrativo</div>
+            <div class="team-value" id="eq-aux">-</div>
+          </div>
+        </div>
+      </section>
+
       <!-- KPIs -->
       <section class="section">
         <div class="section-header">
@@ -1026,6 +1109,8 @@
         dot.style.background = "#eab308";
         text.textContent = "Sem plantão ativo";
 
+        renderEquipe(null);
+
         // limpa modal equipe
         document.getElementById("me-id").value = "";
         document.getElementById("me-data").value = "";
@@ -1056,6 +1141,17 @@
         `Plantão ${pl.id} • ${pl.diaSemana || "Dia não informado"} • ${pl.turno || "Turno não informado"} • Data: ${dataStr}`;
       dot.style.background = "#16a34a";
       text.textContent = "Plantão ativo";
+
+      renderEquipe({
+        data: dataStr,
+        dia: pl.diaSemana,
+        turno: pl.turno,
+        med1: pl.medico1,
+        med2: pl.medico2,
+        enf1: pl.enf1,
+        enf2: pl.enf2,
+        aux: pl.aux
+      });
 
       // Preenche modal equipe com dados atuais
       document.getElementById("me-id").value = pl.id || "";
@@ -1194,7 +1290,41 @@
           alert("Erro ao salvar o plantão: " + err.message);
           setLoading(false);
         })
-        .salvarPlantaoConfig(dados);
+          .salvarPlantaoConfig(dados);
+    }
+
+    function renderEquipe(plantao) {
+      const grid = document.getElementById("equipeGrid");
+      const placeholder = document.getElementById("equipeSemPlantao");
+      const statusChip = document.getElementById("equipeStatusChip");
+
+      if (!grid || !placeholder || !statusChip) return;
+
+      const setValor = (id, valor) => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = valor || "-";
+      };
+
+      if (!plantao) {
+        grid.classList.add("hidden");
+        placeholder.classList.remove("hidden");
+        statusChip.textContent = "Nenhum plantão ativo";
+        statusChip.classList.remove("badge-success");
+        return;
+      }
+
+      grid.classList.remove("hidden");
+      placeholder.classList.add("hidden");
+      statusChip.textContent = "Plantão ativo";
+
+      setValor("eq-data", plantao.data || "-");
+      setValor("eq-dia", plantao.dia || "-");
+      setValor("eq-turno", plantao.turno || "-");
+      setValor("eq-med1", plantao.med1 || "-");
+      setValor("eq-med2", plantao.med2 || "-");
+      setValor("eq-enf1", plantao.enf1 || "-");
+      setValor("eq-enf2", plantao.enf2 || "-");
+      setValor("eq-aux", plantao.aux || "-");
     }
 
     // MODAL EQUIPE
