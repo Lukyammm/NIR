@@ -1050,20 +1050,53 @@
       }
     }
 
-    function formatarDataHora(d) {
-      if (!d) return "";
-      try {
-        const dt = new Date(d);
-        if (isNaN(dt)) return "";
-        const dia = String(dt.getDate()).padStart(2, "0");
-        const mes = String(dt.getMonth() + 1).padStart(2, "0");
-        const ano = dt.getFullYear();
-        const hh = String(dt.getHours()).padStart(2, "0");
-        const mm = String(dt.getMinutes()).padStart(2, "0");
-        return `${dia}/${mes}/${ano} ${hh}:${mm}`;
-      } catch (e) {
-        return "";
+    function parseDataFlexivel(valor) {
+      if (!valor) return null;
+      if (Object.prototype.toString.call(valor) === "[object Date]") {
+        return isNaN(valor) ? null : new Date(valor);
       }
+
+      const str = String(valor).trim();
+      if (!str) return null;
+
+      const br = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:[ T](\d{1,2}):(\d{1,2}))?/);
+      if (br) {
+        const dia = Number(br[1]);
+        const mes = Number(br[2]) - 1;
+        const ano = Number(br[3]);
+        const hora = Number(br[4] || 0);
+        const minuto = Number(br[5] || 0);
+        return new Date(ano, mes, dia, hora, minuto);
+      }
+
+      const dt = new Date(str.replace(" ", "T"));
+      return isNaN(dt) ? null : dt;
+    }
+
+    function formatarDataHora(d) {
+      const dt = parseDataFlexivel(d);
+      if (!dt) return "";
+      const dia = String(dt.getDate()).padStart(2, "0");
+      const mes = String(dt.getMonth() + 1).padStart(2, "0");
+      const ano = dt.getFullYear();
+      const hh = String(dt.getHours()).padStart(2, "0");
+      const mm = String(dt.getMinutes()).padStart(2, "0");
+      return `${dia}/${mes}/${ano} ${hh}:${mm}`;
+    }
+
+    function formatarDataParaInput(d) {
+      const dt = parseDataFlexivel(d);
+      if (!dt) return "";
+      return dt.toISOString().slice(0, 10);
+    }
+
+    function formatarDataCurta(d) {
+      const dt = parseDataFlexivel(d);
+      if (!dt) return "";
+      const dia = String(dt.getDate()).padStart(2, "0");
+      const mes = String(dt.getMonth() + 1).padStart(2, "0");
+      const ano = dt.getFullYear();
+      return `${dia}/${mes}/${ano}`;
     }
 
     function setLoading(visivel, mensagem) {
@@ -1128,14 +1161,8 @@
 
       estadoAtual.plantaoAtivo = true;
 
-      let dataStr = "-";
-      if (pl.data) {
-        if (Object.prototype.toString.call(pl.data) === "[object Date]") {
-          dataStr = pl.data.toISOString().slice(0, 10);
-        } else {
-          dataStr = pl.data;
-        }
-      }
+      const dataInput = formatarDataParaInput(pl.data);
+      const dataStr = formatarDataCurta(pl.data) || dataInput || pl.data || "-";
 
       resumo.textContent =
         `Plantão ${pl.id} • ${pl.diaSemana || "Dia não informado"} • ${pl.turno || "Turno não informado"} • Data: ${dataStr}`;
@@ -1155,7 +1182,7 @@
 
       // Preenche modal equipe com dados atuais
       document.getElementById("me-id").value = pl.id || "";
-      if (dataStr && dataStr !== "-") document.getElementById("me-data").value = dataStr;
+      if (dataInput) document.getElementById("me-data").value = dataInput;
       document.getElementById("me-dia").value = pl.diaSemana || "";
       document.getElementById("me-turno").value = pl.turno || "";
       document.getElementById("me-med1").value = pl.medico1 || "";
