@@ -160,10 +160,12 @@ function criarPlantaoComEquipe(dados) {
 
   const id = gerarID_();
   const agora = new Date();
+  const timezone = Session.getScriptTimeZone() || "America/Sao_Paulo";
+  const dataPlantao = normalizarDataSimples_(dados.data, timezone) || dados.data || "";
 
   const row = [
     id,
-    dados.data || "",
+    dataPlantao,
     dados.diaSemana || "",
     dados.turno || "",
     dados.medico1 || "",
@@ -191,9 +193,12 @@ function salvarPlantaoConfig(dados) {
     throw new Error("Nenhum plantão ativo para salvar.");
   }
 
+  const timezone = Session.getScriptTimeZone() || "America/Sao_Paulo";
+  const dataPlantao = normalizarDataSimples_(dados.data, timezone) || dados.data || "";
+
   const row = [
     idAtual,
-    dados.data || "",
+    dataPlantao,
     dados.diaSemana || "",
     dados.turno || "",
     dados.medico1 || "",
@@ -590,7 +595,7 @@ function normalizarDataSimples_(valor, tz) {
   const dt = normalizarDataHora_(valor, tz);
   if (!dt) return "";
   const timezone = tz || Session.getScriptTimeZone() || "America/Sao_Paulo";
-  return Utilities.formatDate(dt, timezone, "yyyy-MM-dd");
+  return Utilities.formatDate(dt, timezone, "dd/MM/yyyy");
 }
 
 function ajustarParaTimezone_(dateObj, tz) {
