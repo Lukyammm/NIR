@@ -1140,7 +1140,9 @@
       const dot = document.getElementById("dotStatus");
       const text = document.getElementById("statusText");
 
-      if (!pl || !pl.id) {
+      const ativo = Boolean(pl && (pl.ativo || pl.id || pl.possuiConteudo));
+
+      if (!ativo) {
         estadoAtual.plantaoAtivo = false;
         resumo.textContent = 'Nenhum plantão ativo. Clique em "Abrir Plantão" para iniciar.';
         dot.style.background = "#eab308";
