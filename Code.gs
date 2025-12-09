@@ -288,10 +288,14 @@ function getPlantaoConfig_() {
   const aberturaDt = normalizarDataHora_(valores[9], tz);
   const encerramentoDt = normalizarDataHora_(valores[10], tz);
   const agora = new Date();
-  const plantaoAtivo = Boolean(valores[0] || (possuiConteudo && (!encerramentoDt || agora < encerramentoDt)));
+  const possuiEncerramentoValido = Boolean(encerramentoDt && !isNaN(encerramentoDt));
+  const plantaoAtivo = Boolean(
+    valores[0] ||
+    (possuiConteudo && (!possuiEncerramentoValido || agora < encerramentoDt))
+  );
 
   return {
-    id: plantaoAtivo ? valores[0] || "" : "",
+    id: plantaoAtivo ? String(valores[0] || "") : "",
     data: normalizarDataSimples_(valores[1], tz),
     diaSemana: valores[2] || "",
     turno: valores[3] || "",
@@ -301,7 +305,9 @@ function getPlantaoConfig_() {
     enf2: valores[7] || "",
     aux: valores[8] || "",
     abertura: aberturaDt || "",
-    encerramento: encerramentoDt || ""
+    encerramento: encerramentoDt || "",
+    ativo: plantaoAtivo,
+    possuiConteudo
   };
 }
 
