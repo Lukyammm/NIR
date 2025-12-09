@@ -37,6 +37,83 @@
       font-size: 14px;
     }
 
+    .system-wrapper {
+      max-width: 1320px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .system-menu {
+      display: flex;
+      gap: 8px;
+      background: #ffffff;
+      border: 1px solid var(--border-subtle);
+      border-radius: 12px;
+      padding: 8px;
+      box-shadow: var(--shadow-soft);
+    }
+
+    .menu-item {
+      border: 1px solid var(--border-subtle);
+      border-radius: 10px;
+      padding: 10px 14px;
+      background: #f9fafb;
+      color: var(--text-main);
+      font-weight: 600;
+      cursor: pointer;
+      transition: 0.16s ease all;
+      display: inline-flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .menu-item span {
+      font-size: 12px;
+      color: var(--text-soft);
+      font-weight: 500;
+    }
+
+    .menu-item.active {
+      background: var(--accent);
+      border-color: var(--accent-strong);
+      color: #ffffff;
+      box-shadow: 0 12px 30px rgba(37, 99, 235, 0.2);
+    }
+
+    .menu-panels {
+      width: 100%;
+    }
+
+    .menu-panel {
+      display: none;
+    }
+
+    .menu-panel.active {
+      display: block;
+    }
+
+    .placeholder-card {
+      background: var(--bg-card);
+      border-radius: 14px;
+      border: 1px solid var(--border-subtle);
+      padding: 20px;
+      box-shadow: var(--shadow-soft);
+    }
+
+    .placeholder-title {
+      margin: 0 0 8px;
+      font-size: 16px;
+      font-weight: 600;
+    }
+
+    .placeholder-subtitle {
+      margin: 0;
+      color: var(--text-soft);
+      font-size: 13px;
+    }
+
     .app-shell {
       max-width: 1280px;
       margin: 0 auto;
@@ -470,38 +547,56 @@
   </style>
 </head>
 <body>
-  <div class="app-shell">
-    <header class="app-header">
-      <div class="app-title">
-        <h1>
-          Ocorrências do Plantão – NIR
-          <span class="badge">UIB • HUWC</span>
-        </h1>
-        <span id="plantaoResumo" class="app-subtitle">
-          Nenhum plantão ativo. Clique em "Abrir Plantão" para iniciar.
-        </span>
-      </div>
-      <div class="header-actions">
-        <div class="status-pill">
-          <span id="dotStatus" class="status-dot"></span>
-          <span id="statusText">Sem plantão ativo</span>
-        </div>
-        <button class="btn btn-link btn-small" onclick="abrirModalEquipeEdicao()">
-          👥 Equipe do Plantão
-        </button>
-        <button class="btn btn-small" onclick="salvarPlantao()">
-          💾 Salvar Equipe
-        </button>
-        <button class="btn btn-primary btn-small" onclick="abrirPlantao()">
-          ▶ Abrir Plantão
-        </button>
-        <button class="btn btn-danger btn-small" onclick="encerrarPlantao()">
-          ⏹ Encerrar
-        </button>
-      </div>
-    </header>
+  <div class="system-wrapper">
+    <nav class="system-menu">
+      <button class="menu-item active" data-target="painel-ocorrencias" onclick="selecionarMenu('painel-ocorrencias')">
+        Ocorrências NIR
+        <span>Opção principal</span>
+      </button>
+      <button class="menu-item" data-target="painel-opcao2" onclick="selecionarMenu('painel-opcao2')">
+        Opção 2
+        <span>Em breve</span>
+      </button>
+      <button class="menu-item" data-target="painel-opcao3" onclick="selecionarMenu('painel-opcao3')">
+        Opção 3
+        <span>Em breve</span>
+      </button>
+    </nav>
 
-    <div class="content">
+    <div class="menu-panels">
+      <div id="painel-ocorrencias" class="menu-panel active">
+        <div class="app-shell">
+          <header class="app-header">
+            <div class="app-title">
+              <h1>
+                Ocorrências do Plantão – NIR
+                <span class="badge">UIB • HUWC</span>
+              </h1>
+              <span id="plantaoResumo" class="app-subtitle">
+                Nenhum plantão ativo. Clique em "Abrir Plantão" para iniciar.
+              </span>
+            </div>
+            <div class="header-actions">
+              <div class="status-pill">
+                <span id="dotStatus" class="status-dot"></span>
+                <span id="statusText">Sem plantão ativo</span>
+              </div>
+              <button class="btn btn-link btn-small" onclick="abrirModalEquipeEdicao()">
+                👥 Equipe do Plantão
+              </button>
+              <button class="btn btn-small" onclick="salvarPlantao()">
+                💾 Salvar Equipe
+              </button>
+              <button class="btn btn-primary btn-small" onclick="abrirPlantao()">
+                ▶ Abrir Plantão
+              </button>
+              <button class="btn btn-danger btn-small" onclick="encerrarPlantao()">
+                ⏹ Encerrar
+              </button>
+            </div>
+          </header>
+
+          <div class="content">
       <!-- KPIs -->
       <section class="section">
         <div class="section-header">
@@ -600,96 +695,113 @@
     </div>
   </div>
 
-  <!-- MODAL EQUIPE -->
-  <div id="modalEquipeBackdrop" class="modal-backdrop">
-    <div class="modal">
-      <div class="modal-header">
-        <div class="modal-title">Equipe do Plantão</div>
-        <button class="btn btn-link btn-small" onclick="fecharModalEquipe()">Fechar</button>
+        <!-- MODAL EQUIPE -->
+        <div id="modalEquipeBackdrop" class="modal-backdrop">
+          <div class="modal">
+            <div class="modal-header">
+              <div class="modal-title">Equipe do Plantão</div>
+              <button class="btn btn-link btn-small" onclick="fecharModalEquipe()">Fechar</button>
+            </div>
+            <div class="modal-body">
+              <div class="field">
+                <label>ID do Plantão</label>
+                <input id="me-id" type="text" readonly placeholder="Será gerado ao abrir plantão">
+              </div>
+
+              <div class="field">
+                <label>Data do Plantão</label>
+                <input id="me-data" type="date">
+              </div>
+
+              <div class="field">
+                <label>Dia da Semana</label>
+                <input id="me-dia" type="text" placeholder="Ex: Segunda">
+              </div>
+
+              <div class="field">
+                <label>Turno</label>
+                <select id="me-turno">
+                  <option value="">Selecione...</option>
+                  <option>Manhã</option>
+                  <option>Tarde</option>
+                  <option>Noite</option>
+                </select>
+              </div>
+
+              <div class="field">
+                <label>Médico(a) 1</label>
+                <input id="me-med1" type="text">
+              </div>
+              <div class="field">
+                <label>Médico(a) 2</label>
+                <input id="me-med2" type="text">
+              </div>
+
+              <div class="field">
+                <label>Enfermeiro(a) 1</label>
+                <input id="me-enf1" type="text">
+              </div>
+              <div class="field">
+                <label>Enfermeiro(a) 2</label>
+                <input id="me-enf2" type="text">
+              </div>
+
+              <div class="field">
+                <label>Auxiliar Administrativo</label>
+                <input id="me-aux" type="text">
+              </div>
+
+              <div class="field">
+                <label>Abertura</label>
+                <input id="me-abertura" type="text" readonly>
+              </div>
+
+              <div class="field">
+                <label>Encerramento</label>
+                <input id="me-encerramento" type="text" readonly>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button class="btn btn-small" onclick="fecharModalEquipe()">Cancelar</button>
+              <button class="btn btn-primary btn-small" onclick="salvarEquipeModal()">
+                Salvar
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- MODAL REGISTRO -->
+        <div id="modalRegistroBackdrop" class="modal-backdrop">
+          <div class="modal">
+            <div class="modal-header">
+              <div class="modal-title" id="modalRegistroTitulo">Novo Registro</div>
+              <button class="btn btn-link btn-small" onclick="fecharModalRegistro()">Fechar</button>
+            </div>
+            <div class="modal-body" id="modalRegistroBody">
+              <!-- campos via JS -->
+            </div>
+            <div class="modal-footer">
+              <button class="btn btn-small" onclick="fecharModalRegistro()">Cancelar</button>
+              <button class="btn btn-primary btn-small" onclick="salvarRegistroModal()">
+                Salvar
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
-      <div class="modal-body">
-        <div class="field">
-          <label>ID do Plantão</label>
-          <input id="me-id" type="text" readonly placeholder="Será gerado ao abrir plantão">
-        </div>
 
-        <div class="field">
-          <label>Data do Plantão</label>
-          <input id="me-data" type="date">
-        </div>
-
-        <div class="field">
-          <label>Dia da Semana</label>
-          <input id="me-dia" type="text" placeholder="Ex: Segunda">
-        </div>
-
-        <div class="field">
-          <label>Turno</label>
-          <select id="me-turno">
-            <option value="">Selecione...</option>
-            <option>Manhã</option>
-            <option>Tarde</option>
-            <option>Noite</option>
-          </select>
-        </div>
-
-        <div class="field">
-          <label>Médico(a) 1</label>
-          <input id="me-med1" type="text">
-        </div>
-        <div class="field">
-          <label>Médico(a) 2</label>
-          <input id="me-med2" type="text">
-        </div>
-
-        <div class="field">
-          <label>Enfermeiro(a) 1</label>
-          <input id="me-enf1" type="text">
-        </div>
-        <div class="field">
-          <label>Enfermeiro(a) 2</label>
-          <input id="me-enf2" type="text">
-        </div>
-
-        <div class="field">
-          <label>Auxiliar Administrativo</label>
-          <input id="me-aux" type="text">
-        </div>
-
-        <div class="field">
-          <label>Abertura</label>
-          <input id="me-abertura" type="text" readonly>
-        </div>
-
-        <div class="field">
-          <label>Encerramento</label>
-          <input id="me-encerramento" type="text" readonly>
+      <div id="painel-opcao2" class="menu-panel">
+        <div class="placeholder-card">
+          <h3 class="placeholder-title">Opção 2</h3>
+          <p class="placeholder-subtitle">Área reservada para futuros módulos do sistema.</p>
         </div>
       </div>
-      <div class="modal-footer">
-        <button class="btn btn-small" onclick="fecharModalEquipe()">Cancelar</button>
-        <button class="btn btn-primary btn-small" onclick="salvarEquipeModal()">
-          Salvar
-        </button>
-      </div>
-    </div>
-  </div>
 
-  <!-- MODAL REGISTRO -->
-  <div id="modalRegistroBackdrop" class="modal-backdrop">
-    <div class="modal">
-      <div class="modal-header">
-        <div class="modal-title" id="modalRegistroTitulo">Novo Registro</div>
-        <button class="btn btn-link btn-small" onclick="fecharModalRegistro()">Fechar</button>
-      </div>
-      <div class="modal-body" id="modalRegistroBody">
-        <!-- campos via JS -->
-      </div>
-      <div class="modal-footer">
-        <button class="btn btn-small" onclick="fecharModalRegistro()">Cancelar</button>
-        <button class="btn btn-primary btn-small" onclick="salvarRegistroModal()">
-          Salvar
-        </button>
+      <div id="painel-opcao3" class="menu-panel">
+        <div class="placeholder-card">
+          <h3 class="placeholder-title">Opção 3</h3>
+          <p class="placeholder-subtitle">Conteúdo a definir. Esta opção já fica pronta no menu.</p>
+        </div>
       </div>
     </div>
   </div>
@@ -701,6 +813,9 @@
       moduloRegistroAtual: null,
       plantaoAtivo: false
     };
+
+    const menuPainelIds = ["painel-ocorrencias", "painel-opcao2", "painel-opcao3"];
+    const googleScriptDisponivel = typeof google !== "undefined" && google.script && google.script.run;
 
     const viewToModulo = {
       confirmadas: "RESERVA_CONFIRMADA",
@@ -805,6 +920,20 @@
       }
     };
 
+    function selecionarMenu(targetId) {
+      menuPainelIds.forEach(id => {
+        const painel = document.getElementById(id);
+        if (painel) painel.classList.toggle("active", id === targetId);
+
+        const botao = document.querySelector(`.menu-item[data-target="${id}"]`);
+        if (botao) botao.classList.toggle("active", id === targetId);
+      });
+
+      if (targetId === "painel-ocorrencias" && googleScriptDisponivel) {
+        carregarApp("confirmadas");
+      }
+    }
+
     function formatarDataHora(d) {
       if (!d) return "";
       try {
@@ -822,6 +951,7 @@
     }
 
     function carregarApp(view) {
+      if (!googleScriptDisponivel) return;
       const v = view || estadoAtual.view;
       google.script.run
         .withSuccessHandler(function (data) {
@@ -1198,7 +1328,7 @@
     }
 
     document.addEventListener("DOMContentLoaded", function () {
-      carregarApp("confirmadas");
+      selecionarMenu("painel-ocorrencias");
     });
   </script>
 </body>
