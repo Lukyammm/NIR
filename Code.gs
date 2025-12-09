@@ -310,18 +310,26 @@ function getTabela_(sheetName) {
   const sheet = ss.getSheetByName(sheetName);
   if (!sheet) return { headers: [], rows: [] };
 
-  const lastRow = sheet.getLastRow();
   const lastCol = sheet.getLastColumn();
-  if (lastRow < 2 || lastCol === 0) {
-    const headers = lastCol > 0 ? sheet.getRange(1, 1, 1, lastCol).getValues()[0] : [];
-    return { headers: headers, rows: [] };
+  const headers = lastCol > 0 ? sheet.getRange(1, 1, 1, lastCol).getValues()[0].map(h => h || "") : [];
+
+  if (headers.length === 0) {
+    return { headers: [], rows: [] };
   }
 
-  const values = sheet.getRange(1, 1, lastRow, lastCol).getValues();
-  const headers = values[0];
-  const rows = values.slice(1);
+  const dataRange = sheet.getDataRange();
+  const values = dataRange.getValues();
+  const linhas = values
+    .slice(1)
+    .filter(row => row.some(cell => cell !== "" && cell !== null))
+    .map(row => {
+      if (row.length < headers.length) {
+        return row.concat(Array(headers.length - row.length).fill(""));
+      }
+      return row.slice(0, headers.length);
+    });
 
-  return { headers: headers, rows: rows };
+  return { headers: headers, rows: linhas };
 }
 
 function getIndicadores_() {
