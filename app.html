@@ -1,0 +1,649 @@
+<script>
+  let estadoAtual = {
+    view: "confirmadas",
+    principalModulo: "RESERVA_CONFIRMADA",
+    moduloRegistroAtual: null,
+    plantaoAtivo: false
+  };
+
+  const menuPainelIds = ["painel-ocorrencias", "painel-opcao2", "painel-opcao3"];
+  const googleScriptDisponivel = typeof google !== "undefined" && google.script && google.script.run;
+
+  const viewToModulo = {
+    confirmadas: "RESERVA_CONFIRMADA",
+    vascular: "PROCEDIMENTO_VASCULAR",
+    negadas: "RESERVA_NEGADA",
+    anterior: "PLANTAO_ANTERIOR"
+  };
+
+  const moduleConfig = {
+    "RESERVA_CONFIRMADA": {
+      titulo: "Nova Reserva Confirmada",
+      campos: [
+        { name: "tipo", label: "Tipo", type: "text" },
+        { name: "fastmedic", label: "Fastmedic", type: "text" },
+        { name: "nome", label: "Nome do Paciente", type: "text" },
+        { name: "leito", label: "Leito Reservado", type: "text" },
+        { name: "especialidade", label: "Especialidade", type: "text" },
+        { name: "origem", label: "Origem", type: "text" },
+        { name: "status", label: "Status", type: "text" },
+        { name: "dataReserva", label: "Data da Reserva", type: "date" },
+        { name: "horaReserva", label: "Hora da Reserva", type: "time" },
+        { name: "dataConfirmacao", label: "Data da Confirmação", type: "date" },
+        { name: "horaConfirmacao", label: "Hora da Confirmação", type: "time" },
+        { name: "chegou", label: "Chegou (SIM/NÃO)", type: "text" },
+        { name: "observacao", label: "Observação", type: "textarea" }
+      ]
+    },
+    "PROCEDIMENTO_VASCULAR": {
+      titulo: "Novo Procedimento Vascular",
+      campos: [
+        { name: "tipo", label: "Tipo", type: "text" },
+        { name: "fastmedic", label: "Fastmedic", type: "text" },
+        { name: "nome", label: "Nome do Paciente", type: "text" },
+        { name: "leito", label: "Leito Reservado", type: "text" },
+        { name: "especialidade", label: "Especialidade", type: "text" },
+        { name: "origem", label: "Origem", type: "text" },
+        { name: "status", label: "Status", type: "text" },
+        { name: "dataReserva", label: "Data da Reserva", type: "date" },
+        { name: "horaReserva", label: "Hora da Reserva", type: "time" },
+        { name: "dataConfirmacao", label: "Data da Confirmação", type: "date" },
+        { name: "horaConfirmacao", label: "Hora da Confirmação", type: "time" },
+        { name: "chegou", label: "Chegou (SIM/NÃO)", type: "text" },
+        { name: "observacao", label: "Observação", type: "textarea" }
+      ]
+    },
+    "RESERVA_NEGADA": {
+      titulo: "Nova Reserva Negada",
+      campos: [
+        { name: "tipo", label: "Tipo", type: "text" },
+        { name: "fastmedic", label: "Fastmedic", type: "text" },
+        { name: "nome", label: "Nome do Paciente", type: "text" },
+        { name: "origem", label: "Origem", type: "text" },
+        { name: "especialidade", label: "Especialidade", type: "text" },
+        { name: "justificativa", label: "Justificativa", type: "textarea" },
+        { name: "dataReserva", label: "Data da Reserva", type: "date" },
+        { name: "horaReserva", label: "Hora da Reserva", type: "time" },
+        { name: "dataCancelamento", label: "Data do Cancelamento", type: "date" },
+        { name: "horaCancelamento", label: "Hora do Cancelamento", type: "time" }
+      ]
+    },
+    "PLANTAO_ANTERIOR": {
+      titulo: "Adicionar Paciente do Plantão Anterior",
+      campos: [
+        { name: "tipo", label: "Tipo", type: "text" },
+        { name: "fastmedic", label: "Fastmedic", type: "text" },
+        { name: "nome", label: "Nome do Paciente", type: "text" },
+        { name: "leito", label: "Leito Reservado", type: "text" },
+        { name: "especialidade", label: "Especialidade", type: "text" },
+        { name: "origem", label: "Origem", type: "text" },
+        { name: "status", label: "Status", type: "text" },
+        { name: "dataReserva", label: "Data da Reserva", type: "date" },
+        { name: "horaReserva", label: "Hora da Reserva", type: "time" },
+        { name: "dataAdmissao", label: "Data de Admissão", type: "date" },
+        { name: "horaAdmissao", label: "Hora de Admissão", type: "time" },
+        { name: "chegou", label: "Chegou (SIM/NÃO)", type: "text" },
+        { name: "observacao", label: "Observação", type: "textarea" }
+      ]
+    },
+    "BLOQUEADOS_MANUTENCAO": {
+      titulo: "Novo Leito Bloqueado para Manutenção",
+      campos: [
+        { name: "leito", label: "Leito", type: "text" },
+        { name: "unidade", label: "Unidade", type: "text" },
+        { name: "manutencaoAcionada", label: "Manutenção Acionada", type: "text" },
+        { name: "dataInicio", label: "Data de Início", type: "date" },
+        { name: "previsaoReparo", label: "Previsão de Reparo", type: "date" },
+        { name: "observacao", label: "Observação", type: "textarea" }
+      ]
+    },
+    "BLOQUEADOS_ISOLAMENTO": {
+      titulo: "Novo Leito em Isolamento",
+      campos: [
+        { name: "unidade", label: "Unidade", type: "text" },
+        { name: "leito", label: "Leito", type: "text" },
+        { name: "paciente", label: "Paciente", type: "text" },
+        { name: "tipoIsolamento", label: "Tipo de Isolamento", type: "text" },
+        { name: "patologia", label: "Patologia", type: "text" },
+        { name: "inicioIsolamento", label: "Início do Isolamento", type: "date" },
+        { name: "tempoPrevisto", label: "Tempo Previsto", type: "text" },
+        { name: "observacao", label: "Observação", type: "textarea" }
+      ]
+    }
+  };
+
+  function selecionarMenu(targetId) {
+    menuPainelIds.forEach(id => {
+      const painel = document.getElementById(id);
+      if (painel) painel.classList.toggle("active", id === targetId);
+
+      const botao = document.querySelector(`.menu-item[data-target="${id}"]`);
+      if (botao) botao.classList.toggle("active", id === targetId);
+    });
+
+    if (targetId === "painel-ocorrencias" && googleScriptDisponivel) {
+      carregarApp("confirmadas");
+    }
+  }
+
+  function parseDataFlexivel(valor) {
+    if (valor === null || valor === undefined || valor === "") return null;
+    if (Object.prototype.toString.call(valor) === "[object Date]") {
+      return isNaN(valor) ? null : new Date(valor);
+    }
+
+    if (typeof valor === "number") {
+      const base = new Date(Date.UTC(1899, 11, 30));
+      const millis = valor * 24 * 60 * 60 * 1000;
+      const dtSerial = new Date(base.getTime() + millis);
+      return isNaN(dtSerial) ? null : dtSerial;
+    }
+
+    const str = String(valor).trim();
+    if (!str) return null;
+
+    const normalizado = str.replace(/\s+/g, " ").replace(/-/g, "/");
+    const br = normalizado.match(/^(\d{1,2})[\/\.](\d{1,2})[\/\.](\d{2,4})(?:[ T](\d{1,2})[:hH]?(\d{1,2}))?/);
+    if (br) {
+      const dia = Number(br[1]);
+      const mes = Number(br[2]) - 1;
+      let ano = Number(br[3]);
+      if (ano < 100) ano += 2000;
+      const hora = Number(br[4] || 0);
+      const minuto = Number(br[5] || 0);
+      const candidato = new Date(ano, mes, dia, hora, minuto);
+      if (!isNaN(candidato)) return candidato;
+    }
+
+    const isoLike = new Date(str.replace(/ /g, "T"));
+    if (!isNaN(isoLike)) return isoLike;
+
+    const dt = new Date(str);
+    return isNaN(dt) ? null : dt;
+  }
+
+  function formatarDataHora(d) {
+    const dt = parseDataFlexivel(d);
+    if (!dt) return "";
+    const dia = String(dt.getDate()).padStart(2, "0");
+    const mes = String(dt.getMonth() + 1).padStart(2, "0");
+    const ano = dt.getFullYear();
+    const hh = String(dt.getHours()).padStart(2, "0");
+    const mm = String(dt.getMinutes()).padStart(2, "0");
+    return `${dia}/${mes}/${ano} ${hh}:${mm}`;
+  }
+
+  function formatarDataParaInput(d) {
+    const dt = parseDataFlexivel(d);
+    if (!dt) return "";
+    return dt.toISOString().slice(0, 10);
+  }
+
+  function formatarDataCurta(d) {
+    const dt = parseDataFlexivel(d);
+    if (!dt) return "";
+    const dia = String(dt.getDate()).padStart(2, "0");
+    const mes = String(dt.getMonth() + 1).padStart(2, "0");
+    const ano = dt.getFullYear();
+    return `${dia}/${mes}/${ano}`;
+  }
+
+  function setLoading(visivel, mensagem) {
+    const indicador = document.getElementById("loadingIndicator");
+    const texto = document.getElementById("loadingText");
+    if (!indicador || !texto) return;
+    if (mensagem) texto.textContent = mensagem;
+    indicador.classList.toggle("hidden", !visivel);
+  }
+
+  function carregarApp(view) {
+    if (!googleScriptDisponivel) return;
+    const v = view || estadoAtual.view;
+    estadoAtual.view = v;
+    setLoading(true, "Carregando dados...");
+    google.script.run
+      .withSuccessHandler(function (data) {
+        preencherPlantao(data.plantao);
+        preencherIndicadores(data.indicadores);
+        estadoAtual.principalModulo = data.principalNome;
+        renderTabela("tabelaPrincipalWrapper", data.principal, true, data.principalNome);
+        renderTabela("tabelaManutencaoWrapper", data.manutencao, false, "BLOQUEADOS_MANUTENCAO");
+        renderTabela("tabelaIsolamentoWrapper", data.isolamento, false, "BLOQUEADOS_ISOLAMENTO");
+        atualizarStatus(data.plantao);
+        atualizarTitulosPrincipal(v);
+        setLoading(false);
+      })
+      .withFailureHandler(function (err) {
+        console.error(err);
+        alert("Erro ao carregar dados: " + err.message);
+        setLoading(false);
+      })
+      .getAppData(v);
+  }
+
+  function preencherPlantao(pl) {
+    const resumo = document.getElementById("plantaoResumo");
+    const dot = document.getElementById("dotStatus");
+    const text = document.getElementById("statusText");
+
+    const ativo = Boolean(pl && (pl.ativo || pl.id || pl.possuiConteudo));
+
+    if (!ativo) {
+      estadoAtual.plantaoAtivo = false;
+      resumo.textContent = 'Nenhum plantão ativo. Clique em "Abrir Plantão" para iniciar.';
+      dot.style.background = "#b25000";
+      text.textContent = "Sem plantão ativo";
+
+      renderEquipe(null);
+
+      document.getElementById("me-id").value = "";
+      document.getElementById("me-data").value = "";
+      document.getElementById("me-dia").value = "";
+      document.getElementById("me-turno").value = "";
+      document.getElementById("me-med1").value = "";
+      document.getElementById("me-med2").value = "";
+      document.getElementById("me-enf1").value = "";
+      document.getElementById("me-enf2").value = "";
+      document.getElementById("me-aux").value = "";
+      document.getElementById("me-abertura").value = "";
+      document.getElementById("me-encerramento").value = "";
+      return;
+    }
+
+    estadoAtual.plantaoAtivo = true;
+
+    const dataInput = formatarDataParaInput(pl.data);
+    const dataStr = formatarDataCurta(pl.data) || dataInput || pl.data || "-";
+
+    resumo.textContent =
+      `Plantão ${pl.id} • ${pl.diaSemana || "Dia não informado"} • ${pl.turno || "Turno não informado"} • Data: ${dataStr}`;
+    dot.style.background = "#248a3d";
+    text.textContent = "Plantão ativo";
+
+    renderEquipe({
+      data: dataStr,
+      dia: pl.diaSemana,
+      turno: pl.turno,
+      med1: pl.medico1,
+      med2: pl.medico2,
+      enf1: pl.enf1,
+      enf2: pl.enf2,
+      aux: pl.aux
+    });
+
+    document.getElementById("me-id").value = pl.id || "";
+    if (dataInput) document.getElementById("me-data").value = dataInput;
+    document.getElementById("me-dia").value = pl.diaSemana || "";
+    document.getElementById("me-turno").value = pl.turno || "";
+    document.getElementById("me-med1").value = pl.medico1 || "";
+    document.getElementById("me-med2").value = pl.medico2 || "";
+    document.getElementById("me-enf1").value = pl.enf1 || "";
+    document.getElementById("me-enf2").value = pl.enf2 || "";
+    document.getElementById("me-aux").value = pl.aux || "";
+    document.getElementById("me-abertura").value = formatarDataHora(pl.abertura);
+    document.getElementById("me-encerramento").value = formatarDataHora(pl.encerramento);
+  }
+
+  function preencherIndicadores(ind) {
+    if (!ind) return;
+    document.getElementById("kpi-alocados").textContent = ind.alocados || 0;
+    document.getElementById("kpi-confirmadas").textContent = ind.reservasConfirmadas || 0;
+    document.getElementById("kpi-canceladas").textContent = ind.reservasCanceladas || 0;
+    document.getElementById("kpi-admitidos").textContent = ind.admitidosUIB || 0;
+  }
+
+  function atualizarStatus(pl) {
+    const dot = document.getElementById("dotStatus");
+    const text = document.getElementById("statusText");
+    if (pl && pl.id) {
+      dot.style.background = "#248a3d";
+      text.textContent = "Plantão ativo";
+    } else {
+      dot.style.background = "#b25000";
+      text.textContent = "Sem plantão ativo";
+    }
+  }
+
+  function atualizarTitulosPrincipal(view) {
+    const map = {
+      confirmadas: {
+        principal: "PACIENTES COM RESERVA CONFIRMADA",
+        title: "Reservas Confirmadas",
+        subtitle: "Pacientes com reserva confirmada para UIB"
+      },
+      vascular: {
+        principal: "PACIENTES COM PROCEDIMENTO - VASCULAR",
+        title: "Procedimentos Vasculares",
+        subtitle: "Reservas vinculadas a procedimentos vasculares"
+      },
+      negadas: {
+        principal: "PACIENTES COM RESERVA NEGADA",
+        title: "Reservas Negadas",
+        subtitle: "Reservas canceladas/negadas no plantão"
+      },
+      anterior: {
+        principal: "PACIENTES COM RESERVA CONFIRMADA DO PLANTÃO ANTERIOR",
+        title: "Plantão Anterior",
+        subtitle: "Pacientes admitidos na UIB no plantão anterior"
+      }
+    };
+    const cfg = map[view] || map.confirmadas;
+    document.getElementById("tituloPrincipal").textContent = cfg.principal;
+    document.getElementById("tableTitlePrincipal").textContent = cfg.title;
+    document.getElementById("tableSubtitlePrincipal").textContent = cfg.subtitle;
+  }
+
+  function mudarView(btn) {
+    const view = btn.getAttribute("data-view");
+    estadoAtual.view = view;
+    document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+    btn.classList.add("active");
+    carregarApp(view);
+  }
+
+  function abrirPlantao() {
+    if (estadoAtual.plantaoAtivo) {
+      alert("Já existe um plantão ativo. Use 'Encerrar' para fechar ou 'Equipe do Plantão' para editar a equipe.");
+      return;
+    }
+
+    document.getElementById("me-id").value = "";
+    document.getElementById("me-data").value = "";
+    document.getElementById("me-dia").value = "";
+    document.getElementById("me-turno").value = "";
+    document.getElementById("me-med1").value = "";
+    document.getElementById("me-med2").value = "";
+    document.getElementById("me-enf1").value = "";
+    document.getElementById("me-enf2").value = "";
+    document.getElementById("me-aux").value = "";
+    document.getElementById("me-abertura").value = "";
+    document.getElementById("me-encerramento").value = "";
+
+    document.getElementById("modalEquipeBackdrop").classList.add("visible");
+  }
+
+  function encerrarPlantao() {
+    if (!estadoAtual.plantaoAtivo) {
+      alert("Não há plantão ativo para encerrar.");
+      return;
+    }
+    if (!confirm("Encerrar o plantão atual e salvar no histórico?")) return;
+    google.script.run
+      .withSuccessHandler(function () {
+        carregarApp();
+      })
+      .encerrarPlantao();
+  }
+
+  function salvarPlantao() {
+    if (!estadoAtual.plantaoAtivo) {
+      alert('Nenhum plantão ativo. Use "Abrir Plantão" para iniciar.');
+      return;
+    }
+
+    const dados = {
+      data: document.getElementById("me-data").value,
+      diaSemana: document.getElementById("me-dia").value,
+      turno: document.getElementById("me-turno").value,
+      medico1: document.getElementById("me-med1").value,
+      medico2: document.getElementById("me-med2").value,
+      enf1: document.getElementById("me-enf1").value,
+      enf2: document.getElementById("me-enf2").value,
+      aux: document.getElementById("me-aux").value
+    };
+
+    setLoading(true, "Salvando equipe...");
+    google.script.run
+      .withSuccessHandler(function () {
+        alert("Equipe do plantão salva.");
+        carregarApp();
+        setLoading(false);
+      })
+      .withFailureHandler(function (err) {
+        console.error(err);
+        alert("Erro ao salvar o plantão: " + err.message);
+        setLoading(false);
+      })
+      .salvarPlantaoConfig(dados);
+  }
+
+  function renderEquipe(plantao) {
+    const grid = document.getElementById("equipeGrid");
+    const placeholder = document.getElementById("equipeSemPlantao");
+    const statusChip = document.getElementById("equipeStatusChip");
+
+    if (!grid || !placeholder || !statusChip) return;
+
+    const setValor = (id, valor) => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = valor || "-";
+    };
+
+    if (!plantao) {
+      grid.classList.add("hidden");
+      placeholder.classList.remove("hidden");
+      statusChip.textContent = "Nenhum plantão ativo";
+      statusChip.classList.remove("badge-success");
+      return;
+    }
+
+    grid.classList.remove("hidden");
+    placeholder.classList.add("hidden");
+    statusChip.textContent = "Plantão ativo";
+
+    setValor("eq-data", plantao.data || "-");
+    setValor("eq-dia", plantao.dia || "-");
+    setValor("eq-turno", plantao.turno || "-");
+    setValor("eq-med1", plantao.med1 || "-");
+    setValor("eq-med2", plantao.med2 || "-");
+    setValor("eq-enf1", plantao.enf1 || "-");
+    setValor("eq-enf2", plantao.enf2 || "-");
+    setValor("eq-aux", plantao.aux || "-");
+  }
+
+  function abrirModalEquipeEdicao() {
+    if (!estadoAtual.plantaoAtivo) {
+      alert('Nenhum plantão ativo. Use "Abrir Plantão" para iniciar um novo plantão.');
+      return;
+    }
+    document.getElementById("modalEquipeBackdrop").classList.add("visible");
+  }
+
+  function fecharModalEquipe() {
+    document.getElementById("modalEquipeBackdrop").classList.remove("visible");
+  }
+
+  function salvarEquipeModal() {
+    const dados = {
+      data: document.getElementById("me-data").value,
+      diaSemana: document.getElementById("me-dia").value,
+      turno: document.getElementById("me-turno").value,
+      medico1: document.getElementById("me-med1").value,
+      medico2: document.getElementById("me-med2").value,
+      enf1: document.getElementById("me-enf1").value,
+      enf2: document.getElementById("me-enf2").value,
+      aux: document.getElementById("me-aux").value
+    };
+
+    setLoading(true, estadoAtual.plantaoAtivo ? "Atualizando plantão..." : "Abrindo plantão...");
+    if (!estadoAtual.plantaoAtivo) {
+      google.script.run
+        .withSuccessHandler(function () {
+          fecharModalEquipe();
+          carregarApp();
+          setLoading(false);
+        })
+        .withFailureHandler(function (err) {
+          console.error(err);
+          alert("Erro ao abrir o plantão: " + err.message);
+          setLoading(false);
+        })
+        .criarPlantaoComEquipe(dados);
+    } else {
+      google.script.run
+        .withSuccessHandler(function () {
+          fecharModalEquipe();
+          carregarApp();
+          setLoading(false);
+        })
+        .withFailureHandler(function (err) {
+          console.error(err);
+          alert("Erro ao salvar o plantão: " + err.message);
+          setLoading(false);
+        })
+        .salvarPlantaoConfig(dados);
+    }
+  }
+
+  function renderTabela(wrapperId, tabela, mostrarAcaoExcluir, moduloNome) {
+    const wrapper = document.getElementById(wrapperId);
+    wrapper.innerHTML = "";
+
+    if (!tabela || !tabela.headers || tabela.headers.length === 0) {
+      wrapper.innerHTML = '<div style="padding:8px 10px;font-size:12px;color:#6e6e73;">Nenhum dado cadastrado.</div>';
+      return;
+    }
+
+    const table = document.createElement("table");
+    const thead = document.createElement("thead");
+    const trh = document.createElement("tr");
+
+    tabela.headers.forEach((h, idx) => {
+      const th = document.createElement("th");
+      th.textContent = h || `Col ${idx+1}`;
+      trh.appendChild(th);
+    });
+
+    if (mostrarAcaoExcluir) {
+      const thAcao = document.createElement("th");
+      thAcao.textContent = "Ação";
+      trh.appendChild(thAcao);
+    }
+
+    thead.appendChild(trh);
+    table.appendChild(thead);
+
+    const tbody = document.createElement("tbody");
+    (tabela.rows || []).forEach(row => {
+      const tr = document.createElement("tr");
+      row.forEach((cell) => {
+        const td = document.createElement("td");
+        td.textContent = cell === null || cell === undefined ? "" : cell;
+        tr.appendChild(td);
+      });
+
+      if (mostrarAcaoExcluir) {
+        const tdAcao = document.createElement("td");
+        const btn = document.createElement("button");
+        btn.className = "btn-table";
+        btn.textContent = "Excluir";
+        const id = row[0];
+        btn.onclick = function () {
+          if (!id) {
+            alert("Registro sem ID definido (primeira coluna).");
+            return;
+          }
+          if (!confirm("Excluir esse registro?")) return;
+          setLoading(true, "Excluindo registro...");
+          google.script.run
+            .withSuccessHandler(function () {
+              carregarApp();
+              setLoading(false);
+            })
+            .withFailureHandler(function (err) {
+              console.error(err);
+              alert("Erro ao excluir: " + err.message);
+              setLoading(false);
+            })
+            .excluirRegistro(moduloNome, String(id));
+        };
+        tdAcao.appendChild(btn);
+        tr.appendChild(tdAcao);
+      }
+
+      tbody.appendChild(tr);
+    });
+
+    table.appendChild(tbody);
+    wrapper.appendChild(table);
+  }
+
+  function abrirModalRegistroPrincipal() {
+    const modulo = viewToModulo[estadoAtual.view] || "RESERVA_CONFIRMADA";
+    abrirModalRegistro(modulo);
+  }
+
+  function abrirModalRegistro(modulo) {
+    estadoAtual.moduloRegistroAtual = modulo;
+    const cfg = moduleConfig[modulo];
+    if (!cfg) {
+      alert("Formulário não configurado para: " + modulo);
+      return;
+    }
+
+    document.getElementById("modalRegistroTitulo").textContent = cfg.titulo;
+    const body = document.getElementById("modalRegistroBody");
+    body.innerHTML = "";
+
+    cfg.campos.forEach(campo => {
+      const wrapper = document.createElement("div");
+      wrapper.className = "field";
+
+      const label = document.createElement("label");
+      label.textContent = campo.label;
+      wrapper.appendChild(label);
+
+      let input;
+      if (campo.type === "textarea") {
+        input = document.createElement("textarea");
+      } else {
+        input = document.createElement("input");
+        input.type = campo.type;
+      }
+      input.id = "mr-" + campo.name;
+      wrapper.appendChild(input);
+
+      body.appendChild(wrapper);
+    });
+
+    document.getElementById("modalRegistroBackdrop").classList.add("visible");
+  }
+
+  function fecharModalRegistro() {
+    document.getElementById("modalRegistroBackdrop").classList.remove("visible");
+    estadoAtual.moduloRegistroAtual = null;
+  }
+
+  function salvarRegistroModal() {
+    const modulo = estadoAtual.moduloRegistroAtual;
+    if (!modulo) {
+      fecharModalRegistro();
+      return;
+    }
+
+    const cfg = moduleConfig[modulo];
+    const registro = {};
+    cfg.campos.forEach(campo => {
+      const el = document.getElementById("mr-" + campo.name);
+      registro[campo.name] = el ? el.value : "";
+    });
+
+    setLoading(true, "Salvando registro...");
+    google.script.run
+      .withSuccessHandler(function () {
+        fecharModalRegistro();
+        carregarApp();
+        setLoading(false);
+      })
+      .withFailureHandler(function (err) {
+        console.error(err);
+        alert("Erro ao salvar: " + err.message);
+        setLoading(false);
+      })
+      .adicionarRegistro(modulo, registro);
+  }
+
+  document.addEventListener("DOMContentLoaded", function () {
+    selecionarMenu("painel-ocorrencias");
+  });
+</script>
