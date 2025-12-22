@@ -222,6 +222,11 @@
       box-shadow: 0 12px 24px rgba(15, 23, 42, 0.12);
     }
 
+    .btn:active {
+      transform: translateY(0);
+      box-shadow: 0 8px 16px rgba(15, 23, 42, 0.12);
+    }
+
     .btn:focus-visible {
       outline: 3px solid rgba(0, 122, 255, 0.35);
       outline-offset: 2px;
@@ -319,10 +324,13 @@
     .textarea {
       width: 100%;
       padding: 12px 14px;
+      min-height: 46px;
       border-radius: var(--radius-sm);
       border: 1px solid var(--border);
-      background: var(--surface-alt);
+      background: #f5f6f7;
       color: var(--text);
+      font-size: 15px;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
     }
 
     .input:focus,
@@ -336,7 +344,8 @@
       display: flex;
       flex-direction: column;
       gap: 6px;
-      font-size: 13px;
+      font-size: 12px;
+      color: var(--text-muted);
     }
 
     .form-grid {
@@ -345,17 +354,21 @@
       gap: var(--spacing-md);
     }
 
+    .field-textarea {
+      grid-column: 1 / -1;
+    }
+
     .modal-backdrop {
       position: fixed;
       inset: 0;
-      background: rgba(15, 15, 20, 0.4);
-      backdrop-filter: blur(6px);
+      background: rgba(15, 23, 42, 0.45);
+      backdrop-filter: blur(12px);
       display: flex;
       align-items: center;
       justify-content: center;
       opacity: 0;
       visibility: hidden;
-      transition: opacity 0.2s ease;
+      transition: opacity 0.25s ease, visibility 0.25s ease;
       z-index: 20;
       padding: var(--spacing-lg);
     }
@@ -366,8 +379,8 @@
     }
 
     .modal {
-      background: var(--surface);
-      border-radius: var(--radius-lg);
+      background: rgba(255, 255, 255, 0.92);
+      border-radius: 16px;
       border: 1px solid var(--border);
       max-width: 760px;
       width: 100%;
@@ -375,27 +388,164 @@
       overflow: hidden;
       display: flex;
       flex-direction: column;
-      box-shadow: var(--shadow);
+      box-shadow: 0 28px 60px rgba(15, 23, 42, 0.2), 0 8px 18px rgba(15, 23, 42, 0.08);
+      opacity: 0;
+      transform: translateY(12px) scale(0.98);
+      transition: transform 0.25s ease, opacity 0.25s ease;
     }
 
     .modal-header,
     .modal-footer {
-      padding: var(--spacing-md) var(--spacing-lg);
-      border-bottom: 1px solid var(--border);
+      padding: var(--spacing-lg) var(--spacing-lg);
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: var(--spacing-md);
     }
 
+    .modal-backdrop.active .modal {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+
+    .modal-title {
+      margin: 0;
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+      color: var(--text);
+    }
+
+    .modal-subtitle {
+      margin: 4px 0 0;
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
+    .modal-close {
+      border: none;
+      background: rgba(17, 24, 39, 0.08);
+      width: 36px;
+      height: 36px;
+      border-radius: 12px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text);
+      cursor: pointer;
+      transition: background 0.2s ease, transform 0.2s ease;
+    }
+
+    .modal-close:hover {
+      background: rgba(17, 24, 39, 0.12);
+      transform: translateY(-1px);
+    }
+
+    .modal-close svg {
+      width: 16px;
+      height: 16px;
+    }
+
     .modal-footer {
-      border-top: 1px solid var(--border);
-      border-bottom: none;
+      padding-top: var(--spacing-md);
+      padding-bottom: var(--spacing-lg);
+      border-top: 1px solid rgba(15, 23, 42, 0.08);
+      justify-content: flex-end;
+      gap: var(--spacing-sm);
     }
 
     .modal-body {
-      padding: var(--spacing-lg);
+      padding: 0 var(--spacing-lg) var(--spacing-lg);
       overflow: auto;
+    }
+
+    .modal-stack {
+      display: flex;
+      flex-direction: column;
+      gap: var(--spacing-lg);
+    }
+
+    .modal-section {
+      background: rgba(248, 249, 251, 0.9);
+      border-radius: 14px;
+      padding: var(--spacing-md);
+      border: 1px solid rgba(15, 23, 42, 0.08);
+      box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
+      display: flex;
+      flex-direction: column;
+      gap: var(--spacing-md);
+    }
+
+    .modal-section-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text);
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+    }
+
+    .modal-body .field span {
+      font-size: 12px;
+      color: var(--text-muted);
+      letter-spacing: 0.01em;
+      text-transform: uppercase;
+    }
+
+    .textarea {
+      min-height: 120px;
+      background: #f2f3f5;
+    }
+
+    .btn-primary {
+      background: linear-gradient(180deg, #0a84ff, #0062d1);
+    }
+
+    .modal-footer .btn-primary {
+      min-width: 200px;
+    }
+
+    .btn.is-loading {
+      opacity: 0.72;
+      cursor: progress;
+      box-shadow: none;
+      transform: none;
+    }
+
+    .btn.is-loading::after {
+      content: "•";
+      margin-left: 8px;
+      animation: pulse 1s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%,
+      100% {
+        opacity: 0.4;
+      }
+      50% {
+        opacity: 1;
+      }
+    }
+
+    @media (max-width: 720px) {
+      .modal-backdrop {
+        padding: var(--spacing-md);
+      }
+
+      .modal {
+        max-width: 100%;
+        max-height: 94vh;
+        border-radius: 18px;
+      }
+
+      .modal-footer {
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .modal-footer .btn-primary {
+        width: 100%;
+      }
     }
 
     .toast-container {
@@ -620,46 +770,64 @@
   <div id="modalShift" class="modal-backdrop">
     <div class="modal">
       <header class="modal-header">
-        <h3>Equipe do plantão</h3>
-        <button class="btn btn-ghost" data-close="modalShift">Fechar</button>
+        <div>
+          <h3 class="modal-title">Equipe do plantão</h3>
+          <p class="modal-subtitle">Defina a data, o turno e a equipe responsável.</p>
+        </div>
+        <button class="modal-close" type="button" data-close="modalShift" aria-label="Fechar modal">
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M6 6L18 18M6 18L18 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+          </svg>
+        </button>
       </header>
       <div class="modal-body">
-        <div class="form-grid">
-          <label class="field">
-            <span>Data do plantão</span>
-            <input class="input" type="date" id="shiftData">
-          </label>
-          <label class="field">
-            <span>Turno</span>
-            <select class="select" id="shiftTurno">
-              <option value="">Selecione</option>
-              <option value="MT">MT</option>
-              <option value="SN">SN</option>
-            </select>
-          </label>
-          <label class="field">
-            <span>Médico(a) 1</span>
-            <input class="input" type="text" id="shiftMed1">
-          </label>
-          <label class="field">
-            <span>Médico(a) 2</span>
-            <input class="input" type="text" id="shiftMed2">
-          </label>
-          <label class="field">
-            <span>Enfermeiro(a) 1</span>
-            <input class="input" type="text" id="shiftEnf1">
-          </label>
-          <label class="field">
-            <span>Enfermeiro(a) 2</span>
-            <input class="input" type="text" id="shiftEnf2">
-          </label>
-          <label class="field">
-            <span>Auxiliar administrativo</span>
-            <input class="input" type="text" id="shiftAux">
-          </label>
+        <div class="modal-stack">
+          <section class="modal-section">
+            <div class="modal-section-title">Identificação do plantão</div>
+            <div class="form-grid">
+              <label class="field">
+                <span>Data do plantão</span>
+                <input class="input" type="date" id="shiftData">
+              </label>
+              <label class="field">
+                <span>Turno</span>
+                <select class="select" id="shiftTurno">
+                  <option value="">Selecione</option>
+                  <option value="MT">MT</option>
+                  <option value="SN">SN</option>
+                </select>
+              </label>
+            </div>
+          </section>
+          <section class="modal-section">
+            <div class="modal-section-title">Equipe assistencial</div>
+            <div class="form-grid">
+              <label class="field">
+                <span>Médico(a) 1</span>
+                <input class="input" type="text" id="shiftMed1">
+              </label>
+              <label class="field">
+                <span>Médico(a) 2</span>
+                <input class="input" type="text" id="shiftMed2">
+              </label>
+              <label class="field">
+                <span>Enfermeiro(a) 1</span>
+                <input class="input" type="text" id="shiftEnf1">
+              </label>
+              <label class="field">
+                <span>Enfermeiro(a) 2</span>
+                <input class="input" type="text" id="shiftEnf2">
+              </label>
+              <label class="field">
+                <span>Auxiliar administrativo</span>
+                <input class="input" type="text" id="shiftAux">
+              </label>
+            </div>
+          </section>
         </div>
       </div>
       <footer class="modal-footer">
+        <button class="btn btn-secondary" type="button" data-close="modalShift">Cancelar</button>
         <button id="btnSaveShift" class="btn btn-primary">Salvar</button>
       </footer>
     </div>
@@ -668,11 +836,21 @@
   <div id="modalRecord" class="modal-backdrop">
     <div class="modal">
       <header class="modal-header">
-        <h3 id="recordTitle">Novo registro</h3>
-        <button class="btn btn-ghost" data-close="modalRecord">Fechar</button>
+        <div>
+          <h3 class="modal-title" id="recordTitle">Novo registro</h3>
+          <p class="modal-subtitle">Preencha as informações com atenção antes de salvar.</p>
+        </div>
+        <button class="modal-close" type="button" data-close="modalRecord" aria-label="Fechar modal">
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M6 6L18 18M6 18L18 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+          </svg>
+        </button>
       </header>
-      <div class="modal-body" id="recordFields"></div>
+      <div class="modal-body">
+        <div id="recordFields" class="modal-stack"></div>
+      </div>
       <footer class="modal-footer">
+        <button class="btn btn-secondary" type="button" data-close="modalRecord">Cancelar</button>
         <button id="btnSaveRecord" class="btn btn-primary">Salvar registro</button>
       </footer>
     </div>
@@ -771,6 +949,22 @@
         const modal = document.getElementById(id);
         if (!modal) return;
         modal.classList.toggle("active", show);
+        if (show) {
+          const focusable = modal.querySelector("input, select, textarea");
+          if (focusable) {
+            setTimeout(() => focusable.focus(), 120);
+          }
+        }
+      };
+
+      const setButtonLoading = (button, loading, loadingText) => {
+        if (!button) return;
+        if (!button.dataset.defaultLabel) {
+          button.dataset.defaultLabel = button.textContent;
+        }
+        button.disabled = loading;
+        button.classList.toggle("is-loading", loading);
+        button.textContent = loading ? (loadingText || button.dataset.defaultLabel) : button.dataset.defaultLabel;
       };
 
       const renderTable = (wrapperId, table, options) => {
@@ -835,6 +1029,7 @@
         showToast,
         setLoader,
         toggleModal,
+        setButtonLoading,
         renderTable
       };
     })();
@@ -1191,6 +1386,7 @@
 
       const handleSaveShift = async () => {
         const dataValue = document.getElementById("shiftData").value;
+        const saveButton = document.getElementById("btnSaveShift");
         const payload = {
           data: dataValue,
           diaSemana: getDayOfWeekFromDate(dataValue),
@@ -1220,6 +1416,7 @@
 
         state.activeShift = optimistic;
         setShiftSummary(state.activeShift);
+        UI.setButtonLoading(saveButton, true, "Salvando...");
         UI.setLoader(true, previous ? "Atualizando plantão..." : "Abrindo plantão...");
 
         try {
@@ -1239,6 +1436,7 @@
           UI.showToast("error", err.message || "Erro ao salvar plantão.");
         } finally {
           UI.setLoader(false);
+          UI.setButtonLoading(saveButton, false);
         }
       };
 
@@ -1302,9 +1500,17 @@
         body.innerHTML = "";
         document.getElementById("recordTitle").textContent = config.title;
 
+        const section = document.createElement("section");
+        section.className = "modal-section";
+        const title = document.createElement("div");
+        title.className = "modal-section-title";
+        title.textContent = "Detalhes do registro";
+        const grid = document.createElement("div");
+        grid.className = "form-grid";
+
         config.fields.forEach((field) => {
           const wrapper = document.createElement("label");
-          wrapper.className = "field";
+          wrapper.className = field.type === "textarea" ? "field field-textarea" : "field";
           const span = document.createElement("span");
           span.textContent = field.label;
           const input = field.type === "textarea" ? document.createElement("textarea") : document.createElement("input");
@@ -1313,9 +1519,12 @@
           input.dataset.name = field.name;
           wrapper.appendChild(span);
           wrapper.appendChild(input);
-          body.appendChild(wrapper);
+          grid.appendChild(wrapper);
         });
 
+        section.appendChild(title);
+        section.appendChild(grid);
+        body.appendChild(section);
         body.dataset.module = moduleName;
         UI.toggleModal("modalRecord", true);
       };
@@ -1325,6 +1534,7 @@
         const moduleName = body.dataset.module;
         const config = moduleConfig[moduleName];
         if (!config) return;
+        const saveButton = document.getElementById("btnSaveRecord");
 
         const record = {};
         body.querySelectorAll("[data-name]").forEach((input) => {
@@ -1339,6 +1549,7 @@
         const tableKey = moduleName === viewMap[state.view].sheet ? "principal" : moduleName === "BLOQUEADOS_MANUTENCAO" ? "manutencao" : "isolamento";
         state.dashboard[tableKey].rows.unshift(optimisticRow);
         renderDashboard();
+        UI.setButtonLoading(saveButton, true, "Salvando...");
         UI.setLoader(true, "Salvando registro...");
 
         try {
@@ -1353,6 +1564,7 @@
           UI.showToast("error", err.message || "Erro ao salvar registro.");
         } finally {
           UI.setLoader(false);
+          UI.setButtonLoading(saveButton, false);
         }
       };
 
