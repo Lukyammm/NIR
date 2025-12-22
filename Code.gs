@@ -86,6 +86,26 @@ function normalizarDataSimples_(valor, tz) {
   return Utilities.formatDate(dt, timezone, "yyyy-MM-dd");
 }
 
+function getDayOfWeekFromDate_(valor, tz) {
+  const dt = normalizarDataHora_(valor, tz);
+  if (!dt) return "";
+  const dias = [
+    "Domingo",
+    "Segunda-feira",
+    "Terça-feira",
+    "Quarta-feira",
+    "Quinta-feira",
+    "Sexta-feira",
+    "Sábado"
+  ];
+  return dias[dt.getDay()] || "";
+}
+
+function normalizeTurno_(valor) {
+  const turno = String(valor || "").trim().toUpperCase();
+  return turno === "MT" || turno === "SN" ? turno : "";
+}
+
 function ajustarParaTimezone_(dateObj, tz) {
   if (!dateObj) return null;
   const timezone = tz || Session.getScriptTimeZone() || DEFAULT_TIMEZONE;
@@ -285,8 +305,8 @@ function startShift(payload) {
       const shift = {
         id: gerarID_(),
         date: normalizarDataSimples_(data.data, tz) || "",
-        dayOfWeek: data.diaSemana || "",
-        shift: data.turno || "",
+        dayOfWeek: getDayOfWeekFromDate_(data.data, tz),
+        shift: normalizeTurno_(data.turno),
         team: {
           medico1: data.medico1 || "",
           medico2: data.medico2 || "",
@@ -326,12 +346,14 @@ function updateShift(payload) {
 
       const tz = Session.getScriptTimeZone() || DEFAULT_TIMEZONE;
       const data = payload || {};
+      const baseDate = data.data || existing.date;
+      const dayOfWeek = getDayOfWeekFromDate_(baseDate, tz) || existing.dayOfWeek || "";
 
       const updated = {
         id: existing.id,
         date: normalizarDataSimples_(data.data, tz) || existing.date || "",
-        dayOfWeek: data.diaSemana || existing.dayOfWeek || "",
-        shift: data.turno || existing.shift || "",
+        dayOfWeek: dayOfWeek,
+        shift: normalizeTurno_(data.turno) || existing.shift || "",
         team: {
           medico1: data.medico1 || existing.team.medico1 || "",
           medico2: data.medico2 || existing.team.medico2 || "",

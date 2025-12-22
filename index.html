@@ -630,12 +630,12 @@
             <input class="input" type="date" id="shiftData">
           </label>
           <label class="field">
-            <span>Dia da semana</span>
-            <input class="input" type="text" id="shiftDia" placeholder="Ex: Segunda-feira">
-          </label>
-          <label class="field">
             <span>Turno</span>
-            <input class="input" type="text" id="shiftTurno" placeholder="Ex: 07:00 - 19:00">
+            <select class="select" id="shiftTurno">
+              <option value="">Selecione</option>
+              <option value="MT">MT</option>
+              <option value="SN">SN</option>
+            </select>
           </label>
           <label class="field">
             <span>Médico(a) 1</span>
@@ -844,6 +844,7 @@
         view: "confirmadas",
         app: null,
         dashboard: null,
+        dashboardByView: {},
         activeShift: null,
         isSaving: false
       };
@@ -1059,6 +1060,30 @@
         return dt.toLocaleDateString("pt-BR");
       };
 
+      const dayNames = [
+        "Domingo",
+        "Segunda-feira",
+        "Terça-feira",
+        "Quarta-feira",
+        "Quinta-feira",
+        "Sexta-feira",
+        "Sábado"
+      ];
+
+      const getDayOfWeekFromDate = (value) => {
+        if (!value) return "";
+        const parts = value.split("-").map(Number);
+        if (parts.length !== 3) return "";
+        const date = new Date(parts[0], parts[1] - 1, parts[2]);
+        if (Number.isNaN(date.getTime())) return "";
+        return dayNames[date.getDay()] || "";
+      };
+
+      const normalizeTurno = (value) => {
+        const turno = String(value || "").trim().toUpperCase();
+        return turno === "MT" || turno === "SN" ? turno : "";
+      };
+
       const setShiftSummary = (shift) => {
         const badge = document.getElementById("statusBadge");
         const summary = document.getElementById("shiftSummary");
@@ -1126,14 +1151,28 @@
         });
       };
 
-      const loadApp = async () => {
-        UI.setLoader(true, "Carregando...");
+      const showCachedDashboard = (view) => {
+        const cached = state.dashboardByView[view];
+        if (!cached) return false;
+        state.dashboard = cached;
+        state.activeShift = cached.activeShift || state.activeShift;
+        setShiftSummary(state.activeShift);
+        setIndicators(cached.indicadores);
+        renderDashboard();
+        return true;
+      };
+
+      const loadDashboard = async (view, options) => {
+        const config = options || {};
+        const showLoader = config.showLoader !== false;
+
+        if (showLoader) {
+          UI.setLoader(true, "Carregando...");
+        }
         try {
-          const app = await Api.getAppState();
-          state.app = app;
-          state.activeShift = app.activeShift;
-          const dashboard = await Api.readDashboardData({ view: state.view });
+          const dashboard = await Api.readDashboardData({ view: view });
           state.dashboard = dashboard;
+          state.dashboardByView[view] = dashboard;
           state.activeShift = dashboard.activeShift || state.activeShift;
 
           setShiftSummary(state.activeShift);
@@ -1144,15 +1183,18 @@
           console.error(err);
           UI.showToast("error", "Falha ao carregar o painel.");
         } finally {
-          UI.setLoader(false);
+          if (showLoader) {
+            UI.setLoader(false);
+          }
         }
       };
 
       const handleSaveShift = async () => {
+        const dataValue = document.getElementById("shiftData").value;
         const payload = {
-          data: document.getElementById("shiftData").value,
-          diaSemana: document.getElementById("shiftDia").value,
-          turno: document.getElementById("shiftTurno").value,
+          data: dataValue,
+          diaSemana: getDayOfWeekFromDate(dataValue),
+          turno: normalizeTurno(document.getElementById("shiftTurno").value),
           medico1: document.getElementById("shiftMed1").value,
           medico2: document.getElementById("shiftMed2").value,
           enf1: document.getElementById("shiftEnf1").value,
@@ -1189,7 +1231,7 @@
           setShiftSummary(state.activeShift);
           UI.toggleModal("modalShift", false);
           UI.showToast("success", "Plantão salvo com sucesso.");
-          await loadApp();
+          await loadDashboard(state.view, { showLoader: false });
         } catch (err) {
           console.error(err);
           state.activeShift = previous;
@@ -1216,7 +1258,7 @@
         try {
           await Api.endShift(previous.id);
           UI.showToast("success", "Plantão encerrado.");
-          await loadApp();
+          await loadDashboard(state.view, { showLoader: false });
         } catch (err) {
           console.error(err);
           state.activeShift = previous;
@@ -1242,7 +1284,7 @@
         try {
           await Api.deleteRecord({ modulo: moduleName, id: String(id) });
           UI.showToast("success", "Registro excluído.");
-          await loadApp();
+          await loadDashboard(state.view, { showLoader: false });
         } catch (err) {
           console.error(err);
           state.dashboard[tableKey] = previous;
@@ -1303,7 +1345,7 @@
           await Api.addRecord({ modulo: moduleName, registro: record });
           UI.toggleModal("modalRecord", false);
           UI.showToast("success", "Registro salvo.");
-          await loadApp();
+          await loadDashboard(state.view, { showLoader: false });
         } catch (err) {
           console.error(err);
           state.dashboard[tableKey].rows = state.dashboard[tableKey].rows.filter((row) => row[0] !== "SALVANDO");
@@ -1317,8 +1359,7 @@
       const openShiftModal = () => {
         const shift = state.activeShift;
         document.getElementById("shiftData").value = shift && shift.date ? shift.date : "";
-        document.getElementById("shiftDia").value = shift && shift.dayOfWeek ? shift.dayOfWeek : "";
-        document.getElementById("shiftTurno").value = shift && shift.shift ? shift.shift : "";
+        document.getElementById("shiftTurno").value = normalizeTurno(shift && shift.shift ? shift.shift : "");
         document.getElementById("shiftMed1").value = shift && shift.team ? shift.team.medico1 : "";
         document.getElementById("shiftMed2").value = shift && shift.team ? shift.team.medico2 : "";
         document.getElementById("shiftEnf1").value = shift && shift.team ? shift.team.enf1 : "";
@@ -1328,7 +1369,7 @@
       };
 
       const initEvents = () => {
-        document.getElementById("btnRefresh").addEventListener("click", loadApp);
+        document.getElementById("btnRefresh").addEventListener("click", () => loadDashboard(state.view, { showLoader: false }));
         document.getElementById("btnStartShift").addEventListener("click", openShiftModal);
         document.getElementById("btnEditShift").addEventListener("click", openShiftModal);
         document.getElementById("btnEndShift").addEventListener("click", handleEndShift);
@@ -1342,7 +1383,8 @@
           tab.addEventListener("click", () => {
             state.view = tab.dataset.view;
             setTabs();
-            loadApp();
+            showCachedDashboard(state.view);
+            loadDashboard(state.view, { showLoader: false });
           });
         });
 
@@ -1357,7 +1399,7 @@
       return {
         init: () => {
           initEvents();
-          loadApp();
+          loadDashboard(state.view, { showLoader: true });
         }
       };
     })();
