@@ -1360,20 +1360,23 @@
       const loadDashboard = async (view, options) => {
         const config = options || {};
         const showLoader = config.showLoader !== false;
+        const updateUI = config.updateUI !== false;
 
         if (showLoader) {
           UI.setLoader(true, "Carregando...");
         }
         try {
           const dashboard = await Api.readDashboardData({ view: view });
-          state.dashboard = dashboard;
           state.dashboardByView[view] = dashboard;
-          state.activeShift = dashboard.activeShift || state.activeShift;
 
-          setShiftSummary(state.activeShift);
-          setIndicators(dashboard.indicadores);
-          renderDashboard();
-          setTabs();
+          if (updateUI && view === state.view) {
+            state.dashboard = dashboard;
+            state.activeShift = dashboard.activeShift || state.activeShift;
+            setShiftSummary(state.activeShift);
+            setIndicators(dashboard.indicadores);
+            renderDashboard();
+            setTabs();
+          }
         } catch (err) {
           console.error(err);
           UI.showToast("error", "Falha ao carregar o painel.");
@@ -1595,8 +1598,8 @@
           tab.addEventListener("click", () => {
             state.view = tab.dataset.view;
             setTabs();
-            showCachedDashboard(state.view);
-            loadDashboard(state.view, { showLoader: false });
+            const hasCache = showCachedDashboard(state.view);
+            loadDashboard(state.view, { showLoader: !hasCache });
           });
         });
 
@@ -1611,7 +1614,14 @@
       return {
         init: () => {
           initEvents();
-          loadDashboard(state.view, { showLoader: true });
+          loadDashboard(state.view, { showLoader: true })
+            .then(() => {
+              Object.keys(viewMap).forEach((view) => {
+                if (view === state.view) return;
+                if (state.dashboardByView[view]) return;
+                loadDashboard(view, { showLoader: false, updateUI: false });
+              });
+            });
         }
       };
     })();
