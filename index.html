@@ -6,43 +6,28 @@
   <title>Ocorrências do Plantão – NIR</title>
   <style>
     :root {
-      color-scheme: light dark;
-      --bg: #f5f5f7;
+      color-scheme: light;
+      --bg: #f2f4f8;
       --surface: #ffffff;
-      --surface-alt: #f9fafb;
-      --border: #e5e5ea;
-      --text: #1d1d1f;
-      --text-muted: #6e6e73;
-      --accent: #007aff;
-      --accent-strong: #0056d6;
+      --surface-alt: #f7f8fa;
+      --border: #e1e4ea;
+      --text: #111318;
+      --text-muted: #6b7280;
+      --accent: #0a84ff;
+      --accent-strong: #005bd1;
       --danger: #d70015;
       --success: #248a3d;
-      --shadow: 0 16px 30px rgba(0, 0, 0, 0.08);
-      --radius-lg: 18px;
-      --radius-md: 12px;
-      --radius-sm: 8px;
+      --shadow: 0 18px 40px rgba(15, 23, 42, 0.08);
+      --shadow-soft: 0 8px 20px rgba(15, 23, 42, 0.06);
+      --radius-lg: 20px;
+      --radius-md: 14px;
+      --radius-sm: 10px;
       --spacing-xs: 6px;
       --spacing-sm: 10px;
       --spacing-md: 16px;
       --spacing-lg: 24px;
       --spacing-xl: 32px;
       font-family: "SF Pro Text", "SF Pro Display", -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", system-ui, sans-serif;
-    }
-
-    @media (prefers-color-scheme: dark) {
-      :root {
-        --bg: #0f1013;
-        --surface: #1a1c20;
-        --surface-alt: #202329;
-        --border: #2c2f36;
-        --text: #f5f5f7;
-        --text-muted: #b0b3b8;
-        --accent: #0a84ff;
-        --accent-strong: #409cff;
-        --danger: #ff453a;
-        --success: #30d158;
-        --shadow: 0 16px 30px rgba(0, 0, 0, 0.35);
-      }
     }
 
     * {
@@ -53,7 +38,8 @@
       margin: 0;
       background: var(--bg);
       color: var(--text);
-      font-size: 14px;
+      font-size: 15px;
+      line-height: 1.5;
     }
 
     .app {
@@ -63,7 +49,7 @@
     }
 
     .app-header {
-      background: var(--surface);
+      background: rgba(255, 255, 255, 0.92);
       border-bottom: 1px solid var(--border);
       padding: var(--spacing-lg) var(--spacing-xl);
       display: flex;
@@ -75,6 +61,7 @@
       position: sticky;
       top: 0;
       z-index: 5;
+      backdrop-filter: blur(10px);
     }
 
     .header-title {
@@ -86,22 +73,35 @@
 
     .title-stack h1 {
       margin: 0;
-      font-size: 20px;
+      font-size: 22px;
       font-weight: 700;
+      letter-spacing: -0.01em;
     }
 
     .subtitle {
       margin: 0;
       color: var(--text-muted);
+      font-size: 14px;
     }
 
     .badge {
-      padding: 6px 12px;
+      padding: 6px 14px;
       border-radius: 999px;
-      background: rgba(0, 122, 255, 0.12);
+      background: rgba(10, 132, 255, 0.12);
       color: var(--accent-strong);
       font-weight: 600;
-      border: 1px solid rgba(0, 122, 255, 0.2);
+      border: 1px solid rgba(10, 132, 255, 0.24);
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .badge::before {
+      content: "";
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background: currentColor;
     }
 
     .app-content {
@@ -140,7 +140,8 @@
 
     .card-header h2 {
       margin: 0;
-      font-size: 16px;
+      font-size: 17px;
+      letter-spacing: -0.01em;
     }
 
     .card-content {
@@ -161,11 +162,12 @@
     .info-item {
       background: var(--surface-alt);
       border-radius: var(--radius-md);
-      padding: var(--spacing-md);
+      padding: 14px 16px;
       border: 1px solid var(--border);
       display: flex;
       flex-direction: column;
       gap: 6px;
+      box-shadow: var(--shadow-soft);
     }
 
     .info-item span {
@@ -180,17 +182,19 @@
     }
 
     .kpi {
-      padding: var(--spacing-md);
+      padding: 14px 16px;
       border-radius: var(--radius-md);
       background: var(--surface-alt);
       border: 1px solid var(--border);
       display: flex;
       flex-direction: column;
       gap: 6px;
+      box-shadow: var(--shadow-soft);
     }
 
     .kpi strong {
-      font-size: 20px;
+      font-size: 24px;
+      letter-spacing: -0.01em;
     }
 
     .header-actions {
@@ -203,18 +207,19 @@
     .btn {
       border: 1px solid transparent;
       border-radius: var(--radius-sm);
-      padding: 10px 16px;
-      font-size: 14px;
+      padding: 12px 18px;
+      font-size: 15px;
       font-weight: 600;
       cursor: pointer;
       background: var(--surface-alt);
       color: var(--text);
       transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+      min-height: 44px;
     }
 
     .btn:hover {
       transform: translateY(-1px);
-      box-shadow: 0 8px 16px rgba(0, 0, 0, 0.08);
+      box-shadow: 0 12px 24px rgba(15, 23, 42, 0.12);
     }
 
     .btn:focus-visible {
@@ -225,10 +230,11 @@
     .btn-primary {
       background: var(--accent);
       color: #fff;
+      box-shadow: 0 10px 20px rgba(10, 132, 255, 0.25);
     }
 
     .btn-secondary {
-      background: rgba(0, 0, 0, 0.04);
+      background: rgba(15, 23, 42, 0.05);
     }
 
     .btn-danger {
@@ -243,8 +249,9 @@
     }
 
     .btn-lg {
-      padding: 12px 20px;
-      font-size: 15px;
+      padding: 14px 24px;
+      font-size: 16px;
+      min-height: 48px;
     }
 
     .tabs {
@@ -252,13 +259,14 @@
       gap: 6px;
       background: var(--surface-alt);
       border-radius: 999px;
-      padding: 4px;
+      padding: 6px;
+      border: 1px solid var(--border);
     }
 
     .tab {
       border: none;
       background: transparent;
-      padding: 8px 14px;
+      padding: 10px 16px;
       border-radius: 999px;
       cursor: pointer;
       color: var(--text-muted);
@@ -268,6 +276,7 @@
     .tab.active {
       background: var(--accent);
       color: #fff;
+      box-shadow: 0 8px 16px rgba(10, 132, 255, 0.24);
     }
 
     .table-wrapper {
@@ -283,10 +292,17 @@
 
     .table-wrapper th,
     .table-wrapper td {
-      padding: 10px 12px;
+      padding: 12px 14px;
       border-bottom: 1px solid var(--border);
       text-align: left;
       white-space: nowrap;
+    }
+
+    .table-wrapper thead th {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--text-muted);
     }
 
     .table-wrapper tr:hover {
@@ -302,7 +318,7 @@
     .select,
     .textarea {
       width: 100%;
-      padding: 10px 12px;
+      padding: 12px 14px;
       border-radius: var(--radius-sm);
       border: 1px solid var(--border);
       background: var(--surface-alt);
