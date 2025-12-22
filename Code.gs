@@ -5,25 +5,30 @@ const PLANILHA_ID =
   "1vnnGQEkAjP9eTRLWWSb2lSngwGTRYa_rtk6DsG8HGqc";
 
 const AUTHORIZED_USERS = [];
+const ACTIVE_SHIFT_KEY = "ACTIVE_SHIFT_STATE";
 
 function gerarID_() {
   return Utilities.getUuid().split("-")[0].toUpperCase();
 }
 
-function registrarEvento_(modulo, idRegistro, tipo, obs) {
-  const ss = getSpreadsheet_();
-  const log = ss.getSheetByName("LOG_NIR");
-  if (!log) return;
+function nowIso_() {
+  return new Date().toISOString();
+}
 
-  log.appendRow([
-    gerarID_(),
-    idRegistro,
-    modulo,
-    tipo,
-    Session.getActiveUser().getEmail(),
-    new Date(),
-    obs || ""
-  ]);
+function safeJsonParse_(value, fallback) {
+  try {
+    return JSON.parse(value);
+  } catch (err) {
+    return fallback;
+  }
+}
+
+function safeJsonStringify_(value) {
+  try {
+    return JSON.stringify(value);
+  } catch (err) {
+    return "";
+  }
 }
 
 function normalizarDataHora_(valor, tz) {
@@ -78,7 +83,7 @@ function normalizarDataSimples_(valor, tz) {
   const dt = normalizarDataHora_(valor, tz);
   if (!dt) return "";
   const timezone = tz || Session.getScriptTimeZone() || DEFAULT_TIMEZONE;
-  return Utilities.formatDate(dt, timezone, "dd/MM/yyyy");
+  return Utilities.formatDate(dt, timezone, "yyyy-MM-dd");
 }
 
 function ajustarParaTimezone_(dateObj, tz) {
@@ -110,104 +115,456 @@ function assertAuthorized_() {
   }
 }
 
+function buildResponse_(data) {
+  return { ok: true, data: data };
+}
+
+function buildError_(err, code, details) {
+  const message = err && err.message ? err.message : String(err || "Erro desconhecido");
+  return {
+    ok: false,
+    error: {
+      message: message,
+      code: code || "APP_ERROR",
+      details: details || null
+    }
+  };
+}
+
+function runWithResult_(fn) {
+  try {
+    return buildResponse_(fn());
+  } catch (err) {
+    Logger.log("Erro: " + err);
+    return buildError_(err, "APP_ERROR", err && err.stack ? String(err.stack) : null);
+  }
+}
+
+function getActiveShiftFromProperties_() {
+  const raw = PropertiesService.getScriptProperties().getProperty(ACTIVE_SHIFT_KEY);
+  if (!raw) return null;
+  const parsed = safeJsonParse_(raw, null);
+  return parsed && parsed.status === "active" ? parsed : null;
+}
+
+function setActiveShift_(shift) {
+  PropertiesService.getScriptProperties().setProperty(ACTIVE_SHIFT_KEY, safeJsonStringify_(shift));
+}
+
+function clearActiveShift_() {
+  PropertiesService.getScriptProperties().deleteProperty(ACTIVE_SHIFT_KEY);
+}
+
+function getShiftFromSheet_() {
+  const ss = getSpreadsheet_();
+  const sheet = ss.getSheetByName("CONFIG_PLANTAO");
+  if (!sheet) return null;
+
+  const values = sheet.getRange("A2:K2").getValues()[0];
+  const hasContent = values.some((v) => v !== "" && v !== null);
+  if (!hasContent) return null;
+
+  let id = values[0] ? String(values[0]) : "";
+  if (!id) {
+    id = gerarID_();
+    sheet.getRange("A2").setValue(id);
+  }
+
+  const tz = Session.getScriptTimeZone() || DEFAULT_TIMEZONE;
+  const startedAt = normalizarDataHora_(values[9], tz);
+  const endedAt = normalizarDataHora_(values[10], tz);
+
+  return {
+    id: id,
+    date: normalizarDataSimples_(values[1], tz) || "",
+    dayOfWeek: values[2] || "",
+    shift: values[3] || "",
+    team: {
+      medico1: values[4] || "",
+      medico2: values[5] || "",
+      enf1: values[6] || "",
+      enf2: values[7] || "",
+      aux: values[8] || ""
+    },
+    startedAt: startedAt ? startedAt.toISOString() : "",
+    endedAt: endedAt ? endedAt.toISOString() : "",
+    status: endedAt ? "closed" : "active",
+    updatedAt: nowIso_()
+  };
+}
+
+function writeShiftToSheet_(shift) {
+  const ss = getSpreadsheet_();
+  const sheet = ss.getSheetByName("CONFIG_PLANTAO");
+  if (!sheet) return;
+
+  const row = [
+    shift.id,
+    shift.date || "",
+    shift.dayOfWeek || "",
+    shift.shift || "",
+    shift.team && shift.team.medico1 ? shift.team.medico1 : "",
+    shift.team && shift.team.medico2 ? shift.team.medico2 : "",
+    shift.team && shift.team.enf1 ? shift.team.enf1 : "",
+    shift.team && shift.team.enf2 ? shift.team.enf2 : "",
+    shift.team && shift.team.aux ? shift.team.aux : "",
+    shift.startedAt || "",
+    shift.endedAt || ""
+  ];
+
+  sheet.getRange("A2:K2").setValues([row]);
+}
+
+function getActiveShift_() {
+  const shift = getActiveShiftFromProperties_();
+  if (shift) return shift;
+
+  const recovered = getShiftFromSheet_();
+  if (recovered && recovered.status === "active") {
+    setActiveShift_(recovered);
+    writeAction_("SHIFT_RECOVERED", { shiftId: recovered.id });
+    return recovered;
+  }
+
+  return null;
+}
+
+function writeAction_(type, payload) {
+  const ss = getSpreadsheet_();
+  const log = ss.getSheetByName("LOG_NIR");
+  if (!log) return;
+
+  const shift = getActiveShiftFromProperties_();
+  const idRegistro = payload && payload.shiftId ? payload.shiftId : shift ? shift.id : "";
+  const obs = payload ? safeJsonStringify_(payload) : "";
+
+  log.appendRow([
+    gerarID_(),
+    idRegistro,
+    "APP",
+    type,
+    Session.getActiveUser().getEmail(),
+    new Date(),
+    obs
+  ]);
+}
+
+function getUserInfo_() {
+  return {
+    email: Session.getActiveUser().getEmail() || "",
+    timezone: Session.getScriptTimeZone() || DEFAULT_TIMEZONE
+  };
+}
+
+function getAppState() {
+  return runWithResult_(function () {
+    assertAuthorized_();
+    const shift = getActiveShift_();
+    return {
+      activeShift: shift,
+      user: getUserInfo_(),
+      now: nowIso_()
+    };
+  });
+}
+
+function startShift(payload) {
+  return runWithResult_(function () {
+    assertAuthorized_();
+    const lock = LockService.getScriptLock();
+    lock.waitLock(10000);
+
+    try {
+      const existing = getActiveShiftFromProperties_();
+      if (existing) {
+        return { activeShift: existing };
+      }
+
+      const tz = Session.getScriptTimeZone() || DEFAULT_TIMEZONE;
+      const data = payload || {};
+      const shift = {
+        id: gerarID_(),
+        date: normalizarDataSimples_(data.data, tz) || "",
+        dayOfWeek: data.diaSemana || "",
+        shift: data.turno || "",
+        team: {
+          medico1: data.medico1 || "",
+          medico2: data.medico2 || "",
+          enf1: data.enf1 || "",
+          enf2: data.enf2 || "",
+          aux: data.aux || ""
+        },
+        startedAt: nowIso_(),
+        endedAt: "",
+        status: "active",
+        updatedAt: nowIso_(),
+        openedBy: Session.getActiveUser().getEmail() || ""
+      };
+
+      setActiveShift_(shift);
+      writeShiftToSheet_(shift);
+      writeAction_("SHIFT_STARTED", { shiftId: shift.id });
+
+      return { activeShift: shift };
+    } finally {
+      lock.releaseLock();
+    }
+  });
+}
+
+function updateShift(payload) {
+  return runWithResult_(function () {
+    assertAuthorized_();
+    const lock = LockService.getScriptLock();
+    lock.waitLock(10000);
+
+    try {
+      const existing = getActiveShiftFromProperties_();
+      if (!existing) {
+        throw new Error("Nenhum plantão ativo para atualizar.");
+      }
+
+      const tz = Session.getScriptTimeZone() || DEFAULT_TIMEZONE;
+      const data = payload || {};
+
+      const updated = {
+        id: existing.id,
+        date: normalizarDataSimples_(data.data, tz) || existing.date || "",
+        dayOfWeek: data.diaSemana || existing.dayOfWeek || "",
+        shift: data.turno || existing.shift || "",
+        team: {
+          medico1: data.medico1 || existing.team.medico1 || "",
+          medico2: data.medico2 || existing.team.medico2 || "",
+          enf1: data.enf1 || existing.team.enf1 || "",
+          enf2: data.enf2 || existing.team.enf2 || "",
+          aux: data.aux || existing.team.aux || ""
+        },
+        startedAt: existing.startedAt,
+        endedAt: existing.endedAt || "",
+        status: existing.status,
+        updatedAt: nowIso_(),
+        openedBy: existing.openedBy || ""
+      };
+
+      setActiveShift_(updated);
+      writeShiftToSheet_(updated);
+      writeAction_("SHIFT_UPDATED", { shiftId: updated.id });
+
+      return { activeShift: updated };
+    } finally {
+      lock.releaseLock();
+    }
+  });
+}
+
+function endShift(shiftId) {
+  return runWithResult_(function () {
+    assertAuthorized_();
+    const lock = LockService.getScriptLock();
+    lock.waitLock(10000);
+
+    try {
+      const existing = getActiveShiftFromProperties_();
+      if (!existing) {
+        return { activeShift: null };
+      }
+
+      if (shiftId && String(shiftId) !== String(existing.id)) {
+        throw new Error("O plantão informado não corresponde ao plantão ativo.");
+      }
+
+      const endedAt = nowIso_();
+      const closed = Object.assign({}, existing, {
+        endedAt: endedAt,
+        status: "closed",
+        updatedAt: endedAt
+      });
+
+      const ss = getSpreadsheet_();
+      const hist = ss.getSheetByName("HIST_PLANTOES");
+      if (hist) {
+        const row = [
+          closed.id,
+          closed.date || "",
+          closed.dayOfWeek || "",
+          closed.shift || "",
+          closed.team.medico1 || "",
+          closed.team.medico2 || "",
+          closed.team.enf1 || "",
+          closed.team.enf2 || "",
+          closed.team.aux || "",
+          closed.startedAt || "",
+          closed.endedAt || "",
+          Session.getActiveUser().getEmail() || ""
+        ];
+        hist.appendRow(row);
+      }
+
+      const conf = ss.getSheetByName("CONFIG_PLANTAO");
+      if (conf) {
+        conf.getRange("A2:K2").clearContent();
+      }
+
+      clearActiveShift_();
+      writeAction_("SHIFT_ENDED", { shiftId: closed.id });
+
+      return { activeShift: null };
+    } finally {
+      lock.releaseLock();
+    }
+  });
+}
+
+function writeAction(type, payload) {
+  return runWithResult_(function () {
+    assertAuthorized_();
+    writeAction_(type, payload);
+    return { saved: true };
+  });
+}
+
+function readDashboardData(payload) {
+  return runWithResult_(function () {
+    assertAuthorized_();
+    const view = payload && payload.view ? payload.view : "confirmadas";
+    const principalMap = {
+      confirmadas: "RESERVA_CONFIRMADA",
+      vascular: "PROCEDIMENTO_VASCULAR",
+      negadas: "RESERVA_NEGADA",
+      anterior: "PLANTAO_ANTERIOR"
+    };
+    const principalSheet = principalMap[view] || "RESERVA_CONFIRMADA";
+
+    return {
+      activeShift: getActiveShift_(),
+      indicadores: getIndicadores_(),
+      principal: getTabela_(principalSheet),
+      manutencao: getTabela_("BLOQUEADOS_MANUTENCAO"),
+      isolamento: getTabela_("BLOQUEADOS_ISOLAMENTO"),
+      principalNome: principalSheet,
+      now: nowIso_()
+    };
+  });
+}
+
+function addRecord(payload) {
+  return runWithResult_(function () {
+    assertAuthorized_();
+    const modulo = payload && payload.modulo ? payload.modulo : "";
+    const registro = payload && payload.registro ? payload.registro : {};
+    const resultado = adicionarRegistro_(modulo, registro);
+    return resultado || { saved: true };
+  });
+}
+
+function deleteRecord(payload) {
+  return runWithResult_(function () {
+    assertAuthorized_();
+    const modulo = payload && payload.modulo ? payload.modulo : "";
+    const id = payload && payload.id ? payload.id : "";
+    excluirRegistro_(modulo, id);
+    return { deleted: true };
+  });
+}
+
 function criarEstruturaNIR() {
   assertAuthorized_();
   const ss = getSpreadsheet_();
 
   const abasVivas = {
     "CONFIG_PLANTAO": [
-      "ID_PLANTAO","Data do Plantão","Dia da Semana","Turno",
-      "Médico(a) 1","Médico(a) 2",
-      "Enfermeiro(a) 1","Enfermeiro(a) 2",
+      "ID_PLANTAO", "Data do Plantão", "Dia da Semana", "Turno",
+      "Médico(a) 1", "Médico(a) 2",
+      "Enfermeiro(a) 1", "Enfermeiro(a) 2",
       "Auxiliar Administrativo",
-      "Abertura (Timestamp)","Encerramento (Timestamp)"
+      "Abertura (Timestamp)", "Encerramento (Timestamp)"
     ],
 
     "RESERVA_CONFIRMADA": [
-      "ID","Tipo","Fastmedic","Nome do Paciente","Leito Reservado",
-      "Especialidade","Origem","Status",
-      "Data da Reserva","Hora da Reserva",
-      "Data da Confirmação","Hora da Confirmação",
-      "Tempo entre Alocação e Aceite","Chegou","Observação"
+      "ID", "Tipo", "Fastmedic", "Nome do Paciente", "Leito Reservado",
+      "Especialidade", "Origem", "Status",
+      "Data da Reserva", "Hora da Reserva",
+      "Data da Confirmação", "Hora da Confirmação",
+      "Tempo entre Alocação e Aceite", "Chegou", "Observação"
     ],
 
     "PROCEDIMENTO_VASCULAR": [
-      "ID","Tipo","Fastmedic","Nome do Paciente","Leito Reservado",
-      "Especialidade","Origem","Status",
-      "Data da Reserva","Hora da Reserva",
-      "Data da Confirmação","Hora da Confirmação",
-      "Tempo entre Alocação e Aceite","Chegou","Observação"
+      "ID", "Tipo", "Fastmedic", "Nome do Paciente", "Leito Reservado",
+      "Especialidade", "Origem", "Status",
+      "Data da Reserva", "Hora da Reserva",
+      "Data da Confirmação", "Hora da Confirmação",
+      "Tempo entre Alocação e Aceite", "Chegou", "Observação"
     ],
 
     "RESERVA_NEGADA": [
-      "ID","Tipo","Fastmedic","Nome do Paciente","Origem",
-      "Especialidade","Justificativa",
-      "Data da Reserva","Hora da Reserva",
-      "Data do Cancelamento","Hora do Cancelamento",
+      "ID", "Tipo", "Fastmedic", "Nome do Paciente", "Origem",
+      "Especialidade", "Justificativa",
+      "Data da Reserva", "Hora da Reserva",
+      "Data do Cancelamento", "Hora do Cancelamento",
       "Tempo entre Alocação e Cancelamento"
     ],
 
     "PLANTAO_ANTERIOR": [
-      "ID","Tipo","Fastmedic","Nome do Paciente","Leito Reservado",
-      "Especialidade","Origem","Status",
-      "Data da Reserva","Hora da Reserva",
-      "Data de Admissão","Hora de Admissão",
-      "Tempo Decorrido","Chegou","Observação"
+      "ID", "Tipo", "Fastmedic", "Nome do Paciente", "Leito Reservado",
+      "Especialidade", "Origem", "Status",
+      "Data da Reserva", "Hora da Reserva",
+      "Data de Admissão", "Hora de Admissão",
+      "Tempo Decorrido", "Chegou", "Observação"
     ],
 
     "BLOQUEADOS_MANUTENCAO": [
-      "ID","Leito","Unidade","Manutenção Acionada","Data de Início","Previsão de Reparo","Observação"
+      "ID", "Leito", "Unidade", "Manutenção Acionada", "Data de Início", "Previsão de Reparo", "Observação"
     ],
 
     "BLOQUEADOS_ISOLAMENTO": [
-      "ID","Unidade","Leito","Paciente",
-      "Tipo de Isolamento","Patologia",
-      "Início do Isolamento","Tempo Previsto","Observação"
+      "ID", "Unidade", "Leito", "Paciente",
+      "Tipo de Isolamento", "Patologia",
+      "Início do Isolamento", "Tempo Previsto", "Observação"
     ]
   };
 
   const abasHistoricos = {
     "HIST_PLANTOES": [
-      "ID_PLANTAO","Data","Dia","Turno",
-      "Medico1","Medico2",
-      "Enf1","Enf2",
-      "Aux","Hora Abertura","Hora Encerramento","Usuario_Encerramento"
+      "ID_PLANTAO", "Data", "Dia", "Turno",
+      "Medico1", "Medico2",
+      "Enf1", "Enf2",
+      "Aux", "Hora Abertura", "Hora Encerramento", "Usuario_Encerramento"
     ],
 
     "HIST_RESERVA_CONFIRMADA": [
-      "PLANTAO_ID","ID","Tipo","Fastmedic","Nome do Paciente","Leito Reservado",
-      "Especialidade","Origem","Status",
-      "Data Reserva","Hora Reserva",
-      "Data Confirmação","Hora Confirmação",
-      "Tempo Aceite","Chegou","Observação"
+      "PLANTAO_ID", "ID", "Tipo", "Fastmedic", "Nome do Paciente", "Leito Reservado",
+      "Especialidade", "Origem", "Status",
+      "Data Reserva", "Hora Reserva",
+      "Data Confirmação", "Hora Confirmação",
+      "Tempo Aceite", "Chegou", "Observação"
     ],
 
     "HIST_PROCEDIMENTO_VASCULAR": [
-      "PLANTAO_ID","ID","Tipo","Fastmedic","Nome do Paciente","Leito Reservado",
-      "Especialidade","Origem","Status",
-      "Data Reserva","Hora Reserva",
-      "Data Confirmação","Hora Confirmação",
-      "Tempo Aceite","Chegou","Observação"
+      "PLANTAO_ID", "ID", "Tipo", "Fastmedic", "Nome do Paciente", "Leito Reservado",
+      "Especialidade", "Origem", "Status",
+      "Data Reserva", "Hora Reserva",
+      "Data Confirmação", "Hora Confirmação",
+      "Tempo Aceite", "Chegou", "Observação"
     ],
 
     "HIST_RESERVA_NEGADA": [
-      "PLANTAO_ID","ID","Tipo","Fastmedic","Nome","Origem","Especialidade",
-      "Justificativa","Data Reserva","Hora Reserva",
-      "Data Cancelamento","Hora Cancelamento","Tempo Cancelamento"
+      "PLANTAO_ID", "ID", "Tipo", "Nome", "Origem", "Especialidade",
+      "Justificativa", "Data Reserva", "Hora Reserva",
+      "Data Cancelamento", "Hora Cancelamento", "Tempo Cancelamento"
     ],
 
     "HIST_MANUTENCAO": [
-      "PLANTAO_ID","ID","Leito","Unidade","Manutenção Acionada","Data Início","Previsão","Observação","Encerrado em"
+      "PLANTAO_ID", "ID", "Leito", "Unidade", "Manutenção Acionada", "Data Início", "Previsão", "Observação", "Encerrado em"
     ],
 
     "HIST_ISOLAMENTO": [
-      "PLANTAO_ID","ID","Unidade","Leito","Paciente",
-      "Isolamento","Patologia","Início","Tempo Previsto","Observação","Encerrado em"
+      "PLANTAO_ID", "ID", "Unidade", "Leito", "Paciente",
+      "Isolamento", "Patologia", "Início", "Tempo Previsto", "Observação", "Encerrado em"
     ],
 
     "LOG_NIR": [
-      "ID_EVENTO","ID_REGISTRO","MODULO","TIPO_EVENTO",
-      "USUARIO","DATA_HORA","OBSERVACAO"
+      "ID_EVENTO", "ID_REGISTRO", "MODULO", "TIPO_EVENTO",
+      "USUARIO", "DATA_HORA", "OBSERVACAO"
     ]
   };
 
@@ -231,197 +588,14 @@ function criarAbas_(ss, estrutura) {
   }
 }
 
-function criarPlantaoComEquipe(dados) {
-  assertAuthorized_();
-  const ss = getSpreadsheet_();
-  const aba = ss.getSheetByName("CONFIG_PLANTAO");
-  if (!aba) return;
-
-  const idAtual = aba.getRange("A2").getValue();
-  if (idAtual) {
-    throw new Error("Já existe um plantão ativo. Encerre antes de abrir outro.");
-  }
-
-  const id = gerarID_();
-  const agora = new Date();
-  const timezone = Session.getScriptTimeZone() || DEFAULT_TIMEZONE;
-  const dataPlantao = normalizarDataSimples_(dados.data, timezone) || dados.data || "";
-
-  const row = [
-    id,
-    dataPlantao,
-    dados.diaSemana || "",
-    dados.turno || "",
-    dados.medico1 || "",
-    dados.medico2 || "",
-    dados.enf1 || "",
-    dados.enf2 || "",
-    dados.aux || "",
-    agora,
-    ""
-  ];
-
-  aba.getRange("A2:K2").setValues([row]);
-
-  registrarEvento_("PLANTAO", id, "ABERTURA_PLANTAO", "Plantão aberto com equipe definida");
-}
-
-function salvarPlantaoConfig(dados) {
-  assertAuthorized_();
-  const ss = getSpreadsheet_();
-  const aba = ss.getSheetByName("CONFIG_PLANTAO");
-  if (!aba) return;
-
-  const idAtual = aba.getRange("A2").getValue();
-  if (!idAtual) {
-    throw new Error("Nenhum plantão ativo para salvar.");
-  }
-
-  const timezone = Session.getScriptTimeZone() || DEFAULT_TIMEZONE;
-  const dataPlantao = normalizarDataSimples_(dados.data, timezone) || dados.data || "";
-
-  const row = [
-    idAtual,
-    dataPlantao,
-    dados.diaSemana || "",
-    dados.turno || "",
-    dados.medico1 || "",
-    dados.medico2 || "",
-    dados.enf1 || "",
-    dados.enf2 || "",
-    dados.aux || "",
-    aba.getRange("J2").getValue(),
-    aba.getRange("K2").getValue()
-  ];
-
-  aba.getRange("A2:K2").setValues([row]);
-}
-
-function encerrarPlantao() {
-  assertAuthorized_();
-  const ss = getSpreadsheet_();
-  const conf = ss.getSheetByName("CONFIG_PLANTAO");
-  if (!conf) return;
-
-  const plantaoId = conf.getRange("A2").getValue();
-  if (!plantaoId) {
-    SpreadsheetApp.getUi().alert("Nenhum plantão ativo em CONFIG_PLANTAO (A2).");
-    return;
-  }
-
-  const encerramento = new Date();
-  const hist = ss.getSheetByName("HIST_PLANTOES");
-
-  const dados = conf.getRange("A2:K2").getValues()[0];
-  dados[10] = encerramento;
-  dados.push(Session.getActiveUser().getEmail());
-
-  hist.appendRow(dados);
-  registrarEvento_("PLANTAO", plantaoId, "ENCERRAMENTO_PLANTAO", "Plantão encerrado");
-
-  conf.getRange("A2:K2").clearContent();
-}
-
-function getPlantaoConfig_() {
-  const ss = getSpreadsheet_();
-  const aba = ss.getSheetByName("CONFIG_PLANTAO");
-  if (!aba) return null;
-
-  const valores = aba.getRange("A2:K2").getValues()[0];
-  const possuiConteudo = valores.some((v) => v !== "" && v !== null);
-  const tz = Session.getScriptTimeZone() || DEFAULT_TIMEZONE;
-
-  if (possuiConteudo && !valores[0]) {
-    const idRecuperado = gerarID_();
-    valores[0] = idRecuperado;
-    aba.getRange("A2").setValue(idRecuperado);
-    registrarEvento_(
-      "PLANTAO",
-      idRecuperado,
-      "ID_RECUPERADO",
-      "ID preenchido automaticamente ao detectar CONFIG_PLANTAO com dados sem ID"
-    );
-  }
-
-  const aberturaDt = normalizarDataHora_(valores[9], tz);
-  const encerramentoDt = normalizarDataHora_(valores[10], tz);
-  const agora = new Date();
-  const possuiEncerramentoValido = Boolean(encerramentoDt && !isNaN(encerramentoDt));
-  const plantaoAtivo = Boolean(
-    valores[0] ||
-    (possuiConteudo && (!possuiEncerramentoValido || agora < encerramentoDt))
-  );
-
-  return {
-    id: plantaoAtivo ? String(valores[0] || "") : "",
-    data: normalizarDataSimples_(valores[1], tz),
-    diaSemana: valores[2] || "",
-    turno: valores[3] || "",
-    medico1: valores[4] || "",
-    medico2: valores[5] || "",
-    enf1: valores[6] || "",
-    enf2: valores[7] || "",
-    aux: valores[8] || "",
-    abertura: aberturaDt || "",
-    encerramento: encerramentoDt || "",
-    ativo: plantaoAtivo,
-    possuiConteudo
-  };
-}
-
-function getAppData(viewType) {
-  assertAuthorized_();
-  const ss = getSpreadsheet_();
-
-  const viewMap = {
-    "confirmadas": "RESERVA_CONFIRMADA",
-    "vascular": "PROCEDIMENTO_VASCULAR",
-    "negadas": "RESERVA_NEGADA",
-    "anterior": "PLANTAO_ANTERIOR"
-  };
-
-  const principalSheet = viewMap[viewType] || "RESERVA_CONFIRMADA";
-
-  return {
-    plantao: getPlantaoConfig_(),
-    indicadores: getIndicadores_(),
-    principal: getTabela_(principalSheet),
-    manutencao: getTabela_("BLOQUEADOS_MANUTENCAO"),
-    isolamento: getTabela_("BLOQUEADOS_ISOLAMENTO"),
-    principalNome: principalSheet
-  };
-}
-
-function getTabela_(sheetName) {
-  const ss = getSpreadsheet_();
-  const sheet = ss.getSheetByName(sheetName);
-  if (!sheet) return { headers: [], rows: [] };
-
-  const lastCol = sheet.getLastColumn();
-  const headers = lastCol > 0 ? sheet.getRange(1, 1, 1, lastCol).getValues()[0].map(h => h || "") : [];
-
-  if (headers.length === 0) {
-    return { headers: [], rows: [] };
-  }
-
-  const dataRange = sheet.getDataRange();
-  const values = dataRange.getValues();
-  const linhas = values
-    .slice(1)
-    .filter(row => row.some(cell => cell !== "" && cell !== null))
-    .map(row => {
-      if (row.length < headers.length) {
-        return row.concat(Array(headers.length - row.length).fill(""));
-      }
-      return row.slice(0, headers.length);
-    });
-
-  return { headers: headers, rows: linhas };
-}
-
 function getIndicadores_() {
-  const ss = getSpreadsheet_();
+  const cache = CacheService.getScriptCache();
+  const cached = cache.get("indicadores");
+  if (cached) {
+    return safeJsonParse_(cached, null);
+  }
 
+  const ss = getSpreadsheet_();
   const confirmadas = ss.getSheetByName("RESERVA_CONFIRMADA");
   const vascular = ss.getSheetByName("PROCEDIMENTO_VASCULAR");
   const negadas = ss.getSheetByName("RESERVA_NEGADA");
@@ -432,19 +606,57 @@ function getIndicadores_() {
   const countNegadas = negadas ? Math.max(negadas.getLastRow() - 1, 0) : 0;
   const countAnterior = anterior ? Math.max(anterior.getLastRow() - 1, 0) : 0;
 
-  return {
+  const indicadores = {
     alocados: countConfirmadas + countVascular,
     reservasConfirmadas: countConfirmadas,
     reservasCanceladas: countNegadas,
     admitidosUIB: countAnterior
   };
+
+  cache.put("indicadores", safeJsonStringify_(indicadores), 30);
+  return indicadores;
 }
 
-function adicionarRegistro(modulo, registro) {
-  assertAuthorized_();
+function getTabela_(sheetName) {
+  const cache = CacheService.getScriptCache();
+  const cacheKey = "table:" + sheetName;
+  const cached = cache.get(cacheKey);
+  if (cached) {
+    return safeJsonParse_(cached, { headers: [], rows: [] });
+  }
+
   const ss = getSpreadsheet_();
-  const plantao = getPlantaoConfig_();
-  const plantaoId = plantao && plantao.id ? plantao.id : "";
+  const sheet = ss.getSheetByName(sheetName);
+  if (!sheet) return { headers: [], rows: [] };
+
+  const lastCol = sheet.getLastColumn();
+  const headers = lastCol > 0 ? sheet.getRange(1, 1, 1, lastCol).getValues()[0].map((h) => h || "") : [];
+
+  if (headers.length === 0) {
+    return { headers: [], rows: [] };
+  }
+
+  const dataRange = sheet.getDataRange();
+  const values = dataRange.getValues();
+  const linhas = values
+    .slice(1)
+    .filter((row) => row.some((cell) => cell !== "" && cell !== null))
+    .map((row) => {
+      if (row.length < headers.length) {
+        return row.concat(Array(headers.length - row.length).fill(""));
+      }
+      return row.slice(0, headers.length);
+    });
+
+  const payload = { headers: headers, rows: linhas };
+  cache.put(cacheKey, safeJsonStringify_(payload), 15);
+  return payload;
+}
+
+function adicionarRegistro_(modulo, registro) {
+  const ss = getSpreadsheet_();
+  const shift = getActiveShift_();
+  const shiftId = shift && shift.id ? shift.id : "";
 
   const id = gerarID_();
 
@@ -568,26 +780,30 @@ function adicionarRegistro(modulo, registro) {
       break;
 
     default:
-      return;
+      throw new Error("Módulo inválido.");
   }
 
   const aba = ss.getSheetByName(abaNome);
-  if (!aba) return;
+  if (!aba) throw new Error("Aba não encontrada: " + abaNome);
   aba.appendRow(row);
 
-  registrarEvento_(modulo, id, "INSERCAO", "Novo registro inserido via WebApp");
+  writeAction_("REGISTRO_INSERIDO", { modulo: modulo, registroId: id });
 
-  if (histNome && plantaoId) {
+  if (histNome && shiftId) {
     const hist = ss.getSheetByName(histNome);
     if (hist) {
-      const linhaHist = [plantaoId, id].concat(row.slice(1));
+      const linhaHist = [shiftId, id].concat(row.slice(1));
+      if (histNome === "HIST_MANUTENCAO" || histNome === "HIST_ISOLAMENTO") {
+        linhaHist.push(new Date());
+      }
       hist.appendRow(linhaHist);
     }
   }
+
+  return { id: id };
 }
 
-function excluirRegistro(modulo, id) {
-  assertAuthorized_();
+function excluirRegistro_(modulo, id) {
   const mapa = {
     "RESERVA_CONFIRMADA": { aba: "RESERVA_CONFIRMADA", hist: "HIST_RESERVA_CONFIRMADA" },
     "PROCEDIMENTO_VASCULAR": { aba: "PROCEDIMENTO_VASCULAR", hist: "HIST_PROCEDIMENTO_VASCULAR" },
@@ -598,28 +814,28 @@ function excluirRegistro(modulo, id) {
   };
 
   const conf = mapa[modulo];
-  if (!conf) return;
+  if (!conf) throw new Error("Módulo inválido.");
 
   const ss = getSpreadsheet_();
   const sheet = ss.getSheetByName(conf.aba);
-  if (!sheet) return;
+  if (!sheet) throw new Error("Aba não encontrada: " + conf.aba);
 
   const lastRow = sheet.getLastRow();
   if (lastRow < 2) return;
 
   const values = sheet.getRange(2, 1, lastRow - 1, sheet.getLastColumn()).getValues();
-  const plantao = getPlantaoConfig_();
-  const plantaoId = plantao && plantao.id ? plantao.id : "";
+  const shift = getActiveShift_();
+  const shiftId = shift && shift.id ? shift.id : "";
 
   for (let i = 0; i < values.length; i++) {
     if (String(values[i][0]) === String(id)) {
       const rowIndex = i + 2;
       const rowData = values[i];
 
-      if (conf.hist && plantaoId) {
+      if (conf.hist && shiftId) {
         const histSheet = ss.getSheetByName(conf.hist);
         if (histSheet) {
-          const registro = [plantaoId, id].concat(rowData.slice(1));
+          const registro = [shiftId, id].concat(rowData.slice(1));
           if (conf.hist === "HIST_MANUTENCAO" || conf.hist === "HIST_ISOLAMENTO") {
             registro.push(new Date());
           }
@@ -628,7 +844,7 @@ function excluirRegistro(modulo, id) {
       }
 
       sheet.deleteRow(rowIndex);
-      registrarEvento_(modulo, id, "EXCLUSAO_MANUAL", "Registro excluído via WebApp");
+      writeAction_("REGISTRO_EXCLUIDO", { modulo: modulo, registroId: id });
       break;
     }
   }
@@ -639,7 +855,7 @@ function onOpen() {
   ui.createMenu("Ocorrências NIR")
     .addItem("Criar Estrutura Ocorrências", "criarEstruturaNIR")
     .addItem("Abrir Ocorrências (Sidebar)", "abrirWebAppSidebar")
-    .addItem("Encerrar Plantão Atual", "encerrarPlantao")
+    .addItem("Encerrar Plantão Atual", "encerrarPlantaoLegacy")
     .addToUi();
 }
 
@@ -664,4 +880,8 @@ function doGet() {
 
 function include(filename) {
   return HtmlService.createHtmlOutputFromFile(filename).getContent();
+}
+
+function encerrarPlantaoLegacy() {
+  endShift();
 }
