@@ -1431,6 +1431,7 @@
                 </svg>
                 <span class="report-edit-toggle-label">Editar relatório</span>
               </button>
+              <button id="btnOpenReportHistory" class="btn btn-ghost" type="button">Histórico</button>
             </div>
           </header>
           <div class="card-content">
@@ -1451,18 +1452,6 @@
                 <div class="report-lines" id="reportMedica"></div>
               </div>
             </div>
-          </div>
-        </section>
-
-        <section class="card report-history">
-          <header class="card-header">
-            <div>
-              <h2>Histórico de edição</h2>
-              <p class="muted">Registro detalhado das últimas alterações no relatório.</p>
-            </div>
-          </header>
-          <div class="card-content">
-            <ul id="reportHistoryList" class="report-history-list"></ul>
           </div>
         </section>
       </div>
@@ -1554,6 +1543,33 @@
       <footer class="modal-footer">
         <button class="btn btn-secondary" type="button" data-close="modalRecord">Cancelar</button>
         <button id="btnSaveRecord" class="btn btn-primary">Salvar registro</button>
+      </footer>
+    </div>
+  </div>
+
+  <div id="modalReportHistory" class="modal-backdrop">
+    <div class="modal">
+      <header class="modal-header">
+        <div>
+          <h3 class="modal-title">Histórico de edição</h3>
+          <p class="modal-subtitle">Registro detalhado das últimas alterações no relatório.</p>
+        </div>
+        <button class="modal-close" type="button" data-close="modalReportHistory" aria-label="Fechar modal">
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M6 6L18 18M6 18L18 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+          </svg>
+        </button>
+      </header>
+      <div class="modal-body">
+        <div class="modal-stack">
+          <section class="modal-section">
+            <span class="modal-section-title">Últimas alterações</span>
+            <ul id="reportHistoryList" class="report-history-list"></ul>
+          </section>
+        </div>
+      </div>
+      <footer class="modal-footer">
+        <button class="btn btn-secondary" type="button" data-close="modalReportHistory">Fechar</button>
       </footer>
     </div>
   </div>
@@ -1927,6 +1943,8 @@
         const sublineLabel = sublineNumber ? `Sublinha ${sublineNumber}` : "Sublinha";
 
         switch (entry.acao) {
+          case "RELATORIO_ATUALIZADO":
+            return "Relatório atualizado.";
           case "LINHA_ADICIONADA":
             return `${lineLabel} adicionada (${columnName}).`;
           case "LINHA_REMOVIDA":
@@ -1944,6 +1962,14 @@
         }
       };
 
+      const syncLineOrders = () => {
+        ["enfermagem", "medica"].forEach((key) => {
+          state.data[key].forEach((line, index) => {
+            line.order = index;
+          });
+        });
+      };
+
       const save = async () => {
         if (state.saving) {
           state.pendingSave = true;
@@ -1951,6 +1977,7 @@
         }
         state.saving = true;
         state.pendingSave = false;
+        syncLineOrders();
         try {
           await Api.saveReportState(state.data);
           scheduleHistoryRefresh();
@@ -2455,6 +2482,7 @@
           setEditingEnabled(!editingEnabled);
           render();
         },
+        refreshHistory: loadHistory,
         render
       };
     })();
@@ -3069,6 +3097,10 @@
         document.getElementById("btnAddPrincipal").addEventListener("click", () => handleAddRecord(viewMap[state.view].sheet));
         document.getElementById("btnAddManutencao").addEventListener("click", () => handleAddRecord("BLOQUEADOS_MANUTENCAO"));
         document.getElementById("btnAddIsolamento").addEventListener("click", () => handleAddRecord("BLOQUEADOS_ISOLAMENTO"));
+        document.getElementById("btnOpenReportHistory").addEventListener("click", () => {
+          ReportState.refreshHistory();
+          UI.toggleModal("modalReportHistory", true);
+        });
 
         document.querySelectorAll(".tab").forEach((tab) => {
           tab.addEventListener("click", () => {
