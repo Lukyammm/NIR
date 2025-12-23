@@ -599,6 +599,28 @@
       padding: 4px;
     }
 
+    #relatorioPage:not(.report-editing-enabled) .report-action,
+    #relatorioPage:not(.report-editing-enabled) .report-lock-button,
+    #relatorioPage:not(.report-editing-enabled) .report-edit-button,
+    #relatorioPage:not(.report-editing-enabled) .report-editor,
+    #relatorioPage:not(.report-editing-enabled) .report-add-subline,
+    #relatorioPage:not(.report-editing-enabled) .report-subline-remove,
+    #relatorioPage:not(.report-editing-enabled) .report-color-picker,
+    #relatorioPage:not(.report-editing-enabled) [data-action="add-line"] {
+      display: none;
+    }
+
+    .report-edit-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .report-edit-toggle svg {
+      width: 16px;
+      height: 16px;
+    }
+
     .report-editor-button {
       border: none;
       background: transparent;
@@ -1346,6 +1368,22 @@
               <h2>Relatório das Ocorrências do Plantão</h2>
               <p class="muted">Conteúdo contínuo entre plantões, com travamento por linha.</p>
             </div>
+            <div class="header-actions">
+              <button
+                id="btnToggleReportEdit"
+                class="btn btn-secondary report-edit-toggle"
+                type="button"
+                aria-pressed="false"
+                data-label-on="Finalizar edição"
+                data-label-off="Editar relatório"
+              >
+                <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <path d="M14.5 6.5l3 3-7.6 7.6H7v-2.9L14.5 6.5Z" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path d="M13 5l2-2 4 4-2 2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                <span class="report-edit-toggle-label">Editar relatório</span>
+              </button>
+            </div>
           </header>
           <div class="card-content">
             <div class="report-grid">
@@ -1661,7 +1699,7 @@
       ];
       let paletteSeed = 0;
       let colorPickerListenerAttached = false;
-      const editingIds = new Set();
+      let editingEnabled = false;
       const FORMAT_LIMITS = { min: 12, max: 20 };
       const FORMAT_DEFAULTS = {
         line: { fontSize: 14, bold: false },
@@ -1817,13 +1855,22 @@
         return button;
       };
 
-      const isEditing = (entityId) => editingIds.has(entityId);
+      const isEditingEnabled = () => editingEnabled;
 
-      const toggleEditing = (entityId) => {
-        if (editingIds.has(entityId)) {
-          editingIds.delete(entityId);
-        } else {
-          editingIds.add(entityId);
+      const setEditingEnabled = (value) => {
+        editingEnabled = Boolean(value);
+        const reportPage = document.getElementById("relatorioPage");
+        if (reportPage) {
+          reportPage.classList.toggle("report-editing-enabled", editingEnabled);
+        }
+        const toggleButton = document.getElementById("btnToggleReportEdit");
+        if (toggleButton) {
+          toggleButton.classList.toggle("active", editingEnabled);
+          toggleButton.setAttribute("aria-pressed", editingEnabled ? "true" : "false");
+          const label = toggleButton.querySelector(".report-edit-toggle-label");
+          if (label) {
+            label.textContent = editingEnabled ? toggleButton.dataset.labelOn : toggleButton.dataset.labelOff;
+          }
         }
       };
 
@@ -1876,20 +1923,6 @@
         return editor;
       };
 
-      const buildEditButton = (entity, label, disabled) => {
-        const button = document.createElement("button");
-        button.type = "button";
-        button.className = `report-edit-button${isEditing(entity.id) ? " active" : ""}`;
-        button.textContent = isEditing(entity.id) ? "Editando" : "Editar";
-        button.setAttribute("aria-label", `Editar ${label}`);
-        button.disabled = disabled;
-        button.addEventListener("click", () => {
-          toggleEditing(entity.id);
-          render();
-        });
-        return button;
-      };
-
       const renderSublines = (sublines, container, parentLocked, lineColor, depth) => {
         (sublines || []).forEach((subline, subIndex) => {
           const subRow = document.createElement("div");
@@ -1908,39 +1941,42 @@
           const subText = document.createElement("textarea");
           subText.className = "report-subline-text";
           subText.value = subline.text;
-          subText.disabled = parentLocked || subline.locked || !isEditing(subline.id);
+          subText.disabled = parentLocked || subline.locked || !isEditingEnabled();
           applyFormatStyles(subText, subline.format);
           subText.addEventListener("input", (event) => {
             subline.text = event.target.value;
             scheduleSave();
           });
 
-          const actions = document.createElement("div");
-          actions.className = "report-subline-actions";
+          let actions = null;
+          if (isEditingEnabled()) {
+            actions = document.createElement("div");
+            actions.className = "report-subline-actions";
 
-          const lockButton = buildLockButton(subline, "sublinha");
-          const editButton = buildEditButton(subline, "sublinha", parentLocked || subline.locked);
-          const editor = buildEditor(subline, "subline", parentLocked || subline.locked || !isEditing(subline.id));
+            const lockButton = buildLockButton(subline, "sublinha");
+            const editor = buildEditor(subline, "subline", parentLocked || subline.locked);
 
-          const subDelete = document.createElement("button");
-          subDelete.type = "button";
-          subDelete.className = "report-subline-remove";
-          subDelete.textContent = "×";
-          subDelete.disabled = parentLocked || subline.locked;
-          subDelete.addEventListener("click", () => {
-            if (parentLocked || subline.locked) return;
-            sublines.splice(subIndex, 1);
-            render();
-            scheduleSave();
-          });
+            const subDelete = document.createElement("button");
+            subDelete.type = "button";
+            subDelete.className = "report-subline-remove";
+            subDelete.textContent = "×";
+            subDelete.disabled = parentLocked || subline.locked;
+            subDelete.addEventListener("click", () => {
+              if (parentLocked || subline.locked) return;
+              sublines.splice(subIndex, 1);
+              render();
+              scheduleSave();
+            });
 
-          actions.appendChild(lockButton);
-          actions.appendChild(editButton);
-          actions.appendChild(editor);
-          actions.appendChild(subDelete);
+            actions.appendChild(lockButton);
+            actions.appendChild(editor);
+            actions.appendChild(subDelete);
+          }
 
           inputRow.appendChild(subText);
-          inputRow.appendChild(actions);
+          if (actions) {
+            inputRow.appendChild(actions);
+          }
 
           const childrenWrapper = document.createElement("div");
           childrenWrapper.className = "report-subline-children";
@@ -1953,7 +1989,7 @@
           );
 
           let addSubline = null;
-          if (depth < 1) {
+          if (depth < 1 && isEditingEnabled()) {
             addSubline = document.createElement("button");
             addSubline.type = "button";
             addSubline.className = "report-add-subline is-nested";
@@ -2010,12 +2046,11 @@
           metaLabel.className = "report-line-label";
           metaLabel.textContent = `Linha ${index + 1}`;
 
-          const lockButton = buildLockButton(line, "linha");
-          const editButton = buildEditButton(line, "linha", line.locked);
-
           meta.appendChild(metaLabel);
-          meta.appendChild(lockButton);
-          meta.appendChild(editButton);
+          if (isEditingEnabled()) {
+            const lockButton = buildLockButton(line, "linha");
+            meta.appendChild(lockButton);
+          }
 
           const picker = document.createElement("div");
           picker.className = "report-color-picker";
@@ -2068,49 +2103,60 @@
           picker.appendChild(colorButton);
           picker.appendChild(palette);
 
-          header.appendChild(picker);
+          if (isEditingEnabled()) {
+            header.appendChild(picker);
+          }
           header.appendChild(meta);
 
           const textarea = document.createElement("textarea");
           textarea.className = "report-text";
           textarea.value = line.text;
-          textarea.disabled = line.locked || !isEditing(line.id);
+          textarea.disabled = line.locked || !isEditingEnabled();
           applyFormatStyles(textarea, line.format);
           textarea.addEventListener("input", (event) => {
             line.text = event.target.value;
             scheduleSave();
           });
 
-          const editor = buildEditor(line, "line", line.locked || !isEditing(line.id));
+          const editor = isEditingEnabled()
+            ? buildEditor(line, "line", line.locked)
+            : null;
 
           const sublinesWrapper = document.createElement("div");
           sublinesWrapper.className = "report-sublines";
           renderSublines(line.sublines || [], sublinesWrapper, line.locked, line.color, 0);
 
-          const addSubline = document.createElement("button");
-          addSubline.type = "button";
-          addSubline.className = "report-add-subline";
-          addSubline.innerHTML = '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>';
-          addSubline.setAttribute("aria-label", "Adicionar sublinha");
-          addSubline.disabled = line.locked;
-          addSubline.addEventListener("click", () => {
-            if (line.locked) return;
-            line.sublines.push({
-              id: generateId(),
-              text: "",
-              locked: false,
-              format: normalizeFormat(null, "subline"),
-              sublines: []
+          let addSubline = null;
+          if (isEditingEnabled()) {
+            addSubline = document.createElement("button");
+            addSubline.type = "button";
+            addSubline.className = "report-add-subline";
+            addSubline.innerHTML = '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>';
+            addSubline.setAttribute("aria-label", "Adicionar sublinha");
+            addSubline.disabled = line.locked;
+            addSubline.addEventListener("click", () => {
+              if (line.locked) return;
+              line.sublines.push({
+                id: generateId(),
+                text: "",
+                locked: false,
+                format: normalizeFormat(null, "subline"),
+                sublines: []
+              });
+              render();
+              scheduleSave();
             });
-            render();
-            scheduleSave();
-          });
+          }
 
           main.appendChild(header);
-          main.appendChild(editor);
+          if (editor) {
+            main.appendChild(editor);
+          }
           main.appendChild(textarea);
           main.appendChild(sublinesWrapper);
-          main.appendChild(addSubline);
+          if (addSubline) {
+            main.appendChild(addSubline);
+          }
 
           const actions = document.createElement("div");
           actions.className = "report-actions";
@@ -2163,12 +2209,15 @@
           actions.appendChild(btnDelete);
 
           row.appendChild(main);
-          row.appendChild(actions);
+          if (isEditingEnabled()) {
+            row.appendChild(actions);
+          }
           wrapper.appendChild(row);
         });
       };
 
       const render = () => {
+        setEditingEnabled(editingEnabled);
         ensureUniqueColors();
         renderColumn("enfermagem", "reportEnfermagem");
         renderColumn("medica", "reportMedica");
@@ -2210,6 +2259,11 @@
           }
         },
         addLine,
+        setEditingEnabled,
+        toggleEditingEnabled: () => {
+          setEditingEnabled(!editingEnabled);
+          render();
+        },
         render
       };
     })();
@@ -2807,6 +2861,13 @@
             ReportState.addLine(btn.dataset.column);
           });
         });
+
+        const reportEditToggle = document.getElementById("btnToggleReportEdit");
+        if (reportEditToggle) {
+          reportEditToggle.addEventListener("click", () => {
+            ReportState.toggleEditingEnabled();
+          });
+        }
 
         document.getElementById("btnRefresh").addEventListener("click", () => loadDashboard(state.view, { showLoader: false }));
         document.getElementById("btnStartShift").addEventListener("click", openShiftModal);
