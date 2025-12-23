@@ -420,7 +420,7 @@
 
     .report-subline {
       display: flex;
-      align-items: flex-start;
+      align-items: stretch;
       gap: 8px;
       padding: 10px 12px 10px 16px;
       border-radius: 12px;
@@ -462,6 +462,25 @@
       font-family: inherit;
     }
 
+    .report-subline-body {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .report-subline-input {
+      display: flex;
+      gap: 8px;
+      align-items: flex-start;
+    }
+
+    .report-subline-actions {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+
     .report-subline-remove {
       border: none;
       background: rgba(215, 0, 21, 0.12);
@@ -471,6 +490,19 @@
       height: 28px;
       cursor: pointer;
       font-weight: 700;
+    }
+
+    .report-subline-children {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      padding-left: 14px;
+      border-left: 1px dashed rgba(17, 19, 24, 0.12);
+    }
+
+    .report-add-subline.is-nested {
+      font-size: 10px;
+      padding: 5px 8px;
     }
 
     .report-text {
@@ -1499,7 +1531,9 @@
         .filter((sub) => sub && typeof sub === "object")
         .map((sub) => ({
           id: sub.id ? String(sub.id) : generateId(),
-          text: sub.text ? String(sub.text) : ""
+          text: sub.text ? String(sub.text) : "",
+          locked: Boolean(sub.locked),
+          sublines: normalizeSublines(sub.sublines)
         }));
 
       const normalizeLines = (lines) => {
@@ -1533,6 +1567,12 @@
         paletteSeed += 1;
         return `hsl(${hue} 65% 42%)`;
       };
+
+      const lockIconHtml = (locked) => (
+        locked
+          ? '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M7 10V7a5 5 0 0 1 10 0v3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><rect x="5" y="10" width="14" height="10" rx="2.6" stroke="currentColor" stroke-width="1.6"/><path d="M12 14v3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>'
+          : '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M8 10V7a4 4 0 0 1 8 0" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><rect x="5" y="10" width="14" height="10" rx="2.6" stroke="currentColor" stroke-width="1.6"/><path d="M12 14v3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>'
+      );
 
       const getUniqueColor = (preferred, excludeLineId) => {
         const used = collectUsedColors(excludeLineId);
@@ -1582,6 +1622,96 @@
         }
       };
 
+      const buildLockButton = (entity, label) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = `report-lock-button${entity.locked ? " is-locked" : ""}`;
+        button.setAttribute("aria-label", entity.locked ? `Destravar ${label}` : `Travar ${label}`);
+        button.innerHTML = lockIconHtml(entity.locked);
+        button.addEventListener("click", () => {
+          entity.locked = !entity.locked;
+          render();
+          scheduleSave();
+        });
+        return button;
+      };
+
+      const renderSublines = (sublines, container, parentLocked, lineColor) => {
+        (sublines || []).forEach((subline, subIndex) => {
+          const subRow = document.createElement("div");
+          subRow.className = "report-subline";
+          subRow.style.setProperty("--line-color", lineColor);
+
+          const marker = document.createElement("span");
+          marker.className = "report-subline-marker";
+
+          const body = document.createElement("div");
+          body.className = "report-subline-body";
+
+          const inputRow = document.createElement("div");
+          inputRow.className = "report-subline-input";
+
+          const subText = document.createElement("textarea");
+          subText.className = "report-subline-text";
+          subText.value = subline.text;
+          subText.disabled = parentLocked || subline.locked;
+          subText.addEventListener("input", (event) => {
+            subline.text = event.target.value;
+            scheduleSave();
+          });
+
+          const actions = document.createElement("div");
+          actions.className = "report-subline-actions";
+
+          const lockButton = buildLockButton(subline, "sublinha");
+
+          const subDelete = document.createElement("button");
+          subDelete.type = "button";
+          subDelete.className = "report-subline-remove";
+          subDelete.textContent = "×";
+          subDelete.disabled = parentLocked || subline.locked;
+          subDelete.addEventListener("click", () => {
+            if (parentLocked || subline.locked) return;
+            sublines.splice(subIndex, 1);
+            render();
+            scheduleSave();
+          });
+
+          actions.appendChild(lockButton);
+          actions.appendChild(subDelete);
+
+          inputRow.appendChild(subText);
+          inputRow.appendChild(actions);
+
+          const childrenWrapper = document.createElement("div");
+          childrenWrapper.className = "report-subline-children";
+          renderSublines(subline.sublines || [], childrenWrapper, parentLocked || subline.locked, lineColor);
+
+          const addSubline = document.createElement("button");
+          addSubline.type = "button";
+          addSubline.className = "report-add-subline is-nested";
+          addSubline.textContent = "Adicionar sublinha";
+          addSubline.disabled = parentLocked || subline.locked;
+          addSubline.addEventListener("click", () => {
+            if (parentLocked || subline.locked) return;
+            if (!Array.isArray(subline.sublines)) {
+              subline.sublines = [];
+            }
+            subline.sublines.push({ id: generateId(), text: "", locked: false, sublines: [] });
+            render();
+            scheduleSave();
+          });
+
+          body.appendChild(inputRow);
+          body.appendChild(childrenWrapper);
+          body.appendChild(addSubline);
+
+          subRow.appendChild(marker);
+          subRow.appendChild(body);
+          container.appendChild(subRow);
+        });
+      };
+
       const renderColumn = (key, containerId) => {
         const wrapper = document.getElementById(containerId);
         if (!wrapper) return;
@@ -1603,18 +1733,7 @@
           metaLabel.className = "report-line-label";
           metaLabel.textContent = `Linha ${index + 1}`;
 
-          const lockButton = document.createElement("button");
-          lockButton.type = "button";
-          lockButton.className = `report-lock-button${line.locked ? " is-locked" : ""}`;
-          lockButton.setAttribute("aria-label", line.locked ? "Destravar linha" : "Travar linha");
-          lockButton.innerHTML = line.locked
-            ? '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M7 10V7a5 5 0 0 1 10 0v3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><rect x="5" y="10" width="14" height="10" rx="2.6" stroke="currentColor" stroke-width="1.6"/><path d="M12 14v3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>'
-            : '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M8 10V7a4 4 0 0 1 8 0" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><rect x="5" y="10" width="14" height="10" rx="2.6" stroke="currentColor" stroke-width="1.6"/><path d="M12 14v3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>';
-          lockButton.addEventListener("click", () => {
-            line.locked = !line.locked;
-            render();
-            scheduleSave();
-          });
+          const lockButton = buildLockButton(line, "linha");
 
           meta.appendChild(metaLabel);
           meta.appendChild(lockButton);
@@ -1684,39 +1803,7 @@
 
           const sublinesWrapper = document.createElement("div");
           sublinesWrapper.className = "report-sublines";
-          (line.sublines || []).forEach((subline, subIndex) => {
-            const subRow = document.createElement("div");
-            subRow.className = "report-subline";
-
-            const marker = document.createElement("span");
-            marker.className = "report-subline-marker";
-
-            const subText = document.createElement("textarea");
-            subText.className = "report-subline-text";
-            subText.value = subline.text;
-            subText.disabled = line.locked;
-            subText.addEventListener("input", (event) => {
-              subline.text = event.target.value;
-              scheduleSave();
-            });
-
-            const subDelete = document.createElement("button");
-            subDelete.type = "button";
-            subDelete.className = "report-subline-remove";
-            subDelete.textContent = "×";
-            subDelete.disabled = line.locked;
-            subDelete.addEventListener("click", () => {
-              if (line.locked) return;
-              line.sublines.splice(subIndex, 1);
-              render();
-              scheduleSave();
-            });
-
-            subRow.appendChild(marker);
-            subRow.appendChild(subText);
-            subRow.appendChild(subDelete);
-            sublinesWrapper.appendChild(subRow);
-          });
+          renderSublines(line.sublines || [], sublinesWrapper, line.locked, line.color);
 
           const addSubline = document.createElement("button");
           addSubline.type = "button";
@@ -1725,7 +1812,7 @@
           addSubline.disabled = line.locked;
           addSubline.addEventListener("click", () => {
             if (line.locked) return;
-            line.sublines.push({ id: generateId(), text: "" });
+            line.sublines.push({ id: generateId(), text: "", locked: false, sublines: [] });
             render();
             scheduleSave();
           });
