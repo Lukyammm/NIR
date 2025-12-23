@@ -213,6 +213,7 @@
 
     .report-card {
       box-shadow: var(--shadow-soft);
+      font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
     }
 
     .report-grid {
@@ -254,11 +255,11 @@
       display: flex;
       gap: var(--spacing-md);
       align-items: stretch;
-      padding: 14px 16px;
-      border-radius: 16px;
+      padding: 16px 18px;
+      border-radius: 18px;
       border: 1px solid rgba(17, 19, 24, 0.08);
-      background: linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(247, 248, 250, 0.9));
-      box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+      background: #ffffff;
+      box-shadow: 0 14px 30px rgba(15, 23, 42, 0.12);
       position: relative;
       overflow: hidden;
     }
@@ -303,6 +304,39 @@
       text-transform: uppercase;
       letter-spacing: 0.06em;
       font-weight: 600;
+    }
+
+    .report-line-label {
+      font-weight: 700;
+    }
+
+    .report-lock-button {
+      border: none;
+      background: rgba(15, 23, 42, 0.08);
+      width: 30px;
+      height: 30px;
+      border-radius: 10px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .report-lock-button svg {
+      width: 16px;
+      height: 16px;
+    }
+
+    .report-lock-button:hover {
+      background: rgba(10, 132, 255, 0.16);
+      color: var(--accent-strong);
+    }
+
+    .report-lock-button.is-locked {
+      background: rgba(10, 132, 255, 0.2);
+      color: var(--accent-strong);
     }
 
     .report-color-picker {
@@ -388,9 +422,22 @@
       display: flex;
       align-items: flex-start;
       gap: 8px;
-      padding: 8px 10px;
+      padding: 10px 12px 10px 16px;
       border-radius: 12px;
       background: rgba(15, 23, 42, 0.04);
+      border: 1px solid rgba(15, 23, 42, 0.08);
+      position: relative;
+    }
+
+    .report-subline::before {
+      content: "";
+      position: absolute;
+      left: 8px;
+      top: 8px;
+      bottom: 8px;
+      width: 3px;
+      border-radius: 999px;
+      background: var(--line-color, #0a84ff);
     }
 
     .report-subline-marker {
@@ -412,6 +459,7 @@
       color: var(--text);
       padding: 0;
       outline: none;
+      font-family: inherit;
     }
 
     .report-subline-remove {
@@ -436,6 +484,7 @@
       padding: 0;
       outline: none;
       min-height: 34px;
+      font-family: inherit;
     }
 
     .report-add-subline {
@@ -1550,7 +1599,25 @@
 
           const meta = document.createElement("div");
           meta.className = "report-line-meta";
-          meta.textContent = `Linha ${index + 1}`;
+          const metaLabel = document.createElement("span");
+          metaLabel.className = "report-line-label";
+          metaLabel.textContent = `Linha ${index + 1}`;
+
+          const lockButton = document.createElement("button");
+          lockButton.type = "button";
+          lockButton.className = `report-lock-button${line.locked ? " is-locked" : ""}`;
+          lockButton.setAttribute("aria-label", line.locked ? "Destravar linha" : "Travar linha");
+          lockButton.innerHTML = line.locked
+            ? '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M7 10V7a5 5 0 0 1 10 0v3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><rect x="5" y="10" width="14" height="10" rx="2.6" stroke="currentColor" stroke-width="1.6"/><path d="M12 14v3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>'
+            : '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M8 10V7a4 4 0 0 1 8 0" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><rect x="5" y="10" width="14" height="10" rx="2.6" stroke="currentColor" stroke-width="1.6"/><path d="M12 14v3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>';
+          lockButton.addEventListener("click", () => {
+            line.locked = !line.locked;
+            render();
+            scheduleSave();
+          });
+
+          meta.appendChild(metaLabel);
+          meta.appendChild(lockButton);
 
           const picker = document.createElement("div");
           picker.className = "report-color-picker";
@@ -1693,15 +1760,6 @@
             scheduleSave();
           });
 
-          const btnLock = document.createElement("button");
-          btnLock.className = "report-action primary";
-          btnLock.textContent = line.locked ? "Destravar" : "Travar";
-          btnLock.addEventListener("click", () => {
-            line.locked = !line.locked;
-            render();
-            scheduleSave();
-          });
-
           const btnDelete = document.createElement("button");
           btnDelete.className = "report-action";
           btnDelete.textContent = "Excluir";
@@ -1725,7 +1783,6 @@
 
           actions.appendChild(btnUp);
           actions.appendChild(btnDown);
-          actions.appendChild(btnLock);
           actions.appendChild(btnDelete);
 
           row.appendChild(main);
