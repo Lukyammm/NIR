@@ -1522,6 +1522,7 @@
         data: { enfermagem: [], medica: [] },
         loaded: false,
         saving: false,
+        pendingSave: false,
         saveTimer: null
       };
 
@@ -1610,8 +1611,12 @@
       };
 
       const save = async () => {
-        if (state.saving) return;
+        if (state.saving) {
+          state.pendingSave = true;
+          return;
+        }
         state.saving = true;
+        state.pendingSave = false;
         try {
           await Api.saveReportState(state.data);
         } catch (err) {
@@ -1619,6 +1624,10 @@
           UI.showToast("error", "Falha ao salvar o relatório.");
         } finally {
           state.saving = false;
+          if (state.pendingSave) {
+            state.pendingSave = false;
+            scheduleSave();
+          }
         }
       };
 

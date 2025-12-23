@@ -299,6 +299,7 @@ function getUserInfo_() {
 function getAppState() {
   return runWithResult_(function () {
     assertAuthorized_();
+    ensureReportSheets_();
     const shift = getActiveShift_();
     return {
       activeShift: shift,
