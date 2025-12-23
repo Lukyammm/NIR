@@ -247,19 +247,182 @@
     .report-lines {
       display: flex;
       flex-direction: column;
-      gap: 2px;
+      gap: 12px;
     }
 
     .report-line {
       display: flex;
-      gap: var(--spacing-sm);
-      align-items: flex-start;
-      padding: 8px 0;
-      border-bottom: 1px solid rgba(17, 19, 24, 0.08);
+      gap: var(--spacing-md);
+      align-items: stretch;
+      padding: 14px 16px;
+      border-radius: 16px;
+      border: 1px solid rgba(17, 19, 24, 0.08);
+      background: linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(247, 248, 250, 0.9));
+      box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .report-line::before {
+      content: "";
+      position: absolute;
+      inset: 0 auto 0 0;
+      width: 6px;
+      background: var(--line-color, #0a84ff);
     }
 
     .report-line:last-child {
-      border-bottom: none;
+      border-bottom: 1px solid rgba(17, 19, 24, 0.08);
+    }
+
+    .report-line.locked {
+      opacity: 0.82;
+    }
+
+    .report-line-main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      padding-left: 4px;
+    }
+
+    .report-line-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--spacing-sm);
+    }
+
+    .report-line-meta {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 12px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      font-weight: 600;
+    }
+
+    .report-color-picker {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .report-color-button {
+      width: 28px;
+      height: 28px;
+      border-radius: 10px;
+      border: 2px solid rgba(17, 19, 24, 0.08);
+      background: var(--line-color, #0a84ff);
+      box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.5), 0 6px 12px rgba(15, 23, 42, 0.15);
+      cursor: pointer;
+    }
+
+    .report-color-picker.open .report-color-palette {
+      opacity: 1;
+      visibility: visible;
+      transform: translateY(0);
+      pointer-events: auto;
+    }
+
+    .report-color-palette {
+      position: absolute;
+      top: calc(100% + 10px);
+      left: 0;
+      display: grid;
+      grid-template-columns: repeat(5, 28px);
+      gap: 8px;
+      padding: 10px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      box-shadow: var(--shadow-soft);
+      opacity: 0;
+      visibility: hidden;
+      transform: translateY(-6px);
+      transition: all 0.2s ease;
+      z-index: 2;
+      pointer-events: none;
+    }
+
+    .report-color-option,
+    .report-color-generate {
+      width: 28px;
+      height: 28px;
+      border-radius: 10px;
+      border: none;
+      cursor: pointer;
+      box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.5), 0 4px 8px rgba(15, 23, 42, 0.12);
+    }
+
+    .report-color-option[disabled] {
+      cursor: not-allowed;
+      opacity: 0.35;
+      box-shadow: none;
+    }
+
+    .report-color-generate {
+      grid-column: span 5;
+      height: 32px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      background: linear-gradient(135deg, rgba(10, 132, 255, 0.2), rgba(121, 59, 255, 0.22));
+      color: var(--accent-strong);
+    }
+
+    .report-sublines {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      padding-left: 18px;
+      border-left: 1px dashed rgba(17, 19, 24, 0.12);
+    }
+
+    .report-subline {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      padding: 8px 10px;
+      border-radius: 12px;
+      background: rgba(15, 23, 42, 0.04);
+    }
+
+    .report-subline-marker {
+      width: 8px;
+      height: 8px;
+      margin-top: 10px;
+      border-radius: 999px;
+      background: var(--line-color, #0a84ff);
+      flex-shrink: 0;
+    }
+
+    .report-subline-text {
+      flex: 1;
+      border: none;
+      background: transparent;
+      resize: vertical;
+      min-height: 24px;
+      font-size: 13px;
+      color: var(--text);
+      padding: 0;
+      outline: none;
+    }
+
+    .report-subline-remove {
+      border: none;
+      background: rgba(215, 0, 21, 0.12);
+      color: var(--danger);
+      border-radius: 10px;
+      width: 28px;
+      height: 28px;
+      cursor: pointer;
+      font-weight: 700;
     }
 
     .report-text {
@@ -272,6 +435,19 @@
       color: var(--text);
       padding: 0;
       outline: none;
+      min-height: 34px;
+    }
+
+    .report-add-subline {
+      align-self: flex-start;
+      border: none;
+      background: rgba(10, 132, 255, 0.12);
+      color: var(--accent-strong);
+      border-radius: 10px;
+      padding: 6px 10px;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
     }
 
     .report-line.locked .report-text {
@@ -281,21 +457,36 @@
     .report-actions {
       display: flex;
       flex-direction: column;
-      gap: 4px;
+      gap: 8px;
     }
 
     .report-action {
-      border: 1px solid var(--border);
-      background: var(--surface-alt);
-      border-radius: 8px;
-      padding: 4px 6px;
+      border: 1px solid rgba(17, 19, 24, 0.08);
+      background: linear-gradient(135deg, rgba(255, 255, 255, 0.9), rgba(243, 245, 248, 0.9));
+      border-radius: 12px;
+      padding: 8px 10px;
       font-size: 11px;
+      font-weight: 600;
       cursor: pointer;
+      box-shadow: 0 6px 14px rgba(15, 23, 42, 0.1);
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .report-action:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 10px 18px rgba(15, 23, 42, 0.14);
+    }
+
+    .report-action.primary {
+      background: linear-gradient(135deg, rgba(10, 132, 255, 0.2), rgba(10, 132, 255, 0.05));
+      color: var(--accent-strong);
     }
 
     .report-action[disabled] {
       cursor: not-allowed;
       opacity: 0.6;
+      box-shadow: none;
+      transform: none;
     }
 
     .info-grid {
@@ -1226,6 +1417,26 @@
     })();
 
     const ReportState = (() => {
+      const PALETTE_COLORS = [
+        "#0E7490",
+        "#1D4ED8",
+        "#4338CA",
+        "#7C3AED",
+        "#C026D3",
+        "#DB2777",
+        "#DC2626",
+        "#EA580C",
+        "#F59E0B",
+        "#16A34A",
+        "#059669",
+        "#0F766E",
+        "#0284C7",
+        "#7C2D12",
+        "#4C1D95",
+        "#1F2937"
+      ];
+      let paletteSeed = 0;
+      let colorPickerListenerAttached = false;
       const state = {
         data: { enfermagem: [], medica: [] },
         loaded: false,
@@ -1235,14 +1446,63 @@
 
       const generateId = () => `L${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
 
+      const normalizeSublines = (sublines) => (sublines || [])
+        .filter((sub) => sub && typeof sub === "object")
+        .map((sub) => ({
+          id: sub.id ? String(sub.id) : generateId(),
+          text: sub.text ? String(sub.text) : ""
+        }));
+
       const normalizeLines = (lines) => {
         const normalized = (lines || []).map((line, index) => ({
           id: line && line.id ? String(line.id) : generateId(),
           text: line && line.text ? String(line.text) : "",
           locked: Boolean(line && line.locked),
-          order: line && typeof line.order === "number" ? line.order : index
+          order: line && typeof line.order === "number" ? line.order : index,
+          color: line && line.color ? String(line.color) : "",
+          sublines: normalizeSublines(line && line.sublines)
         }));
-        return normalized.length ? normalized : [{ id: generateId(), text: "", locked: false, order: 0 }];
+        return normalized.length
+          ? normalized
+          : [{ id: generateId(), text: "", locked: false, order: 0, color: "", sublines: [] }];
+      };
+
+      const collectUsedColors = (excludeLineId) => {
+        const used = new Set();
+        ["enfermagem", "medica"].forEach((key) => {
+          state.data[key].forEach((line) => {
+            if (!line.color) return;
+            if (excludeLineId && line.id === excludeLineId) return;
+            used.add(line.color);
+          });
+        });
+        return used;
+      };
+
+      const generateColor = () => {
+        const hue = (paletteSeed * 137.508) % 360;
+        paletteSeed += 1;
+        return `hsl(${hue} 65% 42%)`;
+      };
+
+      const getUniqueColor = (preferred, excludeLineId) => {
+        const used = collectUsedColors(excludeLineId);
+        if (preferred && !used.has(preferred)) return preferred;
+        const paletteColor = PALETTE_COLORS.find((color) => !used.has(color));
+        if (paletteColor) return paletteColor;
+        let candidate = generateColor();
+        while (used.has(candidate)) {
+          candidate = generateColor();
+        }
+        return candidate;
+      };
+
+      const ensureUniqueColors = () => {
+        ["enfermagem", "medica"].forEach((key) => {
+          state.data[key].forEach((line) => {
+            line.color = getUniqueColor(line.color, line.id);
+          });
+        });
       };
 
       const setData = (payload) => {
@@ -1250,6 +1510,7 @@
           enfermagem: normalizeLines(payload && payload.enfermagem),
           medica: normalizeLines(payload && payload.medica)
         };
+        ensureUniqueColors();
       };
 
       const scheduleSave = () => {
@@ -1279,6 +1540,71 @@
         state.data[key].forEach((line, index) => {
           const row = document.createElement("div");
           row.className = `report-line${line.locked ? " locked" : ""}`;
+          row.style.setProperty("--line-color", line.color);
+
+          const main = document.createElement("div");
+          main.className = "report-line-main";
+
+          const header = document.createElement("div");
+          header.className = "report-line-header";
+
+          const meta = document.createElement("div");
+          meta.className = "report-line-meta";
+          meta.textContent = `Linha ${index + 1}`;
+
+          const picker = document.createElement("div");
+          picker.className = "report-color-picker";
+
+          const colorButton = document.createElement("button");
+          colorButton.type = "button";
+          colorButton.className = "report-color-button";
+          colorButton.style.setProperty("--line-color", line.color);
+          colorButton.setAttribute("aria-label", "Selecionar cor da linha");
+          colorButton.addEventListener("click", (event) => {
+            event.stopPropagation();
+            picker.classList.toggle("open");
+          });
+
+          const palette = document.createElement("div");
+          palette.className = "report-color-palette";
+
+          const usedColors = collectUsedColors(line.id);
+          const paletteColors = [...PALETTE_COLORS];
+          if (!paletteColors.includes(line.color)) {
+            paletteColors.unshift(line.color);
+          }
+
+          paletteColors.forEach((color) => {
+            const option = document.createElement("button");
+            option.type = "button";
+            option.className = "report-color-option";
+            option.style.background = color;
+            option.disabled = usedColors.has(color);
+            option.addEventListener("click", () => {
+              if (usedColors.has(color)) return;
+              line.color = color;
+              render();
+              scheduleSave();
+            });
+            palette.appendChild(option);
+          });
+
+          const generateButton = document.createElement("button");
+          generateButton.type = "button";
+          generateButton.className = "report-color-generate";
+          generateButton.textContent = "Nova cor";
+          generateButton.addEventListener("click", () => {
+            line.color = getUniqueColor("", line.id);
+            render();
+            scheduleSave();
+          });
+          palette.appendChild(generateButton);
+
+          picker.appendChild(colorButton);
+          picker.appendChild(palette);
+
+          header.appendChild(picker);
+          header.appendChild(meta);
 
           const textarea = document.createElement("textarea");
           textarea.className = "report-text";
@@ -1289,12 +1615,65 @@
             scheduleSave();
           });
 
+          const sublinesWrapper = document.createElement("div");
+          sublinesWrapper.className = "report-sublines";
+          (line.sublines || []).forEach((subline, subIndex) => {
+            const subRow = document.createElement("div");
+            subRow.className = "report-subline";
+
+            const marker = document.createElement("span");
+            marker.className = "report-subline-marker";
+
+            const subText = document.createElement("textarea");
+            subText.className = "report-subline-text";
+            subText.value = subline.text;
+            subText.disabled = line.locked;
+            subText.addEventListener("input", (event) => {
+              subline.text = event.target.value;
+              scheduleSave();
+            });
+
+            const subDelete = document.createElement("button");
+            subDelete.type = "button";
+            subDelete.className = "report-subline-remove";
+            subDelete.textContent = "×";
+            subDelete.disabled = line.locked;
+            subDelete.addEventListener("click", () => {
+              if (line.locked) return;
+              line.sublines.splice(subIndex, 1);
+              render();
+              scheduleSave();
+            });
+
+            subRow.appendChild(marker);
+            subRow.appendChild(subText);
+            subRow.appendChild(subDelete);
+            sublinesWrapper.appendChild(subRow);
+          });
+
+          const addSubline = document.createElement("button");
+          addSubline.type = "button";
+          addSubline.className = "report-add-subline";
+          addSubline.textContent = "Adicionar sublinha";
+          addSubline.disabled = line.locked;
+          addSubline.addEventListener("click", () => {
+            if (line.locked) return;
+            line.sublines.push({ id: generateId(), text: "" });
+            render();
+            scheduleSave();
+          });
+
+          main.appendChild(header);
+          main.appendChild(textarea);
+          main.appendChild(sublinesWrapper);
+          main.appendChild(addSubline);
+
           const actions = document.createElement("div");
           actions.className = "report-actions";
 
           const btnUp = document.createElement("button");
           btnUp.className = "report-action";
-          btnUp.textContent = "↑";
+          btnUp.textContent = "Subir";
           btnUp.disabled = index === 0;
           btnUp.addEventListener("click", () => {
             const list = state.data[key];
@@ -1305,7 +1684,7 @@
 
           const btnDown = document.createElement("button");
           btnDown.className = "report-action";
-          btnDown.textContent = "↓";
+          btnDown.textContent = "Descer";
           btnDown.disabled = index === state.data[key].length - 1;
           btnDown.addEventListener("click", () => {
             const list = state.data[key];
@@ -1315,7 +1694,7 @@
           });
 
           const btnLock = document.createElement("button");
-          btnLock.className = "report-action";
+          btnLock.className = "report-action primary";
           btnLock.textContent = line.locked ? "Destravar" : "Travar";
           btnLock.addEventListener("click", () => {
             line.locked = !line.locked;
@@ -1331,7 +1710,14 @@
             if (line.locked) return;
             state.data[key].splice(index, 1);
             if (state.data[key].length === 0) {
-              state.data[key].push({ id: generateId(), text: "", locked: false, order: 0 });
+              state.data[key].push({
+                id: generateId(),
+                text: "",
+                locked: false,
+                order: 0,
+                color: getUniqueColor(""),
+                sublines: []
+              });
             }
             render();
             scheduleSave();
@@ -1342,19 +1728,35 @@
           actions.appendChild(btnLock);
           actions.appendChild(btnDelete);
 
-          row.appendChild(textarea);
+          row.appendChild(main);
           row.appendChild(actions);
           wrapper.appendChild(row);
         });
       };
 
       const render = () => {
+        ensureUniqueColors();
         renderColumn("enfermagem", "reportEnfermagem");
         renderColumn("medica", "reportMedica");
+        if (!colorPickerListenerAttached) {
+          document.addEventListener("click", () => {
+            document.querySelectorAll(".report-color-picker.open").forEach((picker) => {
+              picker.classList.remove("open");
+            });
+          });
+          colorPickerListenerAttached = true;
+        }
       };
 
       const addLine = (key) => {
-        state.data[key].push({ id: generateId(), text: "", locked: false, order: state.data[key].length });
+        state.data[key].push({
+          id: generateId(),
+          text: "",
+          locked: false,
+          order: state.data[key].length,
+          color: getUniqueColor(""),
+          sublines: []
+        });
         render();
         scheduleSave();
       };

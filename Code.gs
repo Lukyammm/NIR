@@ -8,7 +8,16 @@ const AUTHORIZED_USERS = [];
 const ACTIVE_SHIFT_KEY = "ACTIVE_SHIFT_STATE";
 const REPORT_SHEET_CURRENT = "Atual";
 const REPORT_SHEET_HISTORY = "Histórico";
-const REPORT_COLUMNS = ["ID_LINHA", "COLUNA", "ORDEM", "TEXTO", "TRAVADO", "ATUALIZADO_EM"];
+const REPORT_COLUMNS = [
+  "ID_LINHA",
+  "COLUNA",
+  "ORDEM",
+  "TEXTO",
+  "TRAVADO",
+  "COR",
+  "SUBLINHAS",
+  "ATUALIZADO_EM"
+];
 const REPORT_HISTORY_COLUMNS = [
   "ID_REGISTRO",
   "DATA_HORA_ENCERRAMENTO",
@@ -724,7 +733,9 @@ function normalizeReportLines_(lines) {
       id: line.id ? String(line.id) : gerarID_(),
       text: line.text ? String(line.text) : "",
       locked: Boolean(line.locked),
-      order: typeof line.order === "number" ? line.order : index
+      order: typeof line.order === "number" ? line.order : index,
+      color: line.color ? String(line.color) : "",
+      sublines: Array.isArray(line.sublines) ? line.sublines : []
     }));
 }
 
@@ -744,7 +755,9 @@ function getReportState() {
         id: row[0] ? String(row[0]) : gerarID_(),
         text: row[3] ? String(row[3]) : "",
         locked: String(row[4]).toLowerCase() === "true",
-        order: Number(row[2]) || 0
+        order: Number(row[2]) || 0,
+        color: row[5] ? String(row[5]) : "",
+        sublines: safeJsonParse_(row[6], [])
       };
 
       const coluna = row[1] ? String(row[1]).toLowerCase() : "";
@@ -780,10 +793,28 @@ function saveReportState(payload) {
 
       const rows = [];
       enfermagem.forEach((line, index) => {
-        rows.push([line.id, "enfermagem", index, line.text, line.locked ? "TRUE" : "FALSE", updatedAt]);
+        rows.push([
+          line.id,
+          "enfermagem",
+          index,
+          line.text,
+          line.locked ? "TRUE" : "FALSE",
+          line.color || "",
+          safeJsonStringify_(line.sublines || []),
+          updatedAt
+        ]);
       });
       medica.forEach((line, index) => {
-        rows.push([line.id, "medica", index, line.text, line.locked ? "TRUE" : "FALSE", updatedAt]);
+        rows.push([
+          line.id,
+          "medica",
+          index,
+          line.text,
+          line.locked ? "TRUE" : "FALSE",
+          line.color || "",
+          safeJsonStringify_(line.sublines || []),
+          updatedAt
+        ]);
       });
 
       const sheet = sheets.current;
@@ -816,7 +847,9 @@ function snapshotReportState_(closedShift) {
       id: row[0] ? String(row[0]) : gerarID_(),
       text: row[3] ? String(row[3]) : "",
       locked: String(row[4]).toLowerCase() === "true",
-      order: Number(row[2]) || 0
+      order: Number(row[2]) || 0,
+      color: row[5] ? String(row[5]) : "",
+      sublines: safeJsonParse_(row[6], [])
     };
     const coluna = row[1] ? String(row[1]).toLowerCase() : "";
     if (coluna === "enfermagem") {
