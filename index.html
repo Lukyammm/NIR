@@ -440,6 +440,21 @@
       background: var(--line-color, #0a84ff);
     }
 
+    .report-subline.is-nested {
+      background: rgba(15, 23, 42, 0.02);
+      border-color: rgba(15, 23, 42, 0.06);
+      padding: 8px 10px 8px 14px;
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.6);
+    }
+
+    .report-subline.is-nested::before {
+      left: 6px;
+      top: 6px;
+      bottom: 6px;
+      width: 2px;
+      background: color-mix(in srgb, var(--line-color, #0a84ff) 70%, #ffffff 30%);
+    }
+
     .report-subline-marker {
       width: 8px;
       height: 8px;
@@ -502,7 +517,13 @@
 
     .report-add-subline.is-nested {
       font-size: 10px;
-      padding: 5px 8px;
+      width: 30px;
+      height: 26px;
+    }
+
+    .report-add-subline svg {
+      width: 16px;
+      height: 16px;
     }
 
     .report-text {
@@ -525,10 +546,63 @@
       background: rgba(10, 132, 255, 0.12);
       color: var(--accent-strong);
       border-radius: 10px;
-      padding: 6px 10px;
+      padding: 0;
+      width: 34px;
+      height: 30px;
       font-size: 11px;
       font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
       cursor: pointer;
+    }
+
+    .report-editor {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(15, 23, 42, 0.04);
+      border: 1px solid rgba(15, 23, 42, 0.08);
+      border-radius: 12px;
+      padding: 4px;
+    }
+
+    .report-editor-button {
+      border: none;
+      background: transparent;
+      color: var(--text);
+      font-size: 11px;
+      font-weight: 700;
+      padding: 6px 8px;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+
+    .report-editor-button.active {
+      background: rgba(10, 132, 255, 0.2);
+      color: var(--accent-strong);
+    }
+
+    .report-editor-button:disabled {
+      cursor: not-allowed;
+      opacity: 0.5;
+    }
+
+    .report-edit-button {
+      border: none;
+      background: rgba(15, 23, 42, 0.08);
+      color: var(--text-muted);
+      border-radius: 10px;
+      padding: 6px 10px;
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .report-edit-button.active {
+      background: rgba(10, 132, 255, 0.2);
+      color: var(--accent-strong);
     }
 
     .report-line.locked .report-text {
@@ -1518,6 +1592,12 @@
       ];
       let paletteSeed = 0;
       let colorPickerListenerAttached = false;
+      const editingIds = new Set();
+      const FORMAT_LIMITS = { min: 12, max: 20 };
+      const FORMAT_DEFAULTS = {
+        line: { fontSize: 14, bold: false },
+        subline: { fontSize: 13, bold: false }
+      };
       const state = {
         data: { enfermagem: [], medica: [] },
         loaded: false,
@@ -1528,13 +1608,27 @@
 
       const generateId = () => `L${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
 
-      const normalizeSublines = (sublines) => (sublines || [])
+      const normalizeFormat = (format, type) => {
+        const base = FORMAT_DEFAULTS[type] || FORMAT_DEFAULTS.line;
+        const payload = format && typeof format === "object" ? format : {};
+        const fontSize = Number(payload.fontSize);
+        return {
+          fontSize: Math.min(
+            FORMAT_LIMITS.max,
+            Math.max(FORMAT_LIMITS.min, Number.isFinite(fontSize) ? fontSize : base.fontSize)
+          ),
+          bold: payload.bold === true
+        };
+      };
+
+      const normalizeSublines = (sublines, depth = 0) => (sublines || [])
         .filter((sub) => sub && typeof sub === "object")
         .map((sub) => ({
           id: sub.id ? String(sub.id) : generateId(),
           text: sub.text ? String(sub.text) : "",
           locked: Boolean(sub.locked),
-          sublines: normalizeSublines(sub.sublines)
+          format: normalizeFormat(sub.format, "subline"),
+          sublines: depth >= 1 ? [] : normalizeSublines(sub.sublines, depth + 1)
         }));
 
       const normalizeLines = (lines) => {
@@ -1544,11 +1638,20 @@
           locked: Boolean(line && line.locked),
           order: line && typeof line.order === "number" ? line.order : index,
           color: line && line.color ? String(line.color) : "",
-          sublines: normalizeSublines(line && line.sublines)
+          format: normalizeFormat(line && line.format, "line"),
+          sublines: normalizeSublines(line && line.sublines, 0)
         }));
         return normalized.length
           ? normalized
-          : [{ id: generateId(), text: "", locked: false, order: 0, color: "", sublines: [] }];
+          : [{
+            id: generateId(),
+            text: "",
+            locked: false,
+            order: 0,
+            color: "",
+            format: normalizeFormat(null, "line"),
+            sublines: []
+          }];
       };
 
       const collectUsedColors = (excludeLineId) => {
@@ -1645,10 +1748,83 @@
         return button;
       };
 
-      const renderSublines = (sublines, container, parentLocked, lineColor) => {
+      const isEditing = (entityId) => editingIds.has(entityId);
+
+      const toggleEditing = (entityId) => {
+        if (editingIds.has(entityId)) {
+          editingIds.delete(entityId);
+        } else {
+          editingIds.add(entityId);
+        }
+      };
+
+      const applyFormatStyles = (element, format) => {
+        if (!element || !format) return;
+        element.style.fontSize = `${format.fontSize}px`;
+        element.style.fontWeight = format.bold ? "700" : "400";
+      };
+
+      const buildEditor = (entity, type, disabled) => {
+        const editor = document.createElement("div");
+        editor.className = "report-editor";
+
+        const decButton = document.createElement("button");
+        decButton.type = "button";
+        decButton.className = "report-editor-button";
+        decButton.textContent = "A-";
+        decButton.disabled = disabled;
+        decButton.addEventListener("click", () => {
+          entity.format.fontSize = Math.max(FORMAT_LIMITS.min, entity.format.fontSize - 1);
+          render();
+          scheduleSave();
+        });
+
+        const incButton = document.createElement("button");
+        incButton.type = "button";
+        incButton.className = "report-editor-button";
+        incButton.textContent = "A+";
+        incButton.disabled = disabled;
+        incButton.addEventListener("click", () => {
+          entity.format.fontSize = Math.min(FORMAT_LIMITS.max, entity.format.fontSize + 1);
+          render();
+          scheduleSave();
+        });
+
+        const boldButton = document.createElement("button");
+        boldButton.type = "button";
+        boldButton.className = `report-editor-button${entity.format.bold ? " active" : ""}`;
+        boldButton.textContent = "B";
+        boldButton.disabled = disabled;
+        boldButton.addEventListener("click", () => {
+          entity.format.bold = !entity.format.bold;
+          render();
+          scheduleSave();
+        });
+
+        editor.appendChild(decButton);
+        editor.appendChild(incButton);
+        editor.appendChild(boldButton);
+        return editor;
+      };
+
+      const buildEditButton = (entity, label, disabled) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = `report-edit-button${isEditing(entity.id) ? " active" : ""}`;
+        button.textContent = isEditing(entity.id) ? "Editando" : "Editar";
+        button.setAttribute("aria-label", `Editar ${label}`);
+        button.disabled = disabled;
+        button.addEventListener("click", () => {
+          toggleEditing(entity.id);
+          render();
+        });
+        return button;
+      };
+
+      const renderSublines = (sublines, container, parentLocked, lineColor, depth) => {
         (sublines || []).forEach((subline, subIndex) => {
           const subRow = document.createElement("div");
-          subRow.className = "report-subline";
+          subRow.className = `report-subline${depth > 0 ? " is-nested" : ""}`;
           subRow.style.setProperty("--line-color", lineColor);
 
           const marker = document.createElement("span");
@@ -1663,7 +1839,8 @@
           const subText = document.createElement("textarea");
           subText.className = "report-subline-text";
           subText.value = subline.text;
-          subText.disabled = parentLocked || subline.locked;
+          subText.disabled = parentLocked || subline.locked || !isEditing(subline.id);
+          applyFormatStyles(subText, subline.format);
           subText.addEventListener("input", (event) => {
             subline.text = event.target.value;
             scheduleSave();
@@ -1673,6 +1850,8 @@
           actions.className = "report-subline-actions";
 
           const lockButton = buildLockButton(subline, "sublinha");
+          const editButton = buildEditButton(subline, "sublinha", parentLocked || subline.locked);
+          const editor = buildEditor(subline, "subline", parentLocked || subline.locked || !isEditing(subline.id));
 
           const subDelete = document.createElement("button");
           subDelete.type = "button";
@@ -1687,6 +1866,8 @@
           });
 
           actions.appendChild(lockButton);
+          actions.appendChild(editButton);
+          actions.appendChild(editor);
           actions.appendChild(subDelete);
 
           inputRow.appendChild(subText);
@@ -1694,26 +1875,44 @@
 
           const childrenWrapper = document.createElement("div");
           childrenWrapper.className = "report-subline-children";
-          renderSublines(subline.sublines || [], childrenWrapper, parentLocked || subline.locked, lineColor);
+          renderSublines(
+            subline.sublines || [],
+            childrenWrapper,
+            parentLocked || subline.locked,
+            lineColor,
+            depth + 1
+          );
 
-          const addSubline = document.createElement("button");
-          addSubline.type = "button";
-          addSubline.className = "report-add-subline is-nested";
-          addSubline.textContent = "Adicionar sublinha";
-          addSubline.disabled = parentLocked || subline.locked;
-          addSubline.addEventListener("click", () => {
-            if (parentLocked || subline.locked) return;
-            if (!Array.isArray(subline.sublines)) {
-              subline.sublines = [];
-            }
-            subline.sublines.push({ id: generateId(), text: "", locked: false, sublines: [] });
-            render();
-            scheduleSave();
-          });
+          let addSubline = null;
+          if (depth < 1) {
+            addSubline = document.createElement("button");
+            addSubline.type = "button";
+            addSubline.className = "report-add-subline is-nested";
+            addSubline.innerHTML = '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>';
+            addSubline.setAttribute("aria-label", "Adicionar sublinha");
+            addSubline.disabled = parentLocked || subline.locked;
+            addSubline.addEventListener("click", () => {
+              if (parentLocked || subline.locked) return;
+              if (!Array.isArray(subline.sublines)) {
+                subline.sublines = [];
+              }
+              subline.sublines.push({
+                id: generateId(),
+                text: "",
+                locked: false,
+                format: normalizeFormat(null, "subline"),
+                sublines: []
+              });
+              render();
+              scheduleSave();
+            });
+          }
 
           body.appendChild(inputRow);
           body.appendChild(childrenWrapper);
-          body.appendChild(addSubline);
+          if (addSubline) {
+            body.appendChild(addSubline);
+          }
 
           subRow.appendChild(marker);
           subRow.appendChild(body);
@@ -1743,9 +1942,11 @@
           metaLabel.textContent = `Linha ${index + 1}`;
 
           const lockButton = buildLockButton(line, "linha");
+          const editButton = buildEditButton(line, "linha", line.locked);
 
           meta.appendChild(metaLabel);
           meta.appendChild(lockButton);
+          meta.appendChild(editButton);
 
           const picker = document.createElement("div");
           picker.className = "report-color-picker";
@@ -1804,29 +2005,40 @@
           const textarea = document.createElement("textarea");
           textarea.className = "report-text";
           textarea.value = line.text;
-          textarea.disabled = line.locked;
+          textarea.disabled = line.locked || !isEditing(line.id);
+          applyFormatStyles(textarea, line.format);
           textarea.addEventListener("input", (event) => {
             line.text = event.target.value;
             scheduleSave();
           });
 
+          const editor = buildEditor(line, "line", line.locked || !isEditing(line.id));
+
           const sublinesWrapper = document.createElement("div");
           sublinesWrapper.className = "report-sublines";
-          renderSublines(line.sublines || [], sublinesWrapper, line.locked, line.color);
+          renderSublines(line.sublines || [], sublinesWrapper, line.locked, line.color, 0);
 
           const addSubline = document.createElement("button");
           addSubline.type = "button";
           addSubline.className = "report-add-subline";
-          addSubline.textContent = "Adicionar sublinha";
+          addSubline.innerHTML = '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>';
+          addSubline.setAttribute("aria-label", "Adicionar sublinha");
           addSubline.disabled = line.locked;
           addSubline.addEventListener("click", () => {
             if (line.locked) return;
-            line.sublines.push({ id: generateId(), text: "", locked: false, sublines: [] });
+            line.sublines.push({
+              id: generateId(),
+              text: "",
+              locked: false,
+              format: normalizeFormat(null, "subline"),
+              sublines: []
+            });
             render();
             scheduleSave();
           });
 
           main.appendChild(header);
+          main.appendChild(editor);
           main.appendChild(textarea);
           main.appendChild(sublinesWrapper);
           main.appendChild(addSubline);
@@ -1908,6 +2120,7 @@
           locked: false,
           order: state.data[key].length,
           color: getUniqueColor(""),
+          format: normalizeFormat(null, "line"),
           sublines: []
         });
         render();
