@@ -1025,6 +1025,13 @@ function saveReportState(payload) {
       }
 
       const entries = diffReportStates_(beforeState, afterState);
+      if (entries.length === 0) {
+        const beforeSerialized = safeJsonStringify_(beforeState);
+        const afterSerialized = safeJsonStringify_(afterState);
+        if (beforeSerialized !== afterSerialized) {
+          entries.push(buildReportLogEntry_("RELATORIO_ATUALIZADO", "", "", "", "", null, null));
+        }
+      }
       if (entries.length > 0) {
         const userEmail = Session.getActiveUser().getEmail() || "";
         const shift = getActiveShiftFromProperties_();
