@@ -6,6 +6,17 @@ const PLANILHA_ID =
 
 const AUTHORIZED_USERS = [];
 const ACTIVE_SHIFT_KEY = "ACTIVE_SHIFT_STATE";
+const REPORT_SHEET_CURRENT = "Atual";
+const REPORT_SHEET_HISTORY = "Histórico";
+const REPORT_COLUMNS = ["ID_LINHA", "COLUNA", "ORDEM", "TEXTO", "TRAVADO", "ATUALIZADO_EM"];
+const REPORT_HISTORY_COLUMNS = [
+  "ID_REGISTRO",
+  "DATA_HORA_ENCERRAMENTO",
+  "PLANTAO",
+  "COLUNA_ENFERMAGEM",
+  "COLUNA_MEDICA",
+  "USUARIO"
+];
 
 function gerarID_() {
   return Utilities.getUuid().split("-")[0].toUpperCase();
@@ -422,6 +433,8 @@ function endShift(shiftId) {
         hist.appendRow(row);
       }
 
+      snapshotReportState_(closed);
+
       const conf = ss.getSheetByName("CONFIG_PLANTAO");
       if (conf) {
         conf.getRange("A2:K2").clearContent();
@@ -542,7 +555,9 @@ function criarEstruturaNIR() {
       "ID", "Unidade", "Leito", "Paciente",
       "Tipo de Isolamento", "Patologia",
       "Início do Isolamento", "Tempo Previsto", "Observação"
-    ]
+    ],
+
+    "Atual": REPORT_COLUMNS
   };
 
   const abasHistoricos = {
@@ -587,7 +602,9 @@ function criarEstruturaNIR() {
     "LOG_NIR": [
       "ID_EVENTO", "ID_REGISTRO", "MODULO", "TIPO_EVENTO",
       "USUARIO", "DATA_HORA", "OBSERVACAO"
-    ]
+    ],
+
+    "Histórico": REPORT_HISTORY_COLUMNS
   };
 
   criarAbas_(ss, abasVivas);
@@ -673,6 +690,155 @@ function getTabela_(sheetName) {
   const payload = { headers: headers, rows: linhas };
   cache.put(cacheKey, safeJsonStringify_(payload), 15);
   return payload;
+}
+
+function ensureReportSheets_() {
+  const ss = getSpreadsheet_();
+  let current = ss.getSheetByName(REPORT_SHEET_CURRENT);
+  if (!current) {
+    current = ss.insertSheet(REPORT_SHEET_CURRENT);
+    current.appendRow(REPORT_COLUMNS);
+  } else if (current.getLastRow() === 0) {
+    current.appendRow(REPORT_COLUMNS);
+  } else {
+    current.getRange(1, 1, 1, REPORT_COLUMNS.length).setValues([REPORT_COLUMNS]);
+  }
+
+  let history = ss.getSheetByName(REPORT_SHEET_HISTORY);
+  if (!history) {
+    history = ss.insertSheet(REPORT_SHEET_HISTORY);
+    history.appendRow(REPORT_HISTORY_COLUMNS);
+  } else if (history.getLastRow() === 0) {
+    history.appendRow(REPORT_HISTORY_COLUMNS);
+  } else {
+    history.getRange(1, 1, 1, REPORT_HISTORY_COLUMNS.length).setValues([REPORT_HISTORY_COLUMNS]);
+  }
+
+  return { current: current, history: history };
+}
+
+function normalizeReportLines_(lines) {
+  return (lines || [])
+    .filter((line) => line && typeof line === "object")
+    .map((line, index) => ({
+      id: line.id ? String(line.id) : gerarID_(),
+      text: line.text ? String(line.text) : "",
+      locked: Boolean(line.locked),
+      order: typeof line.order === "number" ? line.order : index
+    }));
+}
+
+function getReportState() {
+  return runWithResult_(function () {
+    assertAuthorized_();
+    const sheets = ensureReportSheets_();
+    const dataRange = sheets.current.getDataRange();
+    const values = dataRange.getValues();
+
+    const rows = values.slice(1).filter((row) => row.some((cell) => cell !== "" && cell !== null));
+    const enfermagem = [];
+    const medica = [];
+
+    rows.forEach((row) => {
+      const line = {
+        id: row[0] ? String(row[0]) : gerarID_(),
+        text: row[3] ? String(row[3]) : "",
+        locked: String(row[4]).toLowerCase() === "true",
+        order: Number(row[2]) || 0
+      };
+
+      const coluna = row[1] ? String(row[1]).toLowerCase() : "";
+      if (coluna === "enfermagem") {
+        enfermagem.push(line);
+      } else if (coluna === "medica") {
+        medica.push(line);
+      }
+    });
+
+    enfermagem.sort((a, b) => a.order - b.order);
+    medica.sort((a, b) => a.order - b.order);
+
+    return {
+      enfermagem: enfermagem.length ? enfermagem : [{ id: gerarID_(), text: "", locked: false, order: 0 }],
+      medica: medica.length ? medica : [{ id: gerarID_(), text: "", locked: false, order: 0 }]
+    };
+  });
+}
+
+function saveReportState(payload) {
+  return runWithResult_(function () {
+    assertAuthorized_();
+    const lock = LockService.getScriptLock();
+    lock.waitLock(10000);
+
+    try {
+      const sheets = ensureReportSheets_();
+      const data = payload || {};
+      const enfermagem = normalizeReportLines_(data.enfermagem);
+      const medica = normalizeReportLines_(data.medica);
+      const updatedAt = new Date();
+
+      const rows = [];
+      enfermagem.forEach((line, index) => {
+        rows.push([line.id, "enfermagem", index, line.text, line.locked ? "TRUE" : "FALSE", updatedAt]);
+      });
+      medica.forEach((line, index) => {
+        rows.push([line.id, "medica", index, line.text, line.locked ? "TRUE" : "FALSE", updatedAt]);
+      });
+
+      const sheet = sheets.current;
+      if (sheet.getLastRow() > 1) {
+        sheet.getRange(2, 1, sheet.getLastRow() - 1, sheet.getLastColumn()).clearContent();
+      }
+
+      if (rows.length > 0) {
+        sheet.getRange(2, 1, rows.length, REPORT_COLUMNS.length).setValues(rows);
+      }
+
+      return { saved: true };
+    } finally {
+      lock.releaseLock();
+    }
+  });
+}
+
+function snapshotReportState_(closedShift) {
+  const sheets = ensureReportSheets_();
+  const current = sheets.current;
+  const dataRange = current.getDataRange();
+  const values = dataRange.getValues();
+  const rows = values.slice(1).filter((row) => row.some((cell) => cell !== "" && cell !== null));
+  const enfermagem = [];
+  const medica = [];
+
+  rows.forEach((row) => {
+    const line = {
+      id: row[0] ? String(row[0]) : gerarID_(),
+      text: row[3] ? String(row[3]) : "",
+      locked: String(row[4]).toLowerCase() === "true",
+      order: Number(row[2]) || 0
+    };
+    const coluna = row[1] ? String(row[1]).toLowerCase() : "";
+    if (coluna === "enfermagem") {
+      enfermagem.push(line);
+    } else if (coluna === "medica") {
+      medica.push(line);
+    }
+  });
+
+  enfermagem.sort((a, b) => a.order - b.order);
+  medica.sort((a, b) => a.order - b.order);
+
+  const historyRow = [
+    gerarID_(),
+    closedShift && closedShift.endedAt ? closedShift.endedAt : nowIso_(),
+    closedShift && closedShift.id ? closedShift.id : "",
+    safeJsonStringify_(enfermagem),
+    safeJsonStringify_(medica),
+    Session.getActiveUser().getEmail() || ""
+  ];
+
+  sheets.history.appendRow(historyRow);
 }
 
 function adicionarRegistro_(modulo, registro) {
