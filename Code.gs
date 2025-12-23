@@ -735,7 +735,18 @@ function normalizeReportLines_(lines) {
       locked: Boolean(line.locked),
       order: typeof line.order === "number" ? line.order : index,
       color: line.color ? String(line.color) : "",
-      sublines: Array.isArray(line.sublines) ? line.sublines : []
+      sublines: normalizeReportSublines_(line.sublines)
+    }));
+}
+
+function normalizeReportSublines_(sublines) {
+  return (sublines || [])
+    .filter((sub) => sub && typeof sub === "object")
+    .map((sub) => ({
+      id: sub.id ? String(sub.id) : gerarID_(),
+      text: sub.text ? String(sub.text) : "",
+      locked: Boolean(sub.locked),
+      sublines: normalizeReportSublines_(sub.sublines)
     }));
 }
 
@@ -757,7 +768,7 @@ function getReportState() {
         locked: String(row[4]).toLowerCase() === "true",
         order: Number(row[2]) || 0,
         color: row[5] ? String(row[5]) : "",
-        sublines: safeJsonParse_(row[6], [])
+        sublines: normalizeReportSublines_(safeJsonParse_(row[6], []))
       };
 
       const coluna = row[1] ? String(row[1]).toLowerCase() : "";
@@ -843,14 +854,14 @@ function snapshotReportState_(closedShift) {
   const medica = [];
 
   rows.forEach((row) => {
-    const line = {
-      id: row[0] ? String(row[0]) : gerarID_(),
-      text: row[3] ? String(row[3]) : "",
-      locked: String(row[4]).toLowerCase() === "true",
-      order: Number(row[2]) || 0,
-      color: row[5] ? String(row[5]) : "",
-      sublines: safeJsonParse_(row[6], [])
-    };
+      const line = {
+        id: row[0] ? String(row[0]) : gerarID_(),
+        text: row[3] ? String(row[3]) : "",
+        locked: String(row[4]).toLowerCase() === "true",
+        order: Number(row[2]) || 0,
+        color: row[5] ? String(row[5]) : "",
+        sublines: normalizeReportSublines_(safeJsonParse_(row[6], []))
+      };
     const coluna = row[1] ? String(row[1]).toLowerCase() : "";
     if (coluna === "enfermagem") {
       enfermagem.push(line);
