@@ -74,6 +74,61 @@
       flex-wrap: wrap;
     }
 
+    .menu-selector {
+      position: relative;
+    }
+
+    .menu-button {
+      background: var(--surface-alt);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 999px;
+      padding: 8px 14px;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+    }
+
+    .menu-button svg {
+      width: 14px;
+      height: 14px;
+    }
+
+    .menu-dropdown {
+      position: absolute;
+      top: calc(100% + 8px);
+      left: 0;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      box-shadow: var(--shadow-soft);
+      min-width: 220px;
+      padding: 6px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      z-index: 10;
+    }
+
+    .menu-item {
+      border: none;
+      background: transparent;
+      text-align: left;
+      padding: 10px 12px;
+      border-radius: 10px;
+      cursor: pointer;
+      font-weight: 500;
+      color: var(--text);
+    }
+
+    .menu-item:hover,
+    .menu-item.active {
+      background: rgba(10, 132, 255, 0.12);
+      color: var(--accent-strong);
+    }
+
     .title-stack h1 {
       margin: 0;
       font-size: 22px;
@@ -154,6 +209,93 @@
     .muted {
       color: var(--text-muted);
       margin: 4px 0 0;
+    }
+
+    .report-card {
+      box-shadow: var(--shadow-soft);
+    }
+
+    .report-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: var(--spacing-lg);
+    }
+
+    .report-column {
+      background: var(--surface);
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border);
+      padding: var(--spacing-md);
+      display: flex;
+      flex-direction: column;
+      gap: var(--spacing-sm);
+      box-shadow: var(--shadow-soft);
+    }
+
+    .report-column-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--spacing-sm);
+    }
+
+    .report-column-header h3 {
+      margin: 0;
+      font-size: 16px;
+    }
+
+    .report-lines {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .report-line {
+      display: flex;
+      gap: var(--spacing-sm);
+      align-items: flex-start;
+      padding: 8px 0;
+      border-bottom: 1px solid rgba(17, 19, 24, 0.08);
+    }
+
+    .report-line:last-child {
+      border-bottom: none;
+    }
+
+    .report-text {
+      flex: 1;
+      border: none;
+      background: transparent;
+      resize: vertical;
+      min-height: 28px;
+      font-size: 14px;
+      color: var(--text);
+      padding: 0;
+      outline: none;
+    }
+
+    .report-line.locked .report-text {
+      color: var(--text-muted);
+    }
+
+    .report-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .report-action {
+      border: 1px solid var(--border);
+      background: var(--surface-alt);
+      border-radius: 8px;
+      padding: 4px 6px;
+      font-size: 11px;
+      cursor: pointer;
+    }
+
+    .report-action[disabled] {
+      cursor: not-allowed;
+      opacity: 0.6;
     }
 
     .info-grid {
@@ -658,9 +800,21 @@
   <div id="app" class="app">
     <header class="app-header">
       <div class="header-title">
+        <div class="menu-selector">
+          <button id="menuToggle" class="menu-button" type="button">
+            <span id="menuLabel">Ocorrências</span>
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+          <div id="menuDropdown" class="menu-dropdown hidden">
+            <button class="menu-item active" data-page="ocorrencias">Ocorrências NIR</button>
+            <button class="menu-item" data-page="relatorio">Relatório</button>
+          </div>
+        </div>
         <div class="title-stack">
-          <h1>Ocorrências do Plantão</h1>
-          <p class="subtitle">Núcleo Interno de Regulação (NIR)</p>
+          <h1 id="pageTitle">Ocorrências do Plantão</h1>
+          <p id="pageSubtitle" class="subtitle">Núcleo Interno de Regulação (NIR)</p>
         </div>
         <span id="statusBadge" class="badge">Sem plantão ativo</span>
       </div>
@@ -672,7 +826,8 @@
     </header>
 
     <main class="app-content">
-      <section class="grid grid-2">
+      <div id="ocorrenciasPage">
+        <section class="grid grid-2">
         <article class="card">
           <header class="card-header">
             <div>
@@ -725,48 +880,79 @@
         </article>
       </section>
 
-      <section class="card">
-        <header class="card-header">
-          <div>
-            <h2 id="principalTitle">Reservas confirmadas</h2>
-            <p class="muted" id="principalSubtitle">Pacientes com reserva confirmada para UIB</p>
-          </div>
-          <div class="header-actions">
-            <div class="tabs">
-              <button class="tab active" data-view="confirmadas">Confirmadas</button>
-              <button class="tab" data-view="vascular">Vascular</button>
-              <button class="tab" data-view="negadas">Negadas</button>
-              <button class="tab" data-view="anterior">Plantão anterior</button>
-            </div>
-            <button id="btnAddPrincipal" class="btn btn-primary">Adicionar registro</button>
-          </div>
-        </header>
-        <div id="principalTable" class="table-wrapper"></div>
-      </section>
-
-      <section class="grid grid-2">
-        <article class="card">
+        <section class="card">
           <header class="card-header">
             <div>
-              <h2>Bloqueios de manutenção</h2>
-              <p class="muted">Leitos temporariamente indisponíveis</p>
+              <h2 id="principalTitle">Reservas confirmadas</h2>
+              <p class="muted" id="principalSubtitle">Pacientes com reserva confirmada para UIB</p>
             </div>
-            <button id="btnAddManutencao" class="btn btn-secondary">Adicionar</button>
+            <div class="header-actions">
+              <div class="tabs">
+                <button class="tab active" data-view="confirmadas">Confirmadas</button>
+                <button class="tab" data-view="vascular">Vascular</button>
+                <button class="tab" data-view="negadas">Negadas</button>
+                <button class="tab" data-view="anterior">Plantão anterior</button>
+              </div>
+              <button id="btnAddPrincipal" class="btn btn-primary">Adicionar registro</button>
+            </div>
           </header>
-          <div id="manutencaoTable" class="table-wrapper"></div>
-        </article>
+          <div id="principalTable" class="table-wrapper"></div>
+        </section>
 
-        <article class="card">
+        <section class="grid grid-2">
+          <article class="card">
+            <header class="card-header">
+              <div>
+                <h2>Bloqueios de manutenção</h2>
+                <p class="muted">Leitos temporariamente indisponíveis</p>
+              </div>
+              <button id="btnAddManutencao" class="btn btn-secondary">Adicionar</button>
+            </header>
+            <div id="manutencaoTable" class="table-wrapper"></div>
+          </article>
+
+          <article class="card">
+            <header class="card-header">
+              <div>
+                <h2>Bloqueios de isolamento</h2>
+                <p class="muted">Leitos reservados por isolamento</p>
+              </div>
+              <button id="btnAddIsolamento" class="btn btn-secondary">Adicionar</button>
+            </header>
+            <div id="isolamentoTable" class="table-wrapper"></div>
+          </article>
+        </section>
+      </div>
+
+      <div id="relatorioPage" class="hidden">
+        <section class="card report-card">
           <header class="card-header">
             <div>
-              <h2>Bloqueios de isolamento</h2>
-              <p class="muted">Leitos reservados por isolamento</p>
+              <h2>Relatório das Ocorrências do Plantão</h2>
+              <p class="muted">Conteúdo contínuo entre plantões, com travamento por linha.</p>
             </div>
-            <button id="btnAddIsolamento" class="btn btn-secondary">Adicionar</button>
           </header>
-          <div id="isolamentoTable" class="table-wrapper"></div>
-        </article>
-      </section>
+          <div class="card-content">
+            <div class="report-grid">
+              <div class="report-column" data-column="enfermagem">
+                <div class="report-column-header">
+                  <h3>Enfermagem</h3>
+                  <button class="btn btn-ghost" data-action="add-line" data-column="enfermagem">Adicionar linha</button>
+                </div>
+                <div class="report-lines" id="reportEnfermagem"></div>
+              </div>
+
+              <div class="report-column" data-column="medica">
+                <div class="report-column-header">
+                  <h3>Médica</h3>
+                  <button class="btn btn-ghost" data-action="add-line" data-column="medica">Adicionar linha</button>
+                </div>
+                <div class="report-lines" id="reportMedica"></div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
     </main>
   </div>
 
@@ -923,6 +1109,8 @@
         readDashboardData: (payload) => run("readDashboardData", payload),
         addRecord: (payload) => run("addRecord", payload),
         deleteRecord: (payload) => run("deleteRecord", payload),
+        getReportState: () => run("getReportState"),
+        saveReportState: (payload) => run("saveReportState", payload),
         writeAction: (type, payload) => runWithArgs("writeAction", [type, payload])
       };
     })();
@@ -1037,9 +1225,162 @@
       };
     })();
 
+    const ReportState = (() => {
+      const state = {
+        data: { enfermagem: [], medica: [] },
+        loaded: false,
+        saving: false,
+        saveTimer: null
+      };
+
+      const generateId = () => `L${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
+
+      const normalizeLines = (lines) => {
+        const normalized = (lines || []).map((line, index) => ({
+          id: line && line.id ? String(line.id) : generateId(),
+          text: line && line.text ? String(line.text) : "",
+          locked: Boolean(line && line.locked),
+          order: line && typeof line.order === "number" ? line.order : index
+        }));
+        return normalized.length ? normalized : [{ id: generateId(), text: "", locked: false, order: 0 }];
+      };
+
+      const setData = (payload) => {
+        state.data = {
+          enfermagem: normalizeLines(payload && payload.enfermagem),
+          medica: normalizeLines(payload && payload.medica)
+        };
+      };
+
+      const scheduleSave = () => {
+        if (state.saveTimer) clearTimeout(state.saveTimer);
+        state.saveTimer = setTimeout(() => {
+          save();
+        }, 800);
+      };
+
+      const save = async () => {
+        if (state.saving) return;
+        state.saving = true;
+        try {
+          await Api.saveReportState(state.data);
+        } catch (err) {
+          console.error(err);
+          UI.showToast("error", "Falha ao salvar o relatório.");
+        } finally {
+          state.saving = false;
+        }
+      };
+
+      const renderColumn = (key, containerId) => {
+        const wrapper = document.getElementById(containerId);
+        if (!wrapper) return;
+        wrapper.innerHTML = "";
+        state.data[key].forEach((line, index) => {
+          const row = document.createElement("div");
+          row.className = `report-line${line.locked ? " locked" : ""}`;
+
+          const textarea = document.createElement("textarea");
+          textarea.className = "report-text";
+          textarea.value = line.text;
+          textarea.disabled = line.locked;
+          textarea.addEventListener("input", (event) => {
+            line.text = event.target.value;
+            scheduleSave();
+          });
+
+          const actions = document.createElement("div");
+          actions.className = "report-actions";
+
+          const btnUp = document.createElement("button");
+          btnUp.className = "report-action";
+          btnUp.textContent = "↑";
+          btnUp.disabled = index === 0;
+          btnUp.addEventListener("click", () => {
+            const list = state.data[key];
+            [list[index - 1], list[index]] = [list[index], list[index - 1]];
+            render();
+            scheduleSave();
+          });
+
+          const btnDown = document.createElement("button");
+          btnDown.className = "report-action";
+          btnDown.textContent = "↓";
+          btnDown.disabled = index === state.data[key].length - 1;
+          btnDown.addEventListener("click", () => {
+            const list = state.data[key];
+            [list[index + 1], list[index]] = [list[index], list[index + 1]];
+            render();
+            scheduleSave();
+          });
+
+          const btnLock = document.createElement("button");
+          btnLock.className = "report-action";
+          btnLock.textContent = line.locked ? "Destravar" : "Travar";
+          btnLock.addEventListener("click", () => {
+            line.locked = !line.locked;
+            render();
+            scheduleSave();
+          });
+
+          const btnDelete = document.createElement("button");
+          btnDelete.className = "report-action";
+          btnDelete.textContent = "Excluir";
+          btnDelete.disabled = line.locked;
+          btnDelete.addEventListener("click", () => {
+            if (line.locked) return;
+            state.data[key].splice(index, 1);
+            if (state.data[key].length === 0) {
+              state.data[key].push({ id: generateId(), text: "", locked: false, order: 0 });
+            }
+            render();
+            scheduleSave();
+          });
+
+          actions.appendChild(btnUp);
+          actions.appendChild(btnDown);
+          actions.appendChild(btnLock);
+          actions.appendChild(btnDelete);
+
+          row.appendChild(textarea);
+          row.appendChild(actions);
+          wrapper.appendChild(row);
+        });
+      };
+
+      const render = () => {
+        renderColumn("enfermagem", "reportEnfermagem");
+        renderColumn("medica", "reportMedica");
+      };
+
+      const addLine = (key) => {
+        state.data[key].push({ id: generateId(), text: "", locked: false, order: state.data[key].length });
+        render();
+        scheduleSave();
+      };
+
+      return {
+        ensureLoaded: async () => {
+          if (state.loaded) return;
+          try {
+            const payload = await Api.getReportState();
+            setData(payload);
+            render();
+            state.loaded = true;
+          } catch (err) {
+            console.error(err);
+            UI.showToast("error", "Falha ao carregar o relatório.");
+          }
+        },
+        addLine,
+        render
+      };
+    })();
+
     const AppState = (() => {
       const state = {
         view: "confirmadas",
+        page: "ocorrencias",
         app: null,
         dashboard: null,
         dashboardByView: {},
@@ -1349,6 +1690,26 @@
         });
       };
 
+      const setPage = (page) => {
+        state.page = page;
+        const isRelatorio = page === "relatorio";
+        document.getElementById("ocorrenciasPage").classList.toggle("hidden", isRelatorio);
+        document.getElementById("relatorioPage").classList.toggle("hidden", !isRelatorio);
+        document.getElementById("menuLabel").textContent = isRelatorio ? "Relatório" : "Ocorrências";
+        document.querySelectorAll(".menu-item").forEach((item) => {
+          item.classList.toggle("active", item.dataset.page === page);
+        });
+        document.getElementById("pageTitle").textContent = isRelatorio
+          ? "Relatório das Ocorrências do Plantão"
+          : "Ocorrências do Plantão";
+        document.getElementById("pageSubtitle").textContent = isRelatorio
+          ? "Painel contínuo com travamento por linha."
+          : "Núcleo Interno de Regulação (NIR)";
+        if (isRelatorio) {
+          ReportState.ensureLoaded();
+        }
+      };
+
       const showCachedDashboard = (view) => {
         const cached = state.dashboardByView[view];
         if (!cached) return false;
@@ -1587,6 +1948,29 @@
       };
 
       const initEvents = () => {
+        const menuToggle = document.getElementById("menuToggle");
+        const menuDropdown = document.getElementById("menuDropdown");
+        menuToggle.addEventListener("click", () => {
+          menuDropdown.classList.toggle("hidden");
+        });
+        document.addEventListener("click", (event) => {
+          if (!menuDropdown.contains(event.target) && !menuToggle.contains(event.target)) {
+            menuDropdown.classList.add("hidden");
+          }
+        });
+        document.querySelectorAll(".menu-item").forEach((item) => {
+          item.addEventListener("click", () => {
+            menuDropdown.classList.add("hidden");
+            setPage(item.dataset.page);
+          });
+        });
+
+        document.querySelectorAll("[data-action='add-line']").forEach((btn) => {
+          btn.addEventListener("click", () => {
+            ReportState.addLine(btn.dataset.column);
+          });
+        });
+
         document.getElementById("btnRefresh").addEventListener("click", () => loadDashboard(state.view, { showLoader: false }));
         document.getElementById("btnStartShift").addEventListener("click", openShiftModal);
         document.getElementById("btnEditShift").addEventListener("click", openShiftModal);
@@ -1617,6 +2001,7 @@
       return {
         init: () => {
           initEvents();
+          setPage(state.page);
           loadDashboard(state.view, { showLoader: true })
             .then(() => {
               Object.keys(viewMap).forEach((view) => {
