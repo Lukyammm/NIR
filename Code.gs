@@ -8,6 +8,7 @@ const AUTHORIZED_USERS = [];
 const ACTIVE_SHIFT_KEY = "ACTIVE_SHIFT_STATE";
 const REPORT_SHEET_CURRENT = "Atual";
 const REPORT_SHEET_HISTORY = "Histórico";
+const REPORT_LOG_SHEET = "LOG_RELATORIO";
 const REPORT_COLUMNS = [
   "ID_LINHA",
   "COLUNA",
@@ -26,6 +27,19 @@ const REPORT_HISTORY_COLUMNS = [
   "COLUNA_ENFERMAGEM",
   "COLUNA_MEDICA",
   "USUARIO"
+];
+const REPORT_LOG_COLUMNS = [
+  "ID_EVENTO",
+  "DATA_HORA",
+  "USUARIO",
+  "PLANTAO_ID",
+  "ACAO",
+  "COLUNA",
+  "ID_LINHA",
+  "ID_SUBLINHA",
+  "CAMPO",
+  "ANTES",
+  "DEPOIS"
 ];
 
 function gerarID_() {
@@ -615,6 +629,8 @@ function criarEstruturaNIR() {
       "USUARIO", "DATA_HORA", "OBSERVACAO"
     ],
 
+    "LOG_RELATORIO": REPORT_LOG_COLUMNS,
+
     "Histórico": REPORT_HISTORY_COLUMNS
   };
 
@@ -725,7 +741,17 @@ function ensureReportSheets_() {
     history.getRange(1, 1, 1, REPORT_HISTORY_COLUMNS.length).setValues([REPORT_HISTORY_COLUMNS]);
   }
 
-  return { current: current, history: history };
+  let log = ss.getSheetByName(REPORT_LOG_SHEET);
+  if (!log) {
+    log = ss.insertSheet(REPORT_LOG_SHEET);
+    log.appendRow(REPORT_LOG_COLUMNS);
+  } else if (log.getLastRow() === 0) {
+    log.appendRow(REPORT_LOG_COLUMNS);
+  } else {
+    log.getRange(1, 1, 1, REPORT_LOG_COLUMNS.length).setValues([REPORT_LOG_COLUMNS]);
+  }
+
+  return { current: current, history: history, log: log };
 }
 
 function normalizeReportLines_(lines) {
@@ -766,38 +792,174 @@ function normalizeReportSublines_(sublines, depth) {
     }));
 }
 
+function readReportStateFromSheet_(sheet) {
+  const dataRange = sheet.getDataRange();
+  const values = dataRange.getValues();
+  return readReportStateFromValues_(values);
+}
+
+function readReportStateFromValues_(values) {
+  const rows = (values || []).slice(1).filter((row) => row.some((cell) => cell !== "" && cell !== null));
+  const enfermagem = [];
+  const medica = [];
+
+  rows.forEach((row) => {
+    const line = {
+      id: row[0] ? String(row[0]) : gerarID_(),
+      text: row[3] ? String(row[3]) : "",
+      locked: String(row[4]).toLowerCase() === "true",
+      order: Number(row[2]) || 0,
+      color: row[5] ? String(row[5]) : "",
+      sublines: normalizeReportSublines_(safeJsonParse_(row[6], []), 0),
+      format: normalizeReportFormat_(safeJsonParse_(row[7], {}), "line")
+    };
+
+    const coluna = row[1] ? String(row[1]).toLowerCase() : "";
+    if (coluna === "enfermagem") {
+      enfermagem.push(line);
+    } else if (coluna === "medica") {
+      medica.push(line);
+    }
+  });
+
+  enfermagem.sort((a, b) => a.order - b.order);
+  medica.sort((a, b) => a.order - b.order);
+
+  return { enfermagem: enfermagem, medica: medica };
+}
+
+function serializeReportLogValue_(value) {
+  if (value === null || value === undefined) return "";
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  return safeJsonStringify_(value);
+}
+
+function buildReportLogEntry_(action, column, lineId, sublineId, field, beforeValue, afterValue) {
+  return {
+    action: action,
+    column: column || "",
+    lineId: lineId || "",
+    sublineId: sublineId || "",
+    field: field || "",
+    beforeValue: beforeValue,
+    afterValue: afterValue
+  };
+}
+
+function diffReportSublines_(entries, column, lineId, beforeSublines, afterSublines) {
+  const beforeMap = {};
+  (beforeSublines || []).forEach((sub) => {
+    beforeMap[sub.id] = sub;
+  });
+  const afterMap = {};
+  (afterSublines || []).forEach((sub) => {
+    afterMap[sub.id] = sub;
+  });
+
+  (afterSublines || []).forEach((sub) => {
+    if (!beforeMap[sub.id]) {
+      entries.push(buildReportLogEntry_("SUBLINHA_ADICIONADA", column, lineId, sub.id, "", null, sub.text));
+      return;
+    }
+    const before = beforeMap[sub.id];
+    if (before.text !== sub.text) {
+      entries.push(buildReportLogEntry_("SUBLINHA_ATUALIZADA", column, lineId, sub.id, "texto", before.text, sub.text));
+    }
+    if (before.locked !== sub.locked) {
+      entries.push(buildReportLogEntry_("SUBLINHA_ATUALIZADA", column, lineId, sub.id, "travado", before.locked, sub.locked));
+    }
+    if (!before.format || !sub.format || before.format.fontSize !== sub.format.fontSize) {
+      entries.push(buildReportLogEntry_("SUBLINHA_ATUALIZADA", column, lineId, sub.id, "fonte", before.format, sub.format));
+    }
+    if (!before.format || !sub.format || before.format.bold !== sub.format.bold) {
+      entries.push(buildReportLogEntry_("SUBLINHA_ATUALIZADA", column, lineId, sub.id, "negrito", before.format, sub.format));
+    }
+  });
+
+  (beforeSublines || []).forEach((sub) => {
+    if (!afterMap[sub.id]) {
+      entries.push(buildReportLogEntry_("SUBLINHA_REMOVIDA", column, lineId, sub.id, "", sub.text, null));
+    }
+  });
+}
+
+function diffReportStates_(beforeState, afterState) {
+  const entries = [];
+  ["enfermagem", "medica"].forEach((column) => {
+    const before = (beforeState && beforeState[column]) ? beforeState[column] : [];
+    const after = (afterState && afterState[column]) ? afterState[column] : [];
+    const beforeMap = {};
+    before.forEach((line) => {
+      beforeMap[line.id] = line;
+    });
+    const afterMap = {};
+    after.forEach((line) => {
+      afterMap[line.id] = line;
+    });
+
+    after.forEach((line) => {
+      if (!beforeMap[line.id]) {
+        entries.push(buildReportLogEntry_("LINHA_ADICIONADA", column, line.id, "", "", null, line.text));
+        return;
+      }
+      const previous = beforeMap[line.id];
+      if (previous.text !== line.text) {
+        entries.push(buildReportLogEntry_("LINHA_ATUALIZADA", column, line.id, "", "texto", previous.text, line.text));
+      }
+      if (previous.locked !== line.locked) {
+        entries.push(buildReportLogEntry_("LINHA_ATUALIZADA", column, line.id, "", "travado", previous.locked, line.locked));
+      }
+      if (previous.color !== line.color) {
+        entries.push(buildReportLogEntry_("LINHA_ATUALIZADA", column, line.id, "", "cor", previous.color, line.color));
+      }
+      if (previous.order !== line.order) {
+        entries.push(buildReportLogEntry_("LINHA_ATUALIZADA", column, line.id, "", "ordem", previous.order, line.order));
+      }
+      if (!previous.format || !line.format || previous.format.fontSize !== line.format.fontSize) {
+        entries.push(buildReportLogEntry_("LINHA_ATUALIZADA", column, line.id, "", "fonte", previous.format, line.format));
+      }
+      if (!previous.format || !line.format || previous.format.bold !== line.format.bold) {
+        entries.push(buildReportLogEntry_("LINHA_ATUALIZADA", column, line.id, "", "negrito", previous.format, line.format));
+      }
+      diffReportSublines_(entries, column, line.id, previous.sublines || [], line.sublines || []);
+    });
+
+    before.forEach((line) => {
+      if (!afterMap[line.id]) {
+        entries.push(buildReportLogEntry_("LINHA_REMOVIDA", column, line.id, "", "", line.text, null));
+      }
+    });
+  });
+
+  return entries;
+}
+
+function appendReportLogEntries_(logSheet, entries, timestamp, userEmail, shiftId) {
+  if (!logSheet || !entries || entries.length === 0) return;
+  const rows = entries.map((entry) => ([
+    gerarID_(),
+    timestamp,
+    userEmail || "",
+    shiftId || "",
+    entry.action || "",
+    entry.column || "",
+    entry.lineId || "",
+    entry.sublineId || "",
+    entry.field || "",
+    serializeReportLogValue_(entry.beforeValue),
+    serializeReportLogValue_(entry.afterValue)
+  ]));
+  logSheet.getRange(logSheet.getLastRow() + 1, 1, rows.length, REPORT_LOG_COLUMNS.length).setValues(rows);
+}
+
 function getReportState() {
   return runWithResult_(function () {
     assertAuthorized_();
     const sheets = ensureReportSheets_();
-    const dataRange = sheets.current.getDataRange();
-    const values = dataRange.getValues();
-
-    const rows = values.slice(1).filter((row) => row.some((cell) => cell !== "" && cell !== null));
-    const enfermagem = [];
-    const medica = [];
-
-    rows.forEach((row) => {
-      const line = {
-        id: row[0] ? String(row[0]) : gerarID_(),
-        text: row[3] ? String(row[3]) : "",
-        locked: String(row[4]).toLowerCase() === "true",
-        order: Number(row[2]) || 0,
-        color: row[5] ? String(row[5]) : "",
-        sublines: normalizeReportSublines_(safeJsonParse_(row[6], []), 0),
-        format: normalizeReportFormat_(safeJsonParse_(row[7], {}), "line")
-      };
-
-      const coluna = row[1] ? String(row[1]).toLowerCase() : "";
-      if (coluna === "enfermagem") {
-        enfermagem.push(line);
-      } else if (coluna === "medica") {
-        medica.push(line);
-      }
-    });
-
-    enfermagem.sort((a, b) => a.order - b.order);
-    medica.sort((a, b) => a.order - b.order);
+    const data = readReportStateFromSheet_(sheets.current);
+    const enfermagem = data.enfermagem || [];
+    const medica = data.medica || [];
 
     return {
       enfermagem: enfermagem.length
@@ -818,9 +980,11 @@ function saveReportState(payload) {
 
     try {
       const sheets = ensureReportSheets_();
+      const beforeState = readReportStateFromSheet_(sheets.current);
       const data = payload || {};
       const enfermagem = normalizeReportLines_(data.enfermagem);
       const medica = normalizeReportLines_(data.medica);
+      const afterState = { enfermagem: enfermagem, medica: medica };
       const updatedAt = new Date();
 
       const rows = [];
@@ -860,6 +1024,14 @@ function saveReportState(payload) {
         sheet.getRange(2, 1, rows.length, REPORT_COLUMNS.length).setValues(rows);
       }
 
+      const entries = diffReportStates_(beforeState, afterState);
+      if (entries.length > 0) {
+        const userEmail = Session.getActiveUser().getEmail() || "";
+        const shift = getActiveShiftFromProperties_();
+        const shiftId = shift && shift.id ? shift.id : "";
+        appendReportLogEntries_(sheets.log, entries, updatedAt, userEmail, shiftId);
+      }
+
       return { saved: true };
     } finally {
       lock.releaseLock();
@@ -867,35 +1039,44 @@ function saveReportState(payload) {
   });
 }
 
+function getReportHistory(payload) {
+  return runWithResult_(function () {
+    assertAuthorized_();
+    const limit = payload && payload.limit ? Math.max(1, Number(payload.limit)) : 40;
+    const sheets = ensureReportSheets_();
+    const sheet = sheets.log;
+    if (!sheet || sheet.getLastRow() <= 1) {
+      return { entries: [] };
+    }
+
+    const lastRow = sheet.getLastRow();
+    const startRow = Math.max(2, lastRow - limit + 1);
+    const numRows = lastRow - startRow + 1;
+    const values = sheet.getRange(startRow, 1, numRows, REPORT_LOG_COLUMNS.length).getValues();
+    const entries = values.map((row) => ({
+      id: row[0] ? String(row[0]) : "",
+      dataHora: row[1] instanceof Date ? row[1].toISOString() : row[1] ? String(row[1]) : "",
+      usuario: row[2] ? String(row[2]) : "",
+      plantaoId: row[3] ? String(row[3]) : "",
+      acao: row[4] ? String(row[4]) : "",
+      coluna: row[5] ? String(row[5]) : "",
+      linhaId: row[6] ? String(row[6]) : "",
+      sublinhaId: row[7] ? String(row[7]) : "",
+      campo: row[8] ? String(row[8]) : "",
+      antes: row[9] ? String(row[9]) : "",
+      depois: row[10] ? String(row[10]) : ""
+    })).reverse();
+
+    return { entries: entries };
+  });
+}
+
 function snapshotReportState_(closedShift) {
   const sheets = ensureReportSheets_();
   const current = sheets.current;
-  const dataRange = current.getDataRange();
-  const values = dataRange.getValues();
-  const rows = values.slice(1).filter((row) => row.some((cell) => cell !== "" && cell !== null));
-  const enfermagem = [];
-  const medica = [];
-
-  rows.forEach((row) => {
-      const line = {
-        id: row[0] ? String(row[0]) : gerarID_(),
-        text: row[3] ? String(row[3]) : "",
-        locked: String(row[4]).toLowerCase() === "true",
-        order: Number(row[2]) || 0,
-        color: row[5] ? String(row[5]) : "",
-        sublines: normalizeReportSublines_(safeJsonParse_(row[6], []), 0),
-        format: normalizeReportFormat_(safeJsonParse_(row[7], {}), "line")
-      };
-    const coluna = row[1] ? String(row[1]).toLowerCase() : "";
-    if (coluna === "enfermagem") {
-      enfermagem.push(line);
-    } else if (coluna === "medica") {
-      medica.push(line);
-    }
-  });
-
-  enfermagem.sort((a, b) => a.order - b.order);
-  medica.sort((a, b) => a.order - b.order);
+  const data = readReportStateFromSheet_(current);
+  const enfermagem = data.enfermagem || [];
+  const medica = data.medica || [];
 
   const historyRow = [
     gerarID_(),

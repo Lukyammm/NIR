@@ -668,6 +668,17 @@
       gap: 8px;
     }
 
+    .report-meta {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .report-last-update {
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
     .report-action {
       border: 1px solid rgba(17, 19, 24, 0.08);
       background: linear-gradient(135deg, rgba(255, 255, 255, 0.9), rgba(243, 245, 248, 0.9));
@@ -695,6 +706,40 @@
       opacity: 0.6;
       box-shadow: none;
       transform: none;
+    }
+
+    .report-history {
+      display: flex;
+      flex-direction: column;
+      gap: var(--spacing-md);
+    }
+
+    .report-history-list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .report-history-item {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px 14px;
+      background: var(--surface-alt);
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .report-history-item strong {
+      font-size: 14px;
+    }
+
+    .report-history-meta {
+      font-size: 12px;
+      color: var(--text-muted);
     }
 
     .info-grid {
@@ -1365,8 +1410,11 @@
         <section class="card report-card">
           <header class="card-header">
             <div>
-              <h2>Relatório das Ocorrências do Plantão</h2>
-              <p class="muted">Conteúdo contínuo entre plantões, com travamento por linha.</p>
+              <div class="report-meta">
+                <h2>Relatório das Ocorrências do Plantão</h2>
+                <p class="muted">Conteúdo contínuo entre plantões, com travamento por linha.</p>
+                <span id="reportLastUpdate" class="report-last-update">Última atualização: -</span>
+              </div>
             </div>
             <div class="header-actions">
               <button
@@ -1403,6 +1451,18 @@
                 <div class="report-lines" id="reportMedica"></div>
               </div>
             </div>
+          </div>
+        </section>
+
+        <section class="card report-history">
+          <header class="card-header">
+            <div>
+              <h2>Histórico de edição</h2>
+              <p class="muted">Registro detalhado das últimas alterações no relatório.</p>
+            </div>
+          </header>
+          <div class="card-content">
+            <ul id="reportHistoryList" class="report-history-list"></ul>
           </div>
         </section>
       </div>
@@ -1564,6 +1624,7 @@
         deleteRecord: (payload) => run("deleteRecord", payload),
         getReportState: () => run("getReportState"),
         saveReportState: (payload) => run("saveReportState", payload),
+        getReportHistory: (payload) => run("getReportHistory", payload),
         writeAction: (type, payload) => runWithArgs("writeAction", [type, payload])
       };
     })();
@@ -1710,7 +1771,10 @@
         loaded: false,
         saving: false,
         pendingSave: false,
-        saveTimer: null
+        saveTimer: null,
+        history: [],
+        historyLoaded: false,
+        historyTimer: null
       };
 
       const generateId = () => `L${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
@@ -1820,6 +1884,66 @@
         }, 800);
       };
 
+      const scheduleHistoryRefresh = () => {
+        if (state.historyTimer) clearTimeout(state.historyTimer);
+        state.historyTimer = setTimeout(() => {
+          loadHistory();
+        }, 1200);
+      };
+
+      const formatDateTime = (value) => {
+        if (!value) return "-";
+        const dt = new Date(value);
+        if (Number.isNaN(dt.getTime())) return value;
+        return dt.toLocaleString("pt-BR");
+      };
+
+      const shortenText = (value, max = 80) => {
+        if (!value) return "-";
+        const text = String(value);
+        if (text.length <= max) return text;
+        return `${text.slice(0, max)}…`;
+      };
+
+      const buildLineIndexMap = () => {
+        const map = { enfermagem: {}, medica: {} };
+        ["enfermagem", "medica"].forEach((key) => {
+          state.data[key].forEach((line, index) => {
+            map[key][line.id] = index + 1;
+            (line.sublines || []).forEach((sub, subIndex) => {
+              map[key][`${line.id}:${sub.id}`] = subIndex + 1;
+            });
+          });
+        });
+        return map;
+      };
+
+      const describeHistoryEntry = (entry, indexMap) => {
+        const columnName = entry.coluna === "medica" ? "Médica" : "Enfermagem";
+        const lineNumber = entry.linhaId && indexMap[entry.coluna] ? indexMap[entry.coluna][entry.linhaId] : null;
+        const lineLabel = lineNumber ? `Linha ${lineNumber}` : "Linha";
+        const sublineKey = entry.linhaId && entry.sublinhaId ? `${entry.linhaId}:${entry.sublinhaId}` : "";
+        const sublineNumber = sublineKey && indexMap[entry.coluna] ? indexMap[entry.coluna][sublineKey] : null;
+        const sublineLabel = sublineNumber ? `Sublinha ${sublineNumber}` : "Sublinha";
+
+        switch (entry.acao) {
+          case "LINHA_ADICIONADA":
+            return `${lineLabel} adicionada (${columnName}).`;
+          case "LINHA_REMOVIDA":
+            return `${lineLabel} removida (${columnName}).`;
+          case "LINHA_ATUALIZADA":
+            return `${lineLabel} (${columnName}) → ${entry.campo || "conteúdo"}: ${shortenText(entry.depois)}`;
+          case "SUBLINHA_ADICIONADA":
+            return `${sublineLabel} adicionada em ${lineLabel} (${columnName}).`;
+          case "SUBLINHA_REMOVIDA":
+            return `${sublineLabel} removida de ${lineLabel} (${columnName}).`;
+          case "SUBLINHA_ATUALIZADA":
+            return `${sublineLabel} em ${lineLabel} (${columnName}) → ${entry.campo || "conteúdo"}: ${shortenText(entry.depois)}`;
+          default:
+            return `${columnName}: alteração registrada.`;
+        }
+      };
+
       const save = async () => {
         if (state.saving) {
           state.pendingSave = true;
@@ -1829,6 +1953,7 @@
         state.pendingSave = false;
         try {
           await Api.saveReportState(state.data);
+          scheduleHistoryRefresh();
         } catch (err) {
           console.error(err);
           UI.showToast("error", "Falha ao salvar o relatório.");
@@ -1878,6 +2003,59 @@
         if (!element || !format) return;
         element.style.fontSize = `${format.fontSize}px`;
         element.style.fontWeight = format.bold ? "700" : "400";
+      };
+
+      const renderHistory = () => {
+        const list = document.getElementById("reportHistoryList");
+        const lastUpdate = document.getElementById("reportLastUpdate");
+        if (!list) return;
+        list.innerHTML = "";
+
+        if (!state.history || state.history.length === 0) {
+          const empty = document.createElement("li");
+          empty.className = "report-history-item";
+          empty.textContent = "Nenhuma edição registrada ainda.";
+          list.appendChild(empty);
+          if (lastUpdate) {
+            lastUpdate.textContent = "Última atualização: -";
+          }
+          return;
+        }
+
+        const indexMap = buildLineIndexMap();
+        state.history.forEach((entry) => {
+          const item = document.createElement("li");
+          item.className = "report-history-item";
+
+          const title = document.createElement("strong");
+          title.textContent = describeHistoryEntry(entry, indexMap);
+
+          const meta = document.createElement("div");
+          meta.className = "report-history-meta";
+          const usuario = entry.usuario || "Usuário não identificado";
+          meta.textContent = `${formatDateTime(entry.dataHora)} • ${usuario}`;
+
+          item.appendChild(title);
+          item.appendChild(meta);
+          list.appendChild(item);
+        });
+
+        if (lastUpdate) {
+          const latest = state.history[0];
+          const usuario = latest.usuario || "Usuário não identificado";
+          lastUpdate.textContent = `Última atualização: ${formatDateTime(latest.dataHora)} • ${usuario}`;
+        }
+      };
+
+      const loadHistory = async () => {
+        try {
+          const payload = await Api.getReportHistory({ limit: 40 });
+          state.history = payload && payload.entries ? payload.entries : [];
+          state.historyLoaded = true;
+          renderHistory();
+        } catch (err) {
+          console.error(err);
+        }
       };
 
       const buildEditor = (entity, type, disabled) => {
@@ -1963,6 +2141,8 @@
             subDelete.disabled = parentLocked || subline.locked;
             subDelete.addEventListener("click", () => {
               if (parentLocked || subline.locked) return;
+              const confirmDelete = window.confirm("Excluir esta sublinha? Esta ação não pode ser desfeita.");
+              if (!confirmDelete) return;
               sublines.splice(subIndex, 1);
               render();
               scheduleSave();
@@ -2189,6 +2369,8 @@
           btnDelete.disabled = line.locked;
           btnDelete.addEventListener("click", () => {
             if (line.locked) return;
+            const confirmDelete = window.confirm("Excluir esta linha do relatório? Esta ação não pode ser desfeita.");
+            if (!confirmDelete) return;
             state.data[key].splice(index, 1);
             if (state.data[key].length === 0) {
               state.data[key].push({
@@ -2221,6 +2403,7 @@
         ensureUniqueColors();
         renderColumn("enfermagem", "reportEnfermagem");
         renderColumn("medica", "reportMedica");
+        renderHistory();
         if (!colorPickerListenerAttached) {
           document.addEventListener("click", () => {
             document.querySelectorAll(".report-color-picker.open").forEach((picker) => {
@@ -2247,12 +2430,16 @@
 
       return {
         ensureLoaded: async () => {
-          if (state.loaded) return;
+          if (state.loaded) {
+            loadHistory();
+            return;
+          }
           try {
             const payload = await Api.getReportState();
             setData(payload);
             render();
             state.loaded = true;
+            loadHistory();
           } catch (err) {
             console.error(err);
             UI.showToast("error", "Falha ao carregar o relatório.");
@@ -2261,6 +2448,10 @@
         addLine,
         setEditingEnabled,
         toggleEditingEnabled: () => {
+          if (editingEnabled) {
+            const confirmClose = window.confirm("Finalizar edição do relatório? As alterações são salvas automaticamente.");
+            if (!confirmClose) return;
+          }
           setEditingEnabled(!editingEnabled);
           render();
         },
