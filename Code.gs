@@ -16,6 +16,7 @@ const REPORT_COLUMNS = [
   "TRAVADO",
   "COR",
   "SUBLINHAS",
+  "FORMATACAO",
   "ATUALIZADO_EM"
 ];
 const REPORT_HISTORY_COLUMNS = [
@@ -736,18 +737,32 @@ function normalizeReportLines_(lines) {
       locked: Boolean(line.locked),
       order: typeof line.order === "number" ? line.order : index,
       color: line.color ? String(line.color) : "",
-      sublines: normalizeReportSublines_(line.sublines)
+      format: normalizeReportFormat_(line.format, "line"),
+      sublines: normalizeReportSublines_(line.sublines, 0)
     }));
 }
 
-function normalizeReportSublines_(sublines) {
+function normalizeReportFormat_(format, type) {
+  const base = type === "subline" ? { fontSize: 13, bold: false } : { fontSize: 14, bold: false };
+  const payload = format && typeof format === "object" ? format : {};
+  const fontSize = Number(payload.fontSize);
+  const normalizedSize = isNaN(fontSize) ? base.fontSize : fontSize;
+  return {
+    fontSize: Math.min(20, Math.max(12, normalizedSize)),
+    bold: payload.bold === true
+  };
+}
+
+function normalizeReportSublines_(sublines, depth) {
+  const currentDepth = typeof depth === "number" ? depth : 0;
   return (sublines || [])
     .filter((sub) => sub && typeof sub === "object")
     .map((sub) => ({
       id: sub.id ? String(sub.id) : gerarID_(),
       text: sub.text ? String(sub.text) : "",
       locked: Boolean(sub.locked),
-      sublines: normalizeReportSublines_(sub.sublines)
+      format: normalizeReportFormat_(sub.format, "subline"),
+      sublines: currentDepth >= 1 ? [] : normalizeReportSublines_(sub.sublines, currentDepth + 1)
     }));
 }
 
@@ -769,7 +784,8 @@ function getReportState() {
         locked: String(row[4]).toLowerCase() === "true",
         order: Number(row[2]) || 0,
         color: row[5] ? String(row[5]) : "",
-        sublines: normalizeReportSublines_(safeJsonParse_(row[6], []))
+        sublines: normalizeReportSublines_(safeJsonParse_(row[6], []), 0),
+        format: normalizeReportFormat_(safeJsonParse_(row[7], {}), "line")
       };
 
       const coluna = row[1] ? String(row[1]).toLowerCase() : "";
@@ -784,8 +800,12 @@ function getReportState() {
     medica.sort((a, b) => a.order - b.order);
 
     return {
-      enfermagem: enfermagem.length ? enfermagem : [{ id: gerarID_(), text: "", locked: false, order: 0 }],
-      medica: medica.length ? medica : [{ id: gerarID_(), text: "", locked: false, order: 0 }]
+      enfermagem: enfermagem.length
+        ? enfermagem
+        : [{ id: gerarID_(), text: "", locked: false, order: 0, format: normalizeReportFormat_(null, "line") }],
+      medica: medica.length
+        ? medica
+        : [{ id: gerarID_(), text: "", locked: false, order: 0, format: normalizeReportFormat_(null, "line") }]
     };
   });
 }
@@ -813,6 +833,7 @@ function saveReportState(payload) {
           line.locked ? "TRUE" : "FALSE",
           line.color || "",
           safeJsonStringify_(line.sublines || []),
+          safeJsonStringify_(line.format || normalizeReportFormat_(null, "line")),
           updatedAt
         ]);
       });
@@ -825,6 +846,7 @@ function saveReportState(payload) {
           line.locked ? "TRUE" : "FALSE",
           line.color || "",
           safeJsonStringify_(line.sublines || []),
+          safeJsonStringify_(line.format || normalizeReportFormat_(null, "line")),
           updatedAt
         ]);
       });
@@ -861,7 +883,8 @@ function snapshotReportState_(closedShift) {
         locked: String(row[4]).toLowerCase() === "true",
         order: Number(row[2]) || 0,
         color: row[5] ? String(row[5]) : "",
-        sublines: normalizeReportSublines_(safeJsonParse_(row[6], []))
+        sublines: normalizeReportSublines_(safeJsonParse_(row[6], []), 0),
+        format: normalizeReportFormat_(safeJsonParse_(row[7], {}), "line")
       };
     const coluna = row[1] ? String(row[1]).toLowerCase() : "";
     if (coluna === "enfermagem") {
