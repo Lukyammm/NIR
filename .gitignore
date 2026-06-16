@@ -1,0 +1,23 @@
+# Local and sensitive artifacts
+*.xlsx
+*.xls
+*.csv
+*.tsv
+*.pdf
+*.zip
+*.bak
+*.tmp
+
+# Runtime dumps / exports with operational data
+exports/
+tmp/
+work/
+dados-reais/
+planilhas/
+relatorios-operacionais/
+
+# OS/editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

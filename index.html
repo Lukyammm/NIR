@@ -1,1 +1,1459 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>NIR - Passagem de Plantão</title>
+  <style>
+    :root {
+      --bg: #f5f7f9;
+      --surface: #ffffff;
+      --surface-2: #eef3f5;
+      --line: #d8e0e5;
+      --line-strong: #b8c4cc;
+      --text: #17212b;
+      --muted: #607080;
+      --primary: #0f766e;
+      --primary-ink: #ffffff;
+      --info: #1d4ed8;
+      --warn: #b45309;
+      --danger: #be123c;
+      --ok: #15803d;
+      --shadow: 0 8px 22px rgba(23, 33, 43, 0.08);
+      --radius: 8px;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--text);
+      background: var(--bg);
+    }
 
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-size: 14px;
+    }
+
+    button, input, select, textarea {
+      font: inherit;
+    }
+
+    button {
+      cursor: pointer;
+    }
+
+    .app-shell {
+      min-height: 100vh;
+      display: grid;
+      grid-template-columns: 260px minmax(0, 1fr);
+    }
+
+    .sidebar {
+      background: #101820;
+      color: #edf4f7;
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+      position: sticky;
+      top: 0;
+      height: 100vh;
+    }
+
+    .brand {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      padding: 6px 4px 12px;
+      border-bottom: 1px solid rgba(255,255,255,0.16);
+    }
+
+    .brand strong {
+      font-size: 18px;
+    }
+
+    .brand span {
+      color: #aab8c2;
+      font-size: 12px;
+    }
+
+    .nav {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .nav button {
+      border: 1px solid transparent;
+      background: transparent;
+      color: #dce8ed;
+      border-radius: var(--radius);
+      text-align: left;
+      padding: 10px 12px;
+      display: grid;
+      grid-template-columns: 24px 1fr;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .nav button:hover,
+    .nav button.active {
+      border-color: rgba(255,255,255,0.16);
+      background: rgba(255,255,255,0.08);
+    }
+
+    .side-note {
+      margin-top: auto;
+      border: 1px solid rgba(255,255,255,0.14);
+      border-radius: var(--radius);
+      padding: 12px;
+      color: #b9c9d1;
+      line-height: 1.4;
+      font-size: 12px;
+    }
+
+    .main {
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .topbar {
+      background: rgba(255,255,255,0.94);
+      border-bottom: 1px solid var(--line);
+      padding: 14px 22px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      position: sticky;
+      top: 0;
+      z-index: 5;
+      backdrop-filter: blur(12px);
+    }
+
+    .topbar h1 {
+      margin: 0;
+      font-size: 20px;
+    }
+
+    .topbar small {
+      color: var(--muted);
+    }
+
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 10px;
+      border-radius: 999px;
+      background: #e8f5f2;
+      color: #075b52;
+      border: 1px solid #b8ddd5;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .status-pill.closed {
+      background: #f2f4f5;
+      border-color: var(--line);
+      color: var(--muted);
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background: currentColor;
+    }
+
+    .content {
+      padding: 22px;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    .surface {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      min-width: 0;
+    }
+
+    .surface-header {
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .surface-title {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .surface-title h2 {
+      margin: 0;
+      font-size: 16px;
+    }
+
+    .surface-title span {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .surface-body {
+      padding: 16px;
+    }
+
+    .grid {
+      display: grid;
+      gap: 14px;
+    }
+
+    .grid > *,
+    .split > * {
+      min-width: 0;
+    }
+
+    .grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .grid-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+
+    .stat-row {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(140px, 1fr));
+      gap: 10px;
+    }
+
+    .stat {
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 12px;
+      background: #fbfcfd;
+      min-height: 86px;
+    }
+
+    .stat span {
+      color: var(--muted);
+      font-size: 12px;
+      display: block;
+    }
+
+    .stat strong {
+      display: block;
+      margin-top: 8px;
+      font-size: 26px;
+    }
+
+    .stat small {
+      color: var(--muted);
+      display: block;
+      margin-top: 4px;
+    }
+
+    .filter-band {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(120px, 1fr));
+      gap: 10px;
+      align-items: end;
+    }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      min-width: 0;
+    }
+
+    .field label {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .input, .select, .textarea {
+      width: 100%;
+      border: 1px solid var(--line-strong);
+      background: #fff;
+      color: var(--text);
+      border-radius: var(--radius);
+      padding: 9px 10px;
+      min-height: 38px;
+    }
+
+    .textarea {
+      min-height: 92px;
+      resize: vertical;
+    }
+
+    .input:focus, .select:focus, .textarea:focus {
+      outline: 3px solid rgba(15, 118, 110, 0.18);
+      border-color: var(--primary);
+    }
+
+    .btn {
+      border: 1px solid var(--line-strong);
+      background: #fff;
+      color: var(--text);
+      border-radius: var(--radius);
+      padding: 9px 12px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      min-height: 38px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .btn:hover {
+      border-color: #7c8a95;
+    }
+
+    .btn-primary {
+      background: var(--primary);
+      color: var(--primary-ink);
+      border-color: var(--primary);
+    }
+
+    .btn-danger {
+      background: var(--danger);
+      color: #fff;
+      border-color: var(--danger);
+    }
+
+    .btn-ghost {
+      background: transparent;
+    }
+
+    .btn-small {
+      min-height: 30px;
+      padding: 5px 8px;
+      font-size: 12px;
+    }
+
+    .table-wrap {
+      width: 100%;
+      overflow: auto;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+    }
+
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      min-width: 900px;
+      background: #fff;
+    }
+
+    th, td {
+      padding: 9px 10px;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      background: #eef3f5;
+      color: #33424f;
+      font-size: 12px;
+      text-transform: uppercase;
+    }
+
+    tr:hover td {
+      background: #f9fbfc;
+    }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 3px 8px;
+      font-size: 12px;
+      font-weight: 700;
+      background: #fff;
+      white-space: nowrap;
+    }
+
+    .tag.ok { color: var(--ok); border-color: #bfe2ca; background: #f0fbf3; }
+    .tag.warn { color: var(--warn); border-color: #f2d2a8; background: #fff8ed; }
+    .tag.danger { color: var(--danger); border-color: #f2bbc8; background: #fff1f4; }
+    .tag.info { color: var(--info); border-color: #bfd0fb; background: #f0f5ff; }
+
+    .split {
+      display: grid;
+      grid-template-columns: minmax(0, 1.3fr) minmax(360px, 0.7fr);
+      gap: 14px;
+      align-items: start;
+    }
+
+    .chart-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .bar-line {
+      display: grid;
+      grid-template-columns: minmax(110px, 180px) 1fr 42px;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .bar-label {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      color: #33424f;
+    }
+
+    .bar-track {
+      height: 10px;
+      background: #e6edf1;
+      border-radius: 999px;
+      overflow: hidden;
+    }
+
+    .bar-fill {
+      height: 100%;
+      background: var(--primary);
+      border-radius: inherit;
+    }
+
+    .report-preview {
+      white-space: pre-wrap;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 14px;
+      background: #fbfcfd;
+      min-height: 420px;
+      line-height: 1.45;
+      font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+      font-size: 13px;
+    }
+
+    .drawer {
+      position: fixed;
+      inset: 0;
+      display: none;
+      z-index: 20;
+    }
+
+    .drawer.open {
+      display: block;
+    }
+
+    .drawer-backdrop {
+      position: absolute;
+      inset: 0;
+      background: rgba(10, 15, 20, 0.42);
+    }
+
+    .drawer-panel {
+      position: absolute;
+      top: 0;
+      right: 0;
+      width: min(720px, 100%);
+      height: 100%;
+      background: var(--surface);
+      box-shadow: -10px 0 30px rgba(0,0,0,0.18);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .drawer-header {
+      padding: 16px;
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .drawer-body {
+      padding: 16px;
+      overflow: auto;
+      display: grid;
+      gap: 12px;
+    }
+
+    .drawer-footer {
+      padding: 14px 16px;
+      border-top: 1px solid var(--line);
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+
+    .empty {
+      border: 1px dashed var(--line-strong);
+      border-radius: var(--radius);
+      padding: 24px;
+      color: var(--muted);
+      background: #fbfcfd;
+      text-align: center;
+    }
+
+    .hidden { display: none !important; }
+
+    .toast {
+      position: fixed;
+      left: 50%;
+      bottom: 20px;
+      transform: translateX(-50%);
+      background: #101820;
+      color: #fff;
+      border-radius: var(--radius);
+      padding: 10px 14px;
+      box-shadow: var(--shadow);
+      display: none;
+      z-index: 50;
+    }
+
+    .toast.show { display: block; }
+
+    @media (max-width: 1100px) {
+      .app-shell { grid-template-columns: 1fr; }
+      .sidebar {
+        position: relative;
+        height: auto;
+      }
+      .nav {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+      .side-note { display: none; }
+      .stat-row, .grid-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .filter-band { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .split { grid-template-columns: 1fr; }
+    }
+
+    @media (max-width: 720px) {
+      .topbar {
+        align-items: stretch;
+        flex-direction: column;
+      }
+      .topbar .toolbar {
+        width: 100%;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+      }
+      .topbar .status-pill {
+        grid-column: 1 / -1;
+        justify-content: center;
+      }
+      .topbar .toolbar .btn {
+        width: 100%;
+      }
+      #btnCloseShift {
+        grid-column: 1 / -1;
+      }
+      .content { padding: 14px; }
+      .nav { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .stat-row, .grid-2, .grid-3, .grid-4, .filter-band { grid-template-columns: 1fr; }
+      .bar-line { grid-template-columns: 1fr; }
+    }
+
+    @media print {
+      .sidebar, .topbar, .filter-band, .surface-header .toolbar, .drawer, .toast { display: none !important; }
+      .app-shell { display: block; }
+      .content { padding: 0; }
+      .surface { box-shadow: none; border: none; }
+      .report-preview { border: none; font-size: 12px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <strong>NIR</strong>
+        <span>Passagem de plantão e regulação</span>
+      </div>
+      <nav class="nav" id="nav"></nav>
+      <div class="side-note">
+        Dados reais devem ficar somente na planilha privada. O modo local usa registros sintéticos para teste.
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div>
+          <h1 id="pageTitle">Painel do plantão</h1>
+          <small id="pageSubtitle">Núcleo Interno de Regulação</small>
+        </div>
+        <div class="toolbar">
+          <span class="status-pill closed" id="shiftBadge"><span class="status-dot"></span>Sem plantão ativo</span>
+          <button class="btn" id="btnRefresh" type="button">Atualizar</button>
+          <button class="btn btn-primary" id="btnOpenShift" type="button">Abrir plantão</button>
+          <button class="btn btn-danger" id="btnCloseShift" type="button">Encerrar</button>
+        </div>
+      </header>
+
+      <section class="content" id="content"></section>
+    </main>
+  </div>
+
+  <section class="drawer" id="drawer">
+    <div class="drawer-backdrop" data-close-drawer></div>
+    <div class="drawer-panel">
+      <header class="drawer-header">
+        <div>
+          <strong id="drawerTitle">Registro</strong>
+          <div id="drawerSubtitle" style="color: var(--muted); font-size: 12px;"></div>
+        </div>
+        <button class="btn btn-small" data-close-drawer type="button">Fechar</button>
+      </header>
+      <form id="drawerForm">
+        <div class="drawer-body" id="drawerBody"></div>
+        <footer class="drawer-footer">
+          <button class="btn" data-close-drawer type="button">Cancelar</button>
+          <button class="btn btn-primary" type="submit">Salvar</button>
+        </footer>
+      </form>
+    </div>
+  </section>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    const hasAppsScript = typeof google !== "undefined" && google.script && google.script.run;
+
+    const NAV_ITEMS = [
+      ["dashboard", "▦", "Painel"],
+      ["report", "▤", "Relatório"],
+      ["regulations", "⇄", "Regulação"],
+      ["beds", "▥", "UIB / Leitos"],
+      ["procedures", "□", "Procedimentos"],
+      ["icu", "↑", "UTI / SRPA"],
+      ["blocks", "×", "Bloqueios"],
+      ["audit", "≡", "Auditoria"]
+    ];
+
+    const MODULES = {
+      regulations: {
+        title: "Regulação e fila Dona Libânia",
+        subtitle: "CRL, SAMU, local/SIREG, status, aceite, chegada e desfecho",
+        server: "regulations",
+        columns: ["origem_regulacao", "fastmedic", "paciente_alias", "data_solicitacao", "especialidade", "unidade_origem", "status", "avaliado_por", "justificativa", "observacao"],
+        fields: [
+          ["origem_regulacao", "Origem", "select", ["CRL", "SAMU", "LOCAL", "SIREG", "AMBULATORIO"]],
+          ["fastmedic", "Fastmedic", "text"],
+          ["prontuario", "Prontuário", "text"],
+          ["paciente_alias", "Identificação segura", "text"],
+          ["data_solicitacao", "Data", "date"],
+          ["turno", "Turno", "select", ["MT", "SN"]],
+          ["ads", "ADS / regional", "text"],
+          ["municipio", "Município", "text"],
+          ["unidade_origem", "Unidade de origem", "text"],
+          ["especialidade", "Especialidade", "select-specialty"],
+          ["status", "Status", "select-status"],
+          ["avaliado_por", "Avaliado por", "text"],
+          ["justificativa", "Justificativa", "text"],
+          ["observacao", "Observação", "textarea"],
+          ["vaga_dada_em", "Vaga dada em", "datetime-local"],
+          ["reservado_em", "Reservado em", "datetime-local"],
+          ["chegou_em", "Chegou em", "datetime-local"],
+          ["internado_em", "Internado em", "datetime-local"],
+          ["cancelado_em", "Cancelado em", "datetime-local"],
+          ["prioridade", "Prioridade", "select", ["baixa", "media", "alta", "critica"]],
+          ["sincronizacao", "Sincronização", "select", ["", "ENVIADO", "SINCRONIZADO", "PENDENTE"]]
+        ]
+      },
+      beds: {
+        title: "UIB, leitos, permanência e transferências",
+        subtitle: "Ocupação por unidade, leito errado por especialidade, isolamento, desfecho e permanência",
+        server: "beds",
+        columns: ["unidade", "leito", "status_leito", "paciente_alias", "especialidade_destino", "permanencia_dias", "isolamento", "pendencia", "transferir_para", "desfecho"],
+        fields: [
+          ["unidade", "Unidade", "select", ["UIB Vascular", "UIB Onco/Hemato", "UIB Cirúrgica", "UIB Clínica", "UIB Obstétrica", "UIB Cardio/Ped", "SRPA", "UTI"]],
+          ["leito", "Leito", "text"],
+          ["status_leito", "Status do leito", "select", ["LIVRE", "RESERVADO", "FALTA_CHEGAR", "INTERNADO", "BLOQUEADO"]],
+          ["paciente_alias", "Identificação segura", "text"],
+          ["prontuario", "Prontuário", "text"],
+          ["fastmedic", "Fastmedic", "text"],
+          ["data_internacao", "Data de internação", "date"],
+          ["especialidade_origem", "Especialidade/origem", "text"],
+          ["especialidade_destino", "Especialidade destino", "select-specialty"],
+          ["isolamento", "Isolamento", "select", ["", "Contato", "Respiratório", "Reverso", "Gotículas"]],
+          ["patologia", "Patologia", "text"],
+          ["permanencia_dias", "Permanência (dias)", "number"],
+          ["pendencia", "Pendência", "textarea"],
+          ["transferir_para", "Transferir para", "text"],
+          ["desfecho", "Desfecho", "select", ["", "ALTA", "OBITO", "TRANSFERIDO", "PERMANECE", "CANCELADO"]],
+          ["observacao", "Observação", "textarea"]
+        ]
+      },
+      procedures: {
+        title: "Procedimentos, exames, HD e rede externa",
+        subtitle: "Imagem, endoscopia, vascular/radio/urologia, hemodiálise, SAD/EMAD/CCC",
+        server: "procedures",
+        columns: ["tipo", "paciente_alias", "fastmedic", "origem", "apto_medico", "avaliado_por", "procedimento", "data_programacao", "hora_programacao", "status", "observacao"],
+        fields: [
+          ["tipo", "Tipo", "select", ["Imagem", "Endoscopia", "Vascular", "Radiointervenção", "Urologia", "Hemodiálise", "Transferência externa", "SAD/EMAD/CCC"]],
+          ["paciente_alias", "Identificação segura", "text"],
+          ["fastmedic", "Fastmedic", "text"],
+          ["origem", "Origem", "text"],
+          ["apto_medico", "Apto médico", "select", ["", "SIM", "NÃO", "PENDENTE"]],
+          ["judicial", "Judicial", "select", ["", "SIM", "NÃO"]],
+          ["avaliado_por", "Avaliado por", "text"],
+          ["agendado_por", "Agendado por", "text"],
+          ["procedimento", "Procedimento", "text"],
+          ["data_programacao", "Data programação", "date"],
+          ["hora_programacao", "Hora", "time"],
+          ["status", "Status", "select", ["PENDENTE", "AGENDADO", "REAGENDADO", "REALIZADO", "CANCELADO", "NEGADO"]],
+          ["ultimo_contato", "Último contato", "date"],
+          ["observacao", "Observação", "textarea"]
+        ]
+      },
+      icu: {
+        title: "UTI, SRPA e altas com leito",
+        subtitle: "Pedidos de UTI, SRPA aguardando leito, altas 24h e comunicação",
+        server: "icu",
+        columns: ["tipo", "prontuario", "paciente_alias", "leito_atual", "especialidade", "status", "destino", "comunicado_hora", "observacao"],
+        fields: [
+          ["tipo", "Tipo", "select", ["PEDIDO_UTI", "SRPA_AGUARDANDO_LEITO", "ALTA_UTI_AGUARDANDO_LEITO", "ALTA_UTI_COM_LEITO"]],
+          ["prontuario", "Prontuário", "text"],
+          ["paciente_alias", "Identificação segura", "text"],
+          ["leito_atual", "Leito atual", "text"],
+          ["especialidade", "Especialidade", "select-specialty"],
+          ["status", "Status", "select", ["AGUARDA", "ALTA_24H", "CONCLUIDO", "CANCELADO", "PENDENTE"]],
+          ["destino", "Destino", "text"],
+          ["comunicado_hora", "Comunicado / hora", "text"],
+          ["observacao", "Observação", "textarea"]
+        ]
+      },
+      blocks: {
+        title: "Bloqueios, manutenção, isolamento e ectópicos",
+        subtitle: "Leitos indisponíveis e pacientes fora da unidade ideal",
+        server: "blocks",
+        columns: ["tipo_bloqueio", "unidade", "leito", "paciente_alias", "motivo", "data_inicio", "previsao", "status", "observacao"],
+        fields: [
+          ["tipo_bloqueio", "Tipo", "select", ["MANUTENCAO", "ISOLAMENTO", "ECTOPICO", "RESERVA_TECNICA"]],
+          ["unidade", "Unidade", "text"],
+          ["leito", "Leito", "text"],
+          ["paciente_alias", "Identificação segura", "text"],
+          ["motivo", "Motivo", "text"],
+          ["data_inicio", "Data início", "date"],
+          ["previsao", "Previsão", "date"],
+          ["status", "Status", "select", ["ABERTO", "EM_ANDAMENTO", "ENCERRADO"]],
+          ["observacao", "Observação", "textarea"],
+          ["encerrado_em", "Encerrado em", "datetime-local"]
+        ]
+      }
+    };
+
+    const DEFAULT_OPTIONS = {
+      statuses: ["NOVO", "EM_AVALIACAO", "AGUARDANDO_REGULACAO", "RESERVADO", "FALTA_CHEGAR", "INTERNADO", "NEGADO", "CANCELADO", "AGENDADO", "REAGENDADO", "REALIZADO", "CONCLUIDO", "PENDENTE", "LIVRE", "BLOQUEADO", "ALTA_24H", "AGUARDA_LEITO"],
+      specialties: ["Clinica Medica", "Geriatria", "Reumatologia", "Pneumologia", "Hematologia", "Oncologia Clinica", "Cirurgia Oncologica", "Cirurgia Geral", "Coloproctologia", "Cirurgia Digestiva", "Cirurgia Ginecologica", "Cabeca e Pescoco", "Cirurgia Vascular", "Urologia", "Ortopedia", "Obstetricia", "UCINCO", "UTI Neonatal", "UTI Adulto", "Cardiopediatria", "Cirurgia Toracica", "Exame", "Hemodialise", "SAD/EMAD/CCC"],
+      origins: ["CRL", "SAMU", "LOCAL", "SIREG", "AMBULATORIO"]
+    };
+
+    const state = {
+      view: "dashboard",
+      app: null,
+      filters: {
+        dateFrom: "",
+        dateTo: "",
+        turno: "TODOS",
+        search: "",
+        onlyPending: false
+      },
+      tableRows: {},
+      report: null,
+      editing: null
+    };
+
+    const el = {
+      nav: document.getElementById("nav"),
+      content: document.getElementById("content"),
+      pageTitle: document.getElementById("pageTitle"),
+      pageSubtitle: document.getElementById("pageSubtitle"),
+      shiftBadge: document.getElementById("shiftBadge"),
+      toast: document.getElementById("toast"),
+      drawer: document.getElementById("drawer"),
+      drawerTitle: document.getElementById("drawerTitle"),
+      drawerSubtitle: document.getElementById("drawerSubtitle"),
+      drawerBody: document.getElementById("drawerBody"),
+      drawerForm: document.getElementById("drawerForm")
+    };
+
+    init();
+
+    function init() {
+      renderNav();
+      bindGlobalActions();
+      loadState();
+    }
+
+    function renderNav() {
+      el.nav.innerHTML = NAV_ITEMS.map(([key, icon, label]) => `
+        <button type="button" data-view="${key}" class="${state.view === key ? "active" : ""}">
+          <span>${icon}</span><span>${label}</span>
+        </button>
+      `).join("");
+      el.nav.querySelectorAll("button").forEach(button => {
+        button.addEventListener("click", () => {
+          state.view = button.dataset.view;
+          renderNav();
+          render();
+        });
+      });
+    }
+
+    function bindGlobalActions() {
+      document.getElementById("btnRefresh").addEventListener("click", loadState);
+      document.getElementById("btnOpenShift").addEventListener("click", () => openShiftDrawer());
+      document.getElementById("btnCloseShift").addEventListener("click", closeShift);
+      document.querySelectorAll("[data-close-drawer]").forEach(node => {
+        node.addEventListener("click", closeDrawer);
+      });
+      el.drawerForm.addEventListener("submit", submitDrawer);
+    }
+
+    async function loadState() {
+      const res = await server("getAppState", { filters: compactFilters() });
+      if (!res.ok) return toast(res.error.message || "Erro ao carregar.");
+      state.app = res.data;
+      updateShiftBadge();
+      render();
+    }
+
+    function updateShiftBadge() {
+      const shift = state.app && state.app.activeShift;
+      if (!shift) {
+        el.shiftBadge.classList.add("closed");
+        el.shiftBadge.innerHTML = '<span class="status-dot"></span>Sem plantão ativo';
+        return;
+      }
+      el.shiftBadge.classList.remove("closed");
+      el.shiftBadge.innerHTML = `<span class="status-dot"></span>${shift.data || "-"} · ${shift.turno || "-"} · aberto`;
+    }
+
+    function render() {
+      const view = state.view;
+      const navItem = NAV_ITEMS.find(item => item[0] === view);
+      el.pageTitle.textContent = navItem ? navItem[2] : "NIR";
+      el.pageSubtitle.textContent = subtitleFor(view);
+
+      if (!state.app) {
+        el.content.innerHTML = '<div class="empty">Carregando...</div>';
+        return;
+      }
+
+      if (view === "dashboard") renderDashboard();
+      else if (view === "report") renderReport();
+      else if (view === "audit") renderAudit();
+      else renderModule(view);
+    }
+
+    function subtitleFor(view) {
+      if (view === "dashboard") return "Leitura rápida do plantão e dos gargalos";
+      if (view === "report") return "Gerador diário com filtros de troca de plantão";
+      if (view === "audit") return "Histórico e governança operacional";
+      return MODULES[view] ? MODULES[view].subtitle : "Núcleo Interno de Regulação";
+    }
+
+    function renderFilterBand(extra = "") {
+      return `
+        <section class="surface">
+          <div class="surface-body">
+            <div class="filter-band">
+              <div class="field">
+                <label>De</label>
+                <input class="input" type="date" id="filterDateFrom" value="${esc(state.filters.dateFrom)}">
+              </div>
+              <div class="field">
+                <label>Até</label>
+                <input class="input" type="date" id="filterDateTo" value="${esc(state.filters.dateTo)}">
+              </div>
+              <div class="field">
+                <label>Turno</label>
+                <select class="select" id="filterTurno">
+                  ${["TODOS", "MT", "SN"].map(v => `<option ${state.filters.turno === v ? "selected" : ""}>${v}</option>`).join("")}
+                </select>
+              </div>
+              <div class="field">
+                <label>Busca</label>
+                <input class="input" type="search" id="filterSearch" value="${esc(state.filters.search)}" placeholder="nome seguro, fast, unidade...">
+              </div>
+              <div class="field">
+                <label>Pendências</label>
+                <select class="select" id="filterOnlyPending">
+                  <option value="false" ${!state.filters.onlyPending ? "selected" : ""}>Todos</option>
+                  <option value="true" ${state.filters.onlyPending ? "selected" : ""}>Só abertas</option>
+                </select>
+              </div>
+              <div class="toolbar">
+                <button class="btn btn-primary" id="btnApplyFilters" type="button">Filtrar</button>
+                <button class="btn" id="btnClearFilters" type="button">Limpar</button>
+              </div>
+              ${extra}
+            </div>
+          </div>
+        </section>
+      `;
+    }
+
+    function bindFilters() {
+      document.getElementById("btnApplyFilters").addEventListener("click", () => {
+        state.filters.dateFrom = document.getElementById("filterDateFrom").value;
+        state.filters.dateTo = document.getElementById("filterDateTo").value;
+        state.filters.turno = document.getElementById("filterTurno").value;
+        state.filters.search = document.getElementById("filterSearch").value;
+        state.filters.onlyPending = document.getElementById("filterOnlyPending").value === "true";
+        loadState();
+      });
+      document.getElementById("btnClearFilters").addEventListener("click", () => {
+        state.filters = { dateFrom: "", dateTo: "", turno: "TODOS", search: "", onlyPending: false };
+        loadState();
+      });
+    }
+
+    function renderDashboard() {
+      const d = state.app.dashboard;
+      const k = d.kpis;
+      el.content.innerHTML = `
+        ${renderFilterBand()}
+        <section class="stat-row">
+          ${stat("Regulações", k.regulacoes, `${k.pendentes} pendentes`)}
+          ${stat("Reservados", k.reservados, "acompanhar chegada")}
+          ${stat("Internados", k.internados, "desfecho concluído")}
+          ${stat("Bloqueios", k.bloqueios_abertos, "leitos indisponíveis")}
+          ${stat("Altas UTI", k.altas_uti_aguardando_leito, "aguardando leito")}
+        </section>
+        <section class="split">
+          <div class="grid">
+            ${renderChartSurface("Regulações por especialidade", d.bySpecialty)}
+            ${renderTableSurface("Últimas regulações", d.latestRegulations, MODULES.regulations.columns, "regulations")}
+          </div>
+          <div class="grid">
+            ${renderChartSurface("Status da regulação", d.byStatus)}
+            ${renderTableSurface("UIB / leitos em atenção", d.pendingBeds, MODULES.beds.columns.slice(0, 7), "beds")}
+          </div>
+        </section>
+      `;
+      bindFilters();
+      bindTableActions();
+    }
+
+    function stat(label, value, note) {
+      return `<div class="stat"><span>${esc(label)}</span><strong>${Number(value || 0)}</strong><small>${esc(note || "")}</small></div>`;
+    }
+
+    function renderChartSurface(title, rows) {
+      const max = Math.max(1, ...(rows || []).map(r => r.count));
+      const body = rows && rows.length
+        ? `<div class="chart-list">${rows.slice(0, 12).map(row => `
+            <div class="bar-line">
+              <div class="bar-label" title="${esc(row.label)}">${esc(row.label)}</div>
+              <div class="bar-track"><div class="bar-fill" style="width:${Math.max(4, row.count / max * 100)}%"></div></div>
+              <strong>${row.count}</strong>
+            </div>
+          `).join("")}</div>`
+        : `<div class="empty">Sem dados no filtro.</div>`;
+      return `
+        <section class="surface">
+          <div class="surface-header"><div class="surface-title"><h2>${esc(title)}</h2><span>Contagem no filtro atual</span></div></div>
+          <div class="surface-body">${body}</div>
+        </section>
+      `;
+    }
+
+    async function renderModule(moduleKey) {
+      const meta = MODULES[moduleKey];
+      const res = await server("listRecords", { module: meta.server, filters: compactFilters() });
+      const rows = res.ok ? res.data.rows : [];
+      state.tableRows[moduleKey] = rows;
+      el.content.innerHTML = `
+        ${renderFilterBand()}
+        ${renderTableSurface(meta.title, rows, meta.columns, moduleKey, true)}
+      `;
+      bindFilters();
+      bindTableActions();
+    }
+
+    function renderTableSurface(title, rows, columns, moduleKey, includeAdd = false) {
+      const meta = MODULES[moduleKey];
+      const addButton = includeAdd ? `<button class="btn btn-primary" data-add="${moduleKey}" type="button">Novo registro</button>` : "";
+      const body = rows && rows.length ? `
+        <div class="table-wrap">
+          <table>
+            <thead><tr>${columns.map(c => `<th>${label(c)}</th>`).join("")}<th>Ações</th></tr></thead>
+            <tbody>
+              ${rows.map(row => `
+                <tr>
+                  ${columns.map(c => `<td>${formatCell(c, row[c])}</td>`).join("")}
+                  <td><button class="btn btn-small" data-edit="${moduleKey}" data-id="${esc(row.id)}" type="button">Editar</button></td>
+                </tr>
+              `).join("")}
+            </tbody>
+          </table>
+        </div>
+      ` : `<div class="empty">Sem registros neste filtro.</div>`;
+      return `
+        <section class="surface">
+          <div class="surface-header">
+            <div class="surface-title"><h2>${esc(title)}</h2><span>${esc(meta ? meta.subtitle : "Dados operacionais")}</span></div>
+            <div class="toolbar">${addButton}</div>
+          </div>
+          <div class="surface-body">${body}</div>
+        </section>
+      `;
+    }
+
+    function bindTableActions() {
+      document.querySelectorAll("[data-add]").forEach(btn => {
+        btn.addEventListener("click", () => openRecordDrawer(btn.dataset.add));
+      });
+      document.querySelectorAll("[data-edit]").forEach(btn => {
+        const moduleKey = btn.dataset.edit;
+        const row = (state.tableRows[moduleKey] || state.app.dashboard.latestRegulations || []).find(r => r.id === btn.dataset.id)
+          || Object.values(state.tableRows).flat().find(r => r.id === btn.dataset.id);
+        btn.addEventListener("click", () => openRecordDrawer(moduleKey, row));
+      });
+    }
+
+    function renderReport() {
+      const report = state.report;
+      el.content.innerHTML = `
+        ${renderFilterBand(`
+          <div class="field">
+            <label>Módulo</label>
+            <select class="select" id="reportModule">
+              <option value="">Todos</option>
+              ${Object.keys(MODULES).map(key => `<option value="${key}">${esc(MODULES[key].title)}</option>`).join("")}
+            </select>
+          </div>
+        `)}
+        <section class="surface">
+          <div class="surface-header">
+            <div class="surface-title">
+              <h2>Relatório diário de troca de plantão</h2>
+              <span>Gera resumo por filtros e mantém linguagem pronta para passagem</span>
+            </div>
+            <div class="toolbar">
+              <button class="btn btn-primary" id="btnGenerateReport" type="button">Gerar relatório</button>
+              <button class="btn" id="btnCopyReport" type="button">Copiar texto</button>
+              <button class="btn" id="btnPrintReport" type="button">Imprimir/PDF</button>
+            </div>
+          </div>
+          <div class="surface-body">
+            <div class="report-preview" id="reportPreview">${esc(report ? report.text : "Defina os filtros e clique em Gerar relatório.")}</div>
+          </div>
+        </section>
+      `;
+      bindFilters();
+      document.getElementById("btnGenerateReport").addEventListener("click", generateReport);
+      document.getElementById("btnCopyReport").addEventListener("click", copyReport);
+      document.getElementById("btnPrintReport").addEventListener("click", () => window.print());
+    }
+
+    async function generateReport() {
+      const res = await server("generateReport", { filters: compactFilters() });
+      if (!res.ok) return toast(res.error.message || "Erro ao gerar relatório.");
+      state.report = res.data;
+      renderReport();
+      toast("Relatório gerado.");
+    }
+
+    async function copyReport() {
+      if (!state.report || !state.report.text) return toast("Gere o relatório primeiro.");
+      await navigator.clipboard.writeText(state.report.text);
+      toast("Texto copiado.");
+    }
+
+    function renderAudit() {
+      const active = state.app.activeShift;
+      el.content.innerHTML = `
+        <section class="surface">
+          <div class="surface-header">
+            <div class="surface-title"><h2>Governança mínima</h2><span>O que este app precisa garantir para ser confiável</span></div>
+          </div>
+          <div class="surface-body grid grid-2">
+            <div>
+              <h3>Plantão</h3>
+              <p>Plantão ativo: <strong>${active ? `${esc(active.data)} ${esc(active.turno)}` : "nenhum"}</strong></p>
+              <p>Ao encerrar, o sistema salva snapshot do relatório e limpa o plantão ativo.</p>
+            </div>
+            <div>
+              <h3>Auditoria</h3>
+              <p>Registros não são apagados fisicamente; são arquivados com deleted_at.</p>
+              <p>Alterações relevantes geram linha em NIR_LOG com antes/depois.</p>
+            </div>
+            <div>
+              <h3>Privacidade</h3>
+              <p>Para apresentação pública, use paciente_alias. Dados reais devem ficar no Google Sheets privado.</p>
+            </div>
+            <div>
+              <h3>Próximo salto</h3>
+              <p>Quando o uso crescer, migrar de Sheets para banco relacional com autenticação institucional.</p>
+            </div>
+          </div>
+        </section>
+      `;
+    }
+
+    function openRecordDrawer(moduleKey, row = {}) {
+      const meta = MODULES[moduleKey];
+      state.editing = { type: "record", moduleKey, row };
+      el.drawerTitle.textContent = row.id ? "Editar registro" : "Novo registro";
+      el.drawerSubtitle.textContent = meta.title;
+      el.drawerBody.innerHTML = renderFields(meta.fields, row);
+      openDrawer();
+    }
+
+    function openShiftDrawer() {
+      const row = state.app && state.app.activeShift ? state.app.activeShift : { data: today(), turno: "MT" };
+      state.editing = { type: "shift", row };
+      el.drawerTitle.textContent = row.id ? "Equipe do plantão" : "Abrir plantão";
+      el.drawerSubtitle.textContent = "Data, turno, ilhas e responsáveis";
+      el.drawerBody.innerHTML = renderFields([
+        ["data", "Data", "date"],
+        ["turno", "Turno", "select", ["MT", "SN"]],
+        ["medico_ilha_1", "Médico ilha 1", "text"],
+        ["medico_ilha_2", "Médico ilha 2", "text"],
+        ["medico_ilha_3", "Médico ilha 3", "text"],
+        ["enfermeiro_ilha_1", "Enfermeiro ilha 1", "text"],
+        ["enfermeiro_ilha_2", "Enfermeiro ilha 2", "text"],
+        ["enfermeiro_ilha_3", "Enfermeiro ilha 3", "text"],
+        ["adm_ilha_1", "ADM ilha 1", "text"],
+        ["adm_ilha_2", "ADM ilha 2", "text"],
+        ["adm_ilha_3", "ADM ilha 3", "text"],
+        ["coordenacao", "Coordenação", "text"],
+        ["observacao", "Observação", "textarea"]
+      ], row);
+      openDrawer();
+    }
+
+    function renderFields(fields, row) {
+      return `<div class="grid grid-2">${fields.map(field => renderField(field, row)).join("")}</div>`;
+    }
+
+    function renderField(field, row) {
+      const [name, title, type, options] = field;
+      const value = row && row[name] ? row[name] : "";
+      if (type === "textarea") {
+        return `<div class="field" style="grid-column: 1 / -1;"><label>${esc(title)}</label><textarea class="textarea" name="${name}">${esc(value)}</textarea></div>`;
+      }
+      if (type === "select" || type === "select-status" || type === "select-specialty") {
+        const opts = type === "select-status" ? getOptions().statuses : type === "select-specialty" ? getOptions().specialties : options;
+        return `<div class="field"><label>${esc(title)}</label><select class="select" name="${name}">
+          <option value=""></option>
+          ${(opts || []).map(opt => `<option value="${esc(opt)}" ${String(value) === String(opt) ? "selected" : ""}>${esc(opt)}</option>`).join("")}
+        </select></div>`;
+      }
+      return `<div class="field"><label>${esc(title)}</label><input class="input" type="${type}" name="${name}" value="${esc(value)}"></div>`;
+    }
+
+    function openDrawer() {
+      el.drawer.classList.add("open");
+    }
+
+    function closeDrawer() {
+      el.drawer.classList.remove("open");
+      state.editing = null;
+    }
+
+    async function submitDrawer(event) {
+      event.preventDefault();
+      if (!state.editing) return;
+      const formData = new FormData(el.drawerForm);
+      const data = Object.fromEntries(formData.entries());
+      if (state.editing.row && state.editing.row.id) data.id = state.editing.row.id;
+
+      if (state.editing.type === "shift") {
+        const fn = state.app && state.app.activeShift ? "updateShift" : "startShift";
+        const res = await server(fn, data);
+        if (!res.ok) return toast(res.error.message || "Erro no plantão.");
+        closeDrawer();
+        toast("Plantão salvo.");
+        await loadState();
+        return;
+      }
+
+      const res = await server("saveRecord", { module: state.editing.moduleKey, record: data });
+      if (!res.ok) return toast(res.error.message || "Erro ao salvar.");
+      closeDrawer();
+      toast("Registro salvo.");
+      await loadState();
+      if (state.view !== "dashboard") renderModule(state.view);
+    }
+
+    async function closeShift() {
+      if (!state.app || !state.app.activeShift) return toast("Nenhum plantão ativo.");
+      if (!confirm("Encerrar o plantão e salvar snapshot do relatório?")) return;
+      const res = await server("closeShift", { filters: compactFilters() });
+      if (!res.ok) return toast(res.error.message || "Erro ao encerrar.");
+      state.report = res.data.report;
+      toast("Plantão encerrado e relatório salvo.");
+      await loadState();
+    }
+
+    function compactFilters() {
+      const f = Object.assign({}, state.filters);
+      Object.keys(f).forEach(key => {
+        if (f[key] === "" || f[key] === null || f[key] === undefined) delete f[key];
+      });
+      return f;
+    }
+
+    function getOptions() {
+      return state.app && state.app.options ? state.app.options : DEFAULT_OPTIONS;
+    }
+
+    function label(key) {
+      return key
+        .replace(/_/g, " ")
+        .replace(/\b\w/g, s => s.toUpperCase())
+        .replace("Uib", "UIB")
+        .replace("Srpa", "SRPA");
+    }
+
+    function formatCell(key, value) {
+      if (!value) return "";
+      if (key === "status" || key === "status_leito" || key === "tipo_bloqueio") {
+        const type = /NEGADO|CANCELADO|BLOQUEADO/.test(value) ? "danger" : /RESERVADO|PENDENTE|AGUARDA|FALTA/.test(value) ? "warn" : /INTERNADO|CONCLUIDO|REALIZADO|LIVRE/.test(value) ? "ok" : "info";
+        return `<span class="tag ${type}">${esc(value)}</span>`;
+      }
+      return esc(value);
+    }
+
+    function esc(value) {
+      return String(value ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+
+    function today() {
+      return new Date().toISOString().slice(0, 10);
+    }
+
+    function toast(message) {
+      el.toast.textContent = message;
+      el.toast.classList.add("show");
+      clearTimeout(toast.timer);
+      toast.timer = setTimeout(() => el.toast.classList.remove("show"), 2600);
+    }
+
+    function server(fn, payload) {
+      if (hasAppsScript) {
+        return new Promise(resolve => {
+          google.script.run
+            .withSuccessHandler(resolve)
+            .withFailureHandler(error => resolve({ ok: false, error: { message: error.message || String(error) } }))
+            [fn](payload || {});
+        });
+      }
+      return Promise.resolve(mockServer(fn, payload || {}));
+    }
+
+    function mockServer(fn, payload) {
+      const store = getStore();
+      const api = {
+        getAppState() {
+          return { ok: true, data: buildMockState(store, payload.filters || {}) };
+        },
+        listRecords() {
+          return { ok: true, data: { module: payload.module, rows: filterMock(store[payload.module] || [], payload.filters || {}) } };
+        },
+        startShift() {
+          store.activeShift = Object.assign({ id: "PLT-DEMO", status: "ABERTO", aberto_em: new Date().toISOString() }, payload);
+          saveStore(store);
+          return { ok: true, data: { activeShift: store.activeShift } };
+        },
+        updateShift() {
+          store.activeShift = Object.assign({}, store.activeShift || {}, payload);
+          saveStore(store);
+          return { ok: true, data: { activeShift: store.activeShift } };
+        },
+        closeShift() {
+          const report = buildMockReport(store, payload.filters || {});
+          store.reports.push(report);
+          store.activeShift = null;
+          saveStore(store);
+          return { ok: true, data: { activeShift: null, report } };
+        },
+        saveRecord() {
+          const list = store[payload.module] || [];
+          const record = Object.assign({}, payload.record);
+          record.id = record.id || `${payload.module.toUpperCase()}-${Math.random().toString(16).slice(2, 8).toUpperCase()}`;
+          record.updated_at = new Date().toISOString();
+          const index = list.findIndex(item => item.id === record.id);
+          if (index >= 0) list[index] = Object.assign({}, list[index], record);
+          else list.push(record);
+          store[payload.module] = list;
+          saveStore(store);
+          return { ok: true, data: { record } };
+        },
+        generateReport() {
+          return { ok: true, data: buildMockReport(store, payload.filters || {}) };
+        }
+      };
+      return api[fn] ? api[fn]() : { ok: false, error: { message: `Função não encontrada: ${fn}` } };
+    }
+
+    function getStore() {
+      const raw = localStorage.getItem("nir-demo-store");
+      if (raw) return JSON.parse(raw);
+      const store = demoStore();
+      saveStore(store);
+      return store;
+    }
+
+    function saveStore(store) {
+      localStorage.setItem("nir-demo-store", JSON.stringify(store));
+    }
+
+    function demoStore() {
+      return {
+        activeShift: {
+          id: "PLT-DEMO",
+          data: today(),
+          turno: "MT",
+          status: "ABERTO",
+          medico_ilha_1: "Dra. Exemplo A",
+          medico_ilha_2: "Dr. Exemplo B",
+          enfermeiro_ilha_1: "Enf. Exemplo A",
+          enfermeiro_ilha_2: "Enf. Exemplo B",
+          adm_ilha_1: "Adm. Exemplo"
+        },
+        reports: [],
+        regulations: [
+          { id: "REG-001", origem_regulacao: "CRL", fastmedic: "FM-DEMO-001", paciente_alias: "Paciente 001", data_solicitacao: today(), turno: "MT", ads: "ADS Fortaleza", municipio: "Fortaleza", unidade_origem: "Hospital de Origem A", especialidade: "Obstetricia", status: "RESERVADO", avaliado_por: "Dr. Exemplo B", justificativa: "Não se aplica", observacao: "Aguardar chegada e confirmar leito.", reservado_em: new Date().toISOString(), prioridade: "alta" },
+          { id: "REG-002", origem_regulacao: "SAMU", fastmedic: "FM-DEMO-002", paciente_alias: "Paciente 002", data_solicitacao: today(), turno: "MT", ads: "ADS Sertão", municipio: "Município B", unidade_origem: "UPA Exemplo", especialidade: "Cirurgia Vascular", status: "NEGADO", avaliado_por: "Dra. Exemplo A", justificativa: "Dentro do perfil, mas sem vagas", observacao: "Manter em tela para reavaliação.", prioridade: "media" },
+          { id: "REG-003", origem_regulacao: "LOCAL", fastmedic: "FM-DEMO-003", paciente_alias: "Paciente 003", data_solicitacao: today(), turno: "SN", municipio: "Fortaleza", unidade_origem: "Ambulatório", especialidade: "Oncologia Clinica", status: "INTERNADO", avaliado_por: "Dr. Exemplo C", justificativa: "Não se aplica", observacao: "Internação local concluída." }
+        ],
+        beds: [
+          { id: "BED-001", unidade: "UIB Vascular", leito: "L01", status_leito: "INTERNADO", paciente_alias: "Paciente 004", data_internacao: today(), especialidade_origem: "Cirurgia Vascular", especialidade_destino: "Cirurgia Vascular", isolamento: "", pendencia: "Aguardar procedimento", permanencia_dias: 2 },
+          { id: "BED-002", unidade: "UIB Onco/Hemato", leito: "L04", status_leito: "RESERVADO", paciente_alias: "Paciente 005", especialidade_destino: "Oncologia Clinica", pendencia: "Falta chegar no leito", permanencia_dias: 0 }
+        ],
+        procedures: [
+          { id: "PROC-001", tipo: "Imagem", paciente_alias: "Paciente 006", fastmedic: "FM-DEMO-006", origem: "Hospital Externo", apto_medico: "SIM", avaliado_por: "Dra. Exemplo A", agendado_por: "Adm. Exemplo", procedimento: "TC de crânio", data_programacao: today(), hora_programacao: "08:00", status: "AGENDADO", observacao: "Com sedação." }
+        ],
+        icu: [
+          { id: "UTI-001", tipo: "ALTA_UTI_AGUARDANDO_LEITO", prontuario: "PR-DEMO-001", paciente_alias: "Paciente 007", leito_atual: "UTI Adulto II", especialidade: "Cirurgia Geral", status: "ALTA_24H", observacao: "Aguardando leito de enfermaria." },
+          { id: "UTI-002", tipo: "SRPA_AGUARDANDO_LEITO", paciente_alias: "Paciente 008", leito_atual: "SRPA", especialidade: "Cirurgia Vascular", status: "AGUARDA", destino: "UIB Vascular" }
+        ],
+        blocks: [
+          { id: "BLQ-001", tipo_bloqueio: "MANUTENCAO", unidade: "Ala B", leito: "B511.01", motivo: "Manutenção predial", data_inicio: today(), status: "ABERTO", observacao: "Acompanhar reparo." }
+        ]
+      };
+    }
+
+    function buildMockState(store, filters) {
+      const regulations = filterMock(store.regulations, filters);
+      const beds = filterMock(store.beds, filters);
+      const procedures = filterMock(store.procedures, filters);
+      const icu = filterMock(store.icu, filters);
+      const blocks = filterMock(store.blocks, filters);
+      return {
+        activeShift: store.activeShift,
+        options: DEFAULT_OPTIONS,
+        generatedAt: new Date().toISOString(),
+        user: { email: "modo-demo@local" },
+        dashboard: {
+          kpis: kpis(regulations, beds, procedures, icu, blocks),
+          bySpecialty: group(regulations, "especialidade"),
+          byStatus: group(regulations, "status"),
+          byOrigin: group(regulations, "origem_regulacao"),
+          latestRegulations: regulations.slice().reverse(),
+          pendingBeds: beds.filter(row => row.status_leito !== "LIVRE"),
+          pendingProcedures: procedures.filter(row => !isFinal(row.status)),
+          icu,
+          blocks
+        }
+      };
+    }
+
+    function buildMockReport(store, filters) {
+      const app = buildMockState(store, filters);
+      const d = app.dashboard;
+      const lines = [
+        "RELATORIO DE PASSAGEM DE PLANTAO - NIR",
+        `Gerado em: ${new Date().toLocaleString("pt-BR")}`,
+        "",
+        "RESUMO",
+        `- Regulacoes no filtro: ${d.kpis.regulacoes}`,
+        `- Reservados: ${d.kpis.reservados} | Internados: ${d.kpis.internados} | Negados: ${d.kpis.negados} | Cancelados: ${d.kpis.cancelados}`,
+        `- Pendencias abertas: ${d.kpis.pendentes} | Procedimentos pendentes: ${d.kpis.procedimentos_pendentes}`,
+        `- Leitos ocupados/reservados em UIB: ${d.kpis.leitos_ocupados_ou_reservados} | Bloqueios abertos: ${d.kpis.bloqueios_abertos}`,
+        "",
+        "PENDENCIAS DE REGULACAO",
+        ...filterMock(store.regulations, filters).filter(row => !isFinal(row.status)).map(row => `- ${row.paciente_alias || row.fastmedic} | ${row.especialidade || "-"} | ${row.status || "-"} | ${row.observacao || ""}`),
+        "",
+        "UIB / LEITOS",
+        ...filterMock(store.beds, filters).map(row => `- ${row.unidade || "-"} ${row.leito || "-"} | ${row.paciente_alias || "-"} | ${row.status_leito || "-"} | ${row.pendencia || ""}`),
+        "",
+        "PROCEDIMENTOS E EXAMES",
+        ...filterMock(store.procedures, filters).filter(row => !isFinal(row.status)).map(row => `- ${row.tipo || "-"} | ${row.paciente_alias || "-"} | ${row.procedimento || "-"} | ${row.data_programacao || "-"} ${row.hora_programacao || ""} | ${row.status || "-"}`)
+      ];
+      return { id: "REL-DEMO", text: lines.join("\n"), kpis: d.kpis, generatedAt: new Date().toISOString() };
+    }
+
+    function filterMock(rows, filters) {
+      const f = filters || {};
+      const term = (f.search || "").toLowerCase();
+      return (rows || []).filter(row => {
+        if (f.turno && f.turno !== "TODOS" && row.turno && row.turno !== f.turno) return false;
+        if (f.onlyPending && isFinal(row.status || row.status_leito || row.desfecho)) return false;
+        if (term && JSON.stringify(row).toLowerCase().indexOf(term) === -1) return false;
+        if (f.dateFrom || f.dateTo) {
+          const date = row.data_solicitacao || row.data_programacao || row.data_internacao || row.data_inicio || "";
+          if (f.dateFrom && date < f.dateFrom) return false;
+          if (f.dateTo && date > f.dateTo) return false;
+        }
+        return true;
+      });
+    }
+
+    function kpis(regulations, beds, procedures, icu, blocks) {
+      return {
+        regulacoes: regulations.length,
+        reservados: regulations.filter(r => r.status === "RESERVADO").length,
+        internados: regulations.filter(r => r.status === "INTERNADO").length,
+        negados: regulations.filter(r => r.status === "NEGADO").length,
+        cancelados: regulations.filter(r => r.status === "CANCELADO").length,
+        pendentes: regulations.filter(r => !isFinal(r.status)).length,
+        leitos_ocupados_ou_reservados: beds.filter(r => r.status_leito !== "LIVRE").length,
+        procedimentos_pendentes: procedures.filter(r => !isFinal(r.status)).length,
+        altas_uti_aguardando_leito: icu.filter(r => r.tipo === "ALTA_UTI_AGUARDANDO_LEITO").length,
+        bloqueios_abertos: blocks.filter(r => r.status !== "ENCERRADO").length
+      };
+    }
+
+    function group(rows, key) {
+      const map = {};
+      rows.forEach(row => {
+        const label = row[key] || "Não informado";
+        map[label] = (map[label] || 0) + 1;
+      });
+      return Object.keys(map).map(label => ({ label, count: map[label] })).sort((a, b) => b.count - a.count);
+    }
+
+    function isFinal(status) {
+      return ["INTERNADO", "NEGADO", "CANCELADO", "CONCLUIDO", "REALIZADO", "ALTA", "OBITO", "TRANSFERIDO"].includes(String(status || "").toUpperCase());
+    }
+  </script>
+</body>
+</html>
