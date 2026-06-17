@@ -770,7 +770,8 @@
     const state = {
       view: "dashboard",
       app: null,
-      busy: false,
+      saving: false,
+      renderToken: 0,
       filters: {
         dateFrom: "",
         dateTo: "",
@@ -813,10 +814,8 @@
       `).join("");
       el.nav.querySelectorAll("button").forEach(button => {
         button.addEventListener("click", () => {
-          if (state.busy) return;
           if (state.view === button.dataset.view) return;
           state.view = button.dataset.view;
-          renderNav();
           render();
         });
       });
@@ -842,20 +841,14 @@
     }
 
     async function loadState() {
-      if (state.busy) return;
-      setBusy(true);
+      const btn = document.getElementById("btnRefresh");
+      if (btn) btn.textContent = "Aguarde…";
       const res = await server("getAppState", { filters: compactFilters() });
-      setBusy(false);
+      if (btn) btn.textContent = "Atualizar";
       if (!res.ok) return toast(res.error.message || "Erro ao carregar.");
       state.app = res.data;
       updateShiftBadge();
       render();
-    }
-
-    function setBusy(on) {
-      state.busy = on;
-      const btn = document.getElementById("btnRefresh");
-      if (btn) btn.textContent = on ? "Aguarde…" : "Atualizar";
     }
 
     function updateShiftBadge() {
@@ -871,6 +864,7 @@
 
     function render() {
       const view = state.view;
+      const token = ++state.renderToken;
       const navItem = NAV_ITEMS.find(item => item[0] === view);
       el.pageTitle.textContent = navItem ? navItem[2] : "NIR";
       el.pageSubtitle.textContent = subtitleFor(view);
@@ -883,8 +877,12 @@
 
       if (view === "dashboard") renderDashboard();
       else if (view === "report") renderReport();
-      else if (view === "audit") renderAudit();
-      else renderModule(view);
+      else if (view === "audit") renderAudit(token);
+      else renderModule(view, token);
+    }
+
+    function isStale(token) {
+      return token !== undefined && token !== state.renderToken;
     }
 
     function contentLoading() {
@@ -1009,14 +1007,11 @@
       `;
     }
 
-    async function renderModule(moduleKey) {
-      if (state.busy) return;
+    async function renderModule(moduleKey, token) {
       const meta = MODULES[moduleKey];
       contentLoading();
-      state.busy = true;
       const res = await server("listRecords", { module: meta.server, filters: compactFilters() });
-      state.busy = false;
-      if (state.view !== moduleKey) return;
+      if (isStale(token) || state.view !== moduleKey) return;
       const rows = res.ok ? res.data.rows : [];
       if (!res.ok) toast(res.error.message || "Erro ao carregar módulo.");
       state.tableRows[moduleKey] = rows;
@@ -1173,8 +1168,7 @@
       toast("Texto copiado.");
     }
 
-    async function renderAudit() {
-      if (state.busy) return;
+    async function renderAudit(token) {
       const active = state.app.activeShift;
       el.content.innerHTML = `
         <section class="surface">
@@ -1209,10 +1203,8 @@
           <div class="surface-body" id="auditLog"><div class="empty">Carregando histórico…</div></div>
         </section>
       `;
-      state.busy = true;
       const res = await server("listLog", { limit: 100 });
-      state.busy = false;
-      if (state.view !== "audit") return;
+      if (isStale(token) || state.view !== "audit") return;
       const rows = res.ok && res.data.rows ? res.data.rows : [];
       const target = document.getElementById("auditLog");
       if (!target) return;
@@ -1309,48 +1301,46 @@
 
     async function submitDrawer(event) {
       event.preventDefault();
-      if (!state.editing || state.busy) return;
+      if (!state.editing || state.saving) return;
       const formData = new FormData(el.drawerForm);
       const data = Object.fromEntries(formData.entries());
       if (state.editing.row && state.editing.row.id) data.id = state.editing.row.id;
 
       const saveBtn = el.drawerForm.querySelector('[type="submit"]');
-      if (saveBtn) saveBtn.textContent = "Salvando…";
-      state.busy = true;
-
-      if (state.editing.type === "shift") {
-        const fn = state.app && state.app.activeShift ? "updateShift" : "startShift";
-        const res = await server(fn, data);
-        state.busy = false;
-        if (saveBtn) saveBtn.textContent = "Salvar";
-        if (!res.ok) return toast(res.error.message || "Erro no plantão.");
+      const isShift = state.editing.type === "shift";
+      state.saving = true;
+      if (saveBtn) { saveBtn.textContent = "Salvando…"; saveBtn.disabled = true; }
+      try {
+        const res = isShift
+          ? await server(state.app && state.app.activeShift ? "updateShift" : "startShift", data)
+          : await server("saveRecord", { module: state.editing.moduleKey, record: data });
+        if (!res.ok) return toast(res.error.message || "Erro ao salvar.");
         closeDrawer();
-        toast("Plantão salvo.");
+        toast(isShift ? "Plantão salvo." : "Registro salvo.");
         await loadState();
-        return;
+      } finally {
+        state.saving = false;
+        if (saveBtn) { saveBtn.textContent = "Salvar"; saveBtn.disabled = false; }
       }
-
-      const res = await server("saveRecord", { module: state.editing.moduleKey, record: data });
-      state.busy = false;
-      if (saveBtn) saveBtn.textContent = "Salvar";
-      if (!res.ok) return toast(res.error.message || "Erro ao salvar.");
-      closeDrawer();
-      toast("Registro salvo.");
-      await loadState();
-      if (state.view !== "dashboard") renderModule(state.view);
     }
 
     async function closeShift() {
       if (!state.app || !state.app.activeShift) return toast("Nenhum plantão ativo.");
-      if (state.busy) return;
+      if (state.saving) return;
       if (!confirm("Encerrar o plantão e salvar snapshot do relatório?")) return;
-      setBusy(true);
-      const res = await server("closeShift", { filters: compactFilters() });
-      setBusy(false);
-      if (!res.ok) return toast(res.error.message || "Erro ao encerrar.");
-      state.report = res.data.report;
-      toast("Plantão encerrado e relatório salvo.");
-      await loadState();
+      const btn = document.getElementById("btnCloseShift");
+      state.saving = true;
+      if (btn) { btn.textContent = "Encerrando…"; btn.disabled = true; }
+      try {
+        const res = await server("closeShift", { filters: compactFilters() });
+        if (!res.ok) return toast(res.error.message || "Erro ao encerrar.");
+        state.report = res.data.report;
+        toast("Plantão encerrado e relatório salvo.");
+        await loadState();
+      } finally {
+        state.saving = false;
+        if (btn) { btn.textContent = "Encerrar"; btn.disabled = false; }
+      }
     }
 
     function compactFilters() {
@@ -1404,9 +1394,12 @@
     function server(fn, payload) {
       if (hasAppsScript) {
         return new Promise(resolve => {
+          let done = false;
+          const finish = value => { if (!done) { done = true; resolve(value); } };
+          const timer = setTimeout(() => finish({ ok: false, error: { message: "Tempo de resposta excedido. Tente novamente." } }), 30000);
           google.script.run
-            .withSuccessHandler(resolve)
-            .withFailureHandler(error => resolve({ ok: false, error: { message: error.message || String(error) } }))
+            .withSuccessHandler(value => { clearTimeout(timer); finish(value); })
+            .withFailureHandler(error => { clearTimeout(timer); finish({ ok: false, error: { message: error.message || String(error) } }); })
             [fn](payload || {});
         });
       }
