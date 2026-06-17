@@ -800,6 +800,10 @@
       tableRows: {},
       moduleCache: {},
       moduleRequests: {},
+      auditLogRows: [],
+      auditLogRequest: null,
+      reportGenerating: false,
+      reportRequest: null,
       report: null,
       editing: null
     };
@@ -1216,6 +1220,12 @@
 
     function renderReport() {
       const report = state.report;
+      const isGenerating = state.reportGenerating;
+      const previewText = report
+        ? report.text
+        : isGenerating
+          ? "Gerando relatório com os filtros atuais...\n\nAguarde um instante. A tela será atualizada automaticamente quando o texto estiver pronto."
+          : "Defina os filtros e clique em Gerar relatório.";
       el.content.innerHTML = `
         ${renderFilterBand(`
           <div class="field">
@@ -1233,13 +1243,14 @@
               <span>Gera resumo por filtros e mantém linguagem pronta para passagem</span>
             </div>
             <div class="toolbar">
-              <button class="btn btn-primary" id="btnGenerateReport" type="button">Gerar relatório</button>
-              <button class="btn" id="btnCopyReport" type="button">Copiar texto</button>
-              <button class="btn" id="btnPrintReport" type="button">Imprimir/PDF</button>
+              ${isGenerating ? '<span class="tag info">Gerando...</span>' : ""}
+              <button class="btn btn-primary" id="btnGenerateReport" type="button" ${isGenerating ? "disabled" : ""}>${isGenerating ? "Gerando..." : "Gerar relatório"}</button>
+              <button class="btn" id="btnCopyReport" type="button" ${report && report.text ? "" : "disabled"}>Copiar texto</button>
+              <button class="btn" id="btnPrintReport" type="button" ${report && report.text ? "" : "disabled"}>Imprimir/PDF</button>
             </div>
           </div>
           <div class="surface-body">
-            <div class="report-preview" id="reportPreview">${esc(report ? report.text : "Defina os filtros e clique em Gerar relatório.")}</div>
+            <div class="report-preview" id="reportPreview">${esc(previewText)}</div>
           </div>
         </section>
       `;
@@ -1250,13 +1261,25 @@
     }
 
     async function generateReport() {
+      if (state.reportGenerating) return;
       const moduleSelect = document.getElementById("reportModule");
       state.filters.reportModule = moduleSelect ? moduleSelect.value : "";
-      const res = await server("generateReport", { filters: compactFilters() });
-      if (!res.ok) return toast(res.error.message || "Erro ao gerar relatório.");
-      state.report = res.data;
+      state.reportGenerating = true;
       renderReport();
-      toast("Relatório gerado.");
+      toast("Gerando relatório...");
+      try {
+        if (!state.reportRequest) {
+          state.reportRequest = server("generateReport", { filters: compactFilters() })
+            .finally(() => { state.reportRequest = null; });
+        }
+        const res = await state.reportRequest;
+        if (!res.ok) return toast(res.error.message || "Erro ao gerar relatório.");
+        state.report = res.data;
+        toast("Relatório gerado.");
+      } finally {
+        state.reportGenerating = false;
+        renderReport();
+      }
     }
 
     async function copyReport() {
@@ -1266,6 +1289,20 @@
     }
 
     async function renderAudit(token) {
+      renderAuditShell(state.auditLogRows, { loading: true });
+      if (!state.auditLogRequest) {
+        state.auditLogRequest = server("listLog", { limit: 100 })
+          .finally(() => { state.auditLogRequest = null; });
+      }
+      const res = await state.auditLogRequest;
+      if (isStale(token) || state.view !== "audit") return;
+      const rows = res.ok && res.data.rows ? res.data.rows : [];
+      if (!res.ok) toast(res.error.message || "Erro ao carregar historico.");
+      state.auditLogRows = rows;
+      renderAuditShell(rows, { loading: false });
+    }
+
+    function renderAuditShell(rows, options = {}) {
       const active = state.app.activeShift;
       el.content.innerHTML = `
         <section class="surface">
@@ -1296,20 +1333,18 @@
         <section class="surface">
           <div class="surface-header">
             <div class="surface-title"><h2>Histórico de alterações</h2><span>Últimos eventos registrados em NIR_LOG</span></div>
+            <div class="toolbar">${options.loading ? '<span class="tag info">Atualizando...</span>' : ""}</div>
           </div>
-          <div class="surface-body" id="auditLog"><div class="empty">Carregando histórico…</div></div>
+          <div class="surface-body" id="auditLog">${renderAuditRows(rows || [], options)}</div>
         </section>
       `;
-      const res = await server("listLog", { limit: 100 });
-      if (isStale(token) || state.view !== "audit") return;
-      const rows = res.ok && res.data.rows ? res.data.rows : [];
-      const target = document.getElementById("auditLog");
-      if (!target) return;
+    }
+
+    function renderAuditRows(rows, options = {}) {
       if (!rows.length) {
-        target.innerHTML = '<div class="empty">Nenhum evento registrado ainda.</div>';
-        return;
+        return `<div class="empty">${options.loading ? "Carregando histórico..." : "Nenhum evento registrado ainda."}</div>`;
       }
-      target.innerHTML = `
+      return `
         <div class="table-wrap">
           <table>
             <thead><tr><th>Data/hora</th><th>Usuário</th><th>Módulo</th><th>Ação</th><th>Registro</th></tr></thead>

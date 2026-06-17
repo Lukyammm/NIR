@@ -277,14 +277,10 @@ function generateReport(payload) {
 
 function listLog(payload) {
   return runNir_(function () {
-    ensureAllSheets_();
+    ensureSheet_("log");
     const opts = payload || {};
     const limit = opts.limit && opts.limit > 0 ? opts.limit : 100;
-    let rows = readObjects_("log", { includeDeleted: true });
-    if (opts.module) rows = rows.filter(function (row) { return row.modulo === opts.module; });
-    if (opts.plantao_id) rows = rows.filter(function (row) { return row.plantao_id === opts.plantao_id; });
-    rows.sort(function (a, b) { return String(b.data_hora).localeCompare(String(a.data_hora)); });
-    return { rows: rows.slice(0, limit), total: rows.length };
+    return readRecentLogRows_(opts, limit);
   });
 }
 
@@ -464,6 +460,36 @@ function readObjects_(moduleKey, options) {
     .filter(function (obj) {
       return options && options.includeDeleted ? true : !obj.deleted_at;
     });
+}
+
+function readRecentLogRows_(opts, limit) {
+  const spec = NIR_SHEETS.log;
+  const sheet = ensureSheet_("log");
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) return { rows: [], total: 0 };
+
+  const headers = sheet.getRange(1, 1, 1, spec.headers.length).getValues()[0];
+  const rows = [];
+  const total = lastRow - 1;
+  const chunkSize = Math.min(Math.max(limit * 5, 200), 1000);
+
+  for (let end = lastRow; end >= 2 && rows.length < limit; end -= chunkSize) {
+    const start = Math.max(2, end - chunkSize + 1);
+    const values = sheet.getRange(start, 1, end - start + 1, spec.headers.length).getValues();
+    for (let i = values.length - 1; i >= 0 && rows.length < limit; i--) {
+      const raw = values[i];
+      if (!raw.some(function (cell) { return cell !== "" && cell !== null; })) continue;
+      const obj = {};
+      headers.forEach(function (header, index) {
+        obj[header] = normalizeCell_(raw[index], header);
+      });
+      if (opts.module && obj.modulo !== opts.module) continue;
+      if (opts.plantao_id && obj.plantao_id !== opts.plantao_id) continue;
+      rows.push(obj);
+    }
+  }
+
+  return { rows: rows, total: total };
 }
 
 function appendObject_(moduleKey, obj) {
@@ -650,7 +676,7 @@ function buildReportText_(report) {
   const lines = [];
   lines.push("RELATORIO DE PASSAGEM DE PLANTAO - NIR");
   lines.push("Gerado em: " + formatDateTime_(report.generatedAt));
-  if (report.plantao_id) lines.push("Plantao: " + report.plantao_id);
+  if (report.plantao_id) lines.push("Plantao: " + formatShiftIdForReport_(report.plantao_id));
   if (only) lines.push("Modulo: " + only);
   lines.push("");
   lines.push("RESUMO");
@@ -697,6 +723,12 @@ function buildReportText_(report) {
     });
   }
   return lines.join("\n");
+}
+
+function formatShiftIdForReport_(shiftId) {
+  return String(shiftId || "").replace(/(\d{4})(\d{2})(\d{2})/g, function (_, year, month, day) {
+    return day + month + year;
+  });
 }
 
 function compactPatient_(row) {
