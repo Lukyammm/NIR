@@ -205,10 +205,6 @@ function closeShift(payload) {
     const active = getActiveShift_();
     if (!active) return { activeShift: null, alreadyClosed: true };
 
-    const report = generateReportInternal_({
-      filters: Object.assign({}, payload && payload.filters ? payload.filters : {}, { plantao_id: active.id }),
-      save: true
-    });
     const closed = Object.assign({}, active, {
       status: "ENCERRADO",
       encerrado_em: nowIso_(),
@@ -216,6 +212,17 @@ function closeShift(payload) {
     });
     updateObject_("shifts", active.id, closed);
     setConfig_(NIR_ACTIVE_SHIFT_KEY, "");
+    const report = buildCloseShiftSnapshotReport_(closed, payload || {});
+    appendObject_("reports", {
+      id: report.id,
+      plantao_id: report.plantao_id,
+      gerado_em: report.generatedAt,
+      gerado_por: report.generatedBy,
+      filtros_json: jsonStringify_(report.filters),
+      kpis_json: jsonStringify_(report.kpis),
+      relatorio_texto: report.text,
+      snapshot_json: jsonStringify_(report.sections)
+    });
     writeLog_("plantao", "PLANTAO_ENCERRADO", active.id, active, closed, "Relatorio salvo: " + report.id);
     return { activeShift: null, report: report };
   });
@@ -277,14 +284,10 @@ function generateReport(payload) {
 
 function listLog(payload) {
   return runNir_(function () {
-    ensureAllSheets_();
+    ensureSheet_("log");
     const opts = payload || {};
     const limit = opts.limit && opts.limit > 0 ? opts.limit : 100;
-    let rows = readObjects_("log", { includeDeleted: true });
-    if (opts.module) rows = rows.filter(function (row) { return row.modulo === opts.module; });
-    if (opts.plantao_id) rows = rows.filter(function (row) { return row.plantao_id === opts.plantao_id; });
-    rows.sort(function (a, b) { return String(b.data_hora).localeCompare(String(a.data_hora)); });
-    return { rows: rows.slice(0, limit), total: rows.length };
+    return readRecentLogRows_(opts, limit);
   });
 }
 
@@ -466,6 +469,36 @@ function readObjects_(moduleKey, options) {
     });
 }
 
+function readRecentLogRows_(opts, limit) {
+  const spec = NIR_SHEETS.log;
+  const sheet = ensureSheet_("log");
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) return { rows: [], total: 0 };
+
+  const headers = sheet.getRange(1, 1, 1, spec.headers.length).getValues()[0];
+  const rows = [];
+  const total = lastRow - 1;
+  const chunkSize = Math.min(Math.max(limit * 5, 200), 1000);
+
+  for (let end = lastRow; end >= 2 && rows.length < limit; end -= chunkSize) {
+    const start = Math.max(2, end - chunkSize + 1);
+    const values = sheet.getRange(start, 1, end - start + 1, spec.headers.length).getValues();
+    for (let i = values.length - 1; i >= 0 && rows.length < limit; i--) {
+      const raw = values[i];
+      if (!raw.some(function (cell) { return cell !== "" && cell !== null; })) continue;
+      const obj = {};
+      headers.forEach(function (header, index) {
+        obj[header] = normalizeCell_(raw[index], header);
+      });
+      if (opts.module && obj.modulo !== opts.module) continue;
+      if (opts.plantao_id && obj.plantao_id !== opts.plantao_id) continue;
+      rows.push(obj);
+    }
+  }
+
+  return { rows: rows, total: total };
+}
+
 function appendObject_(moduleKey, obj) {
   const spec = NIR_SHEETS[moduleKey];
   const sheet = ensureSheet_(moduleKey);
@@ -607,6 +640,38 @@ function generateReportInternal_(payload) {
   return report;
 }
 
+function buildCloseShiftSnapshotReport_(closedShift, payload) {
+  const filters = Object.assign({}, payload && payload.filters ? payload.filters : {}, { plantao_id: closedShift.id });
+  const generatedAt = nowIso_();
+  const report = {
+    id: generateId_("REL"),
+    plantao_id: closedShift.id,
+    generatedAt: generatedAt,
+    generatedBy: getUser_().email,
+    filters: filters,
+    kpis: {},
+    sections: {
+      plantao: closedShift,
+      resumo: [
+        "Plantao encerrado em " + formatDateTime_(closedShift.encerrado_em),
+        "Snapshot leve salvo para nao bloquear o encerramento."
+      ]
+    }
+  };
+  report.text = [
+    "RELATORIO DE ENCERRAMENTO DE PLANTAO - NIR",
+    "Gerado em: " + formatDateTime_(generatedAt),
+    "Plantao: " + formatShiftIdForReport_(closedShift.id),
+    "Data: " + formatDateOnly_(closedShift.data),
+    "Turno: " + (closedShift.turno || "-"),
+    "Encerrado por: " + (closedShift.encerrado_por || "-"),
+    "Encerrado em: " + formatDateTime_(closedShift.encerrado_em),
+    "",
+    "O relatorio operacional detalhado pode ser gerado na aba Relatorio."
+  ].join("\n");
+  return report;
+}
+
 function calculateKpis_(regulations, beds, procedures, icu, blocks) {
   const reserved = regulations.filter(function (row) { return row.status === "RESERVADO"; }).length;
   const admitted = regulations.filter(function (row) { return row.status === "INTERNADO"; }).length;
@@ -650,7 +715,7 @@ function buildReportText_(report) {
   const lines = [];
   lines.push("RELATORIO DE PASSAGEM DE PLANTAO - NIR");
   lines.push("Gerado em: " + formatDateTime_(report.generatedAt));
-  if (report.plantao_id) lines.push("Plantao: " + report.plantao_id);
+  if (report.plantao_id) lines.push("Plantao: " + formatShiftIdForReport_(report.plantao_id));
   if (only) lines.push("Modulo: " + only);
   lines.push("");
   lines.push("RESUMO");
@@ -697,6 +762,12 @@ function buildReportText_(report) {
     });
   }
   return lines.join("\n");
+}
+
+function formatShiftIdForReport_(shiftId) {
+  return String(shiftId || "").replace(/(\d{4})(\d{2})(\d{2})/g, function (_, year, month, day) {
+    return day + month + year;
+  });
 }
 
 function compactPatient_(row) {
@@ -810,6 +881,13 @@ function formatDateTime_(value) {
   const date = new Date(String(value).replace(" ", "T"));
   if (isNaN(date)) return String(value);
   return Utilities.formatDate(date, NIR_TIMEZONE, "dd/MM/yyyy HH:mm");
+}
+
+function formatDateOnly_(value) {
+  const normalized = normalizeDate_(value);
+  if (!normalized) return value ? String(value) : "";
+  const parts = normalized.split("-");
+  return parts.length === 3 ? [parts[2], parts[1], parts[0]].join("/") : normalized;
 }
 
 function pad2_(value) {

@@ -798,6 +798,12 @@
         onlyPending: false
       },
       tableRows: {},
+      moduleCache: {},
+      moduleRequests: {},
+      auditLogRows: [],
+      auditLogRequest: null,
+      reportGenerating: false,
+      reportRequest: null,
       report: null,
       editing: null
     };
@@ -1027,6 +1033,79 @@
 
     async function renderModule(moduleKey, token) {
       const meta = MODULES[moduleKey];
+      const filters = compactFilters();
+      const cacheKey = moduleCacheKey(moduleKey, filters);
+      const cached = state.moduleCache[cacheKey];
+      const previewRows = getModulePreviewRows(moduleKey);
+      const initialRows = cached ? cached.rows : previewRows;
+
+      renderModuleShell(moduleKey, initialRows, {
+        loading: true,
+        preview: !cached && previewRows.length > 0
+      });
+
+      if (!state.moduleRequests[cacheKey]) {
+        state.moduleRequests[cacheKey] = server("listRecords", { module: meta.server, filters })
+          .finally(() => { delete state.moduleRequests[cacheKey]; });
+      }
+      const res = await state.moduleRequests[cacheKey];
+      if (isStale(token) || state.view !== moduleKey) return;
+
+      const rows = res.ok ? res.data.rows : [];
+      if (!res.ok) toast(res.error.message || "Erro ao carregar modulo.");
+      if (res.ok) {
+        state.moduleCache[cacheKey] = { rows, updatedAt: new Date().toISOString() };
+      }
+      renderModuleShell(moduleKey, rows, { loading: false });
+    }
+
+    function renderModuleShell(moduleKey, rows, options = {}) {
+      const meta = MODULES[moduleKey];
+      state.tableRows[moduleKey] = rows || [];
+      el.content.innerHTML = `
+        ${renderFilterBand()}
+        ${renderTableSurface(meta.title, rows || [], meta.columns, moduleKey, true, options)}
+      `;
+      bindFilters();
+      bindTableActions();
+    }
+
+    function getModulePreviewRows(moduleKey) {
+      const dash = state.app && state.app.dashboard ? state.app.dashboard : {};
+      const previews = {
+        regulations: dash.latestRegulations,
+        beds: dash.pendingBeds,
+        procedures: dash.pendingProcedures,
+        icu: dash.icu,
+        blocks: dash.blocks
+      };
+      return (previews[moduleKey] || []).slice();
+    }
+
+    function moduleCacheKey(moduleKey, filters) {
+      return `${moduleKey}:${stableStringify(filters || {})}`;
+    }
+
+    function stableStringify(value) {
+      if (value === null || typeof value !== "object") return JSON.stringify(value);
+      if (Array.isArray(value)) return `[${value.map(stableStringify).join(",")}]`;
+      return `{${Object.keys(value).sort().map(key => `${JSON.stringify(key)}:${stableStringify(value[key])}`).join(",")}}`;
+    }
+
+    function clearModuleCache(moduleKey) {
+      if (!moduleKey) {
+        state.moduleCache = {};
+        state.tableRows = {};
+        return;
+      }
+      Object.keys(state.moduleCache).forEach(key => {
+        if (key.startsWith(`${moduleKey}:`)) delete state.moduleCache[key];
+      });
+      delete state.tableRows[moduleKey];
+    }
+
+    async function renderModuleLegacy(moduleKey, token) {
+      const meta = MODULES[moduleKey];
       contentLoading();
       const res = await server("listRecords", { module: meta.server, filters: compactFilters() });
       if (isStale(token) || state.view !== moduleKey) return;
@@ -1041,11 +1120,14 @@
       bindTableActions();
     }
 
-    function renderTableSurface(title, rows, columns, moduleKey, includeAdd = false) {
+    function renderTableSurface(title, rows, columns, moduleKey, includeAdd = false, options = {}) {
       const meta = MODULES[moduleKey];
       const addButton = includeAdd
         ? `<button class="btn" data-export="${moduleKey}" type="button" ${rows && rows.length ? "" : "disabled"}>Exportar CSV</button>
            <button class="btn btn-primary" data-add="${moduleKey}" type="button">Novo registro</button>`
+        : "";
+      const syncBadge = includeAdd && options.loading
+        ? `<span class="tag info">${options.preview ? "Carregando lista completa..." : "Atualizando..."}</span>`
         : "";
       const body = rows && rows.length ? `
         <div class="table-wrap">
@@ -1069,7 +1151,7 @@
         <section class="surface">
           <div class="surface-header">
             <div class="surface-title"><h2>${esc(title)}</h2><span>${esc(meta ? meta.subtitle : "Dados operacionais")}</span></div>
-            <div class="toolbar">${addButton}</div>
+            <div class="toolbar">${syncBadge}${addButton}</div>
           </div>
           <div class="surface-body">${body}</div>
         </section>
@@ -1107,6 +1189,7 @@
       const meta = MODULES[moduleKey];
       const res = await server("deleteRecord", { module: meta.server, id });
       if (!res.ok) return toast(res.error.message || "Erro ao arquivar.");
+      clearModuleCache(moduleKey);
       toast("Registro arquivado.");
       await loadState();
       if (state.view !== "dashboard") renderModule(state.view);
@@ -1137,6 +1220,12 @@
 
     function renderReport() {
       const report = state.report;
+      const isGenerating = state.reportGenerating;
+      const previewText = report
+        ? report.text
+        : isGenerating
+          ? "Gerando relatório com os filtros atuais...\n\nAguarde um instante. A tela será atualizada automaticamente quando o texto estiver pronto."
+          : "Defina os filtros e clique em Gerar relatório.";
       el.content.innerHTML = `
         ${renderFilterBand(`
           <div class="field">
@@ -1154,13 +1243,14 @@
               <span>Gera resumo por filtros e mantém linguagem pronta para passagem</span>
             </div>
             <div class="toolbar">
-              <button class="btn btn-primary" id="btnGenerateReport" type="button">Gerar relatório</button>
-              <button class="btn" id="btnCopyReport" type="button">Copiar texto</button>
-              <button class="btn" id="btnPrintReport" type="button">Imprimir/PDF</button>
+              ${isGenerating ? '<span class="tag info">Gerando...</span>' : ""}
+              <button class="btn btn-primary" id="btnGenerateReport" type="button" ${isGenerating ? "disabled" : ""}>${isGenerating ? "Gerando..." : "Gerar relatório"}</button>
+              <button class="btn" id="btnCopyReport" type="button" ${report && report.text ? "" : "disabled"}>Copiar texto</button>
+              <button class="btn" id="btnPrintReport" type="button" ${report && report.text ? "" : "disabled"}>Imprimir/PDF</button>
             </div>
           </div>
           <div class="surface-body">
-            <div class="report-preview" id="reportPreview">${esc(report ? report.text : "Defina os filtros e clique em Gerar relatório.")}</div>
+            <div class="report-preview" id="reportPreview">${esc(previewText)}</div>
           </div>
         </section>
       `;
@@ -1171,13 +1261,25 @@
     }
 
     async function generateReport() {
+      if (state.reportGenerating) return;
       const moduleSelect = document.getElementById("reportModule");
       state.filters.reportModule = moduleSelect ? moduleSelect.value : "";
-      const res = await server("generateReport", { filters: compactFilters() });
-      if (!res.ok) return toast(res.error.message || "Erro ao gerar relatório.");
-      state.report = res.data;
+      state.reportGenerating = true;
       renderReport();
-      toast("Relatório gerado.");
+      toast("Gerando relatório...");
+      try {
+        if (!state.reportRequest) {
+          state.reportRequest = server("generateReport", { filters: compactFilters() })
+            .finally(() => { state.reportRequest = null; });
+        }
+        const res = await state.reportRequest;
+        if (!res.ok) return toast(res.error.message || "Erro ao gerar relatório.");
+        state.report = res.data;
+        toast("Relatório gerado.");
+      } finally {
+        state.reportGenerating = false;
+        renderReport();
+      }
     }
 
     async function copyReport() {
@@ -1187,6 +1289,20 @@
     }
 
     async function renderAudit(token) {
+      renderAuditShell(state.auditLogRows, { loading: true });
+      if (!state.auditLogRequest) {
+        state.auditLogRequest = server("listLog", { limit: 100 })
+          .finally(() => { state.auditLogRequest = null; });
+      }
+      const res = await state.auditLogRequest;
+      if (isStale(token) || state.view !== "audit") return;
+      const rows = res.ok && res.data.rows ? res.data.rows : [];
+      if (!res.ok) toast(res.error.message || "Erro ao carregar historico.");
+      state.auditLogRows = rows;
+      renderAuditShell(rows, { loading: false });
+    }
+
+    function renderAuditShell(rows, options = {}) {
       const active = state.app.activeShift;
       el.content.innerHTML = `
         <section class="surface">
@@ -1217,20 +1333,18 @@
         <section class="surface">
           <div class="surface-header">
             <div class="surface-title"><h2>Histórico de alterações</h2><span>Últimos eventos registrados em NIR_LOG</span></div>
+            <div class="toolbar">${options.loading ? '<span class="tag info">Atualizando...</span>' : ""}</div>
           </div>
-          <div class="surface-body" id="auditLog"><div class="empty">Carregando histórico…</div></div>
+          <div class="surface-body" id="auditLog">${renderAuditRows(rows || [], options)}</div>
         </section>
       `;
-      const res = await server("listLog", { limit: 100 });
-      if (isStale(token) || state.view !== "audit") return;
-      const rows = res.ok && res.data.rows ? res.data.rows : [];
-      const target = document.getElementById("auditLog");
-      if (!target) return;
+    }
+
+    function renderAuditRows(rows, options = {}) {
       if (!rows.length) {
-        target.innerHTML = '<div class="empty">Nenhum evento registrado ainda.</div>';
-        return;
+        return `<div class="empty">${options.loading ? "Carregando histórico..." : "Nenhum evento registrado ainda."}</div>`;
       }
-      target.innerHTML = `
+      return `
         <div class="table-wrap">
           <table>
             <thead><tr><th>Data/hora</th><th>Usuário</th><th>Módulo</th><th>Ação</th><th>Registro</th></tr></thead>
@@ -1356,6 +1470,7 @@
 
       const saveBtn = el.drawerForm.querySelector('[type="submit"]');
       const isShift = state.editing.type === "shift";
+      const editedModuleKey = state.editing.moduleKey;
       state.saving = true;
       if (saveBtn) { saveBtn.textContent = "Salvando…"; saveBtn.disabled = true; }
       try {
@@ -1364,6 +1479,7 @@
           : await server("saveRecord", { module: state.editing.moduleKey, record: data });
         if (!res.ok) return toast(res.error.message || "Erro ao salvar.");
         closeDrawer();
+        clearModuleCache(isShift ? null : editedModuleKey);
         toast(isShift ? "Plantão salvo." : "Registro salvo.");
         await loadState();
       } finally {
@@ -1383,6 +1499,7 @@
         const res = await server("closeShift", { filters: compactFilters() });
         if (!res.ok) return toast(res.error.message || "Erro ao encerrar.");
         state.report = res.data.report;
+        clearModuleCache();
         toast("Plantão encerrado e relatório salvo.");
         await loadState();
       } finally {
