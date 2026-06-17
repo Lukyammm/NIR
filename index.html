@@ -770,6 +770,7 @@
     const state = {
       view: "dashboard",
       app: null,
+      busy: false,
       filters: {
         dateFrom: "",
         dateTo: "",
@@ -812,10 +813,18 @@
       `).join("");
       el.nav.querySelectorAll("button").forEach(button => {
         button.addEventListener("click", () => {
+          if (state.busy) return;
+          if (state.view === button.dataset.view) return;
           state.view = button.dataset.view;
           renderNav();
           render();
         });
+      });
+    }
+
+    function setNavActive(viewKey) {
+      el.nav.querySelectorAll("button").forEach(btn => {
+        btn.classList.toggle("active", btn.dataset.view === viewKey);
       });
     }
 
@@ -827,14 +836,26 @@
         node.addEventListener("click", closeDrawer);
       });
       el.drawerForm.addEventListener("submit", submitDrawer);
+      document.addEventListener("keydown", event => {
+        if (event.key === "Escape" && el.drawer.classList.contains("open")) closeDrawer();
+      });
     }
 
     async function loadState() {
+      if (state.busy) return;
+      setBusy(true);
       const res = await server("getAppState", { filters: compactFilters() });
+      setBusy(false);
       if (!res.ok) return toast(res.error.message || "Erro ao carregar.");
       state.app = res.data;
       updateShiftBadge();
       render();
+    }
+
+    function setBusy(on) {
+      state.busy = on;
+      const btn = document.getElementById("btnRefresh");
+      if (btn) btn.textContent = on ? "Aguarde…" : "Atualizar";
     }
 
     function updateShiftBadge() {
@@ -853,6 +874,7 @@
       const navItem = NAV_ITEMS.find(item => item[0] === view);
       el.pageTitle.textContent = navItem ? navItem[2] : "NIR";
       el.pageSubtitle.textContent = subtitleFor(view);
+      setNavActive(view);
 
       if (!state.app) {
         el.content.innerHTML = '<div class="empty">Carregando...</div>';
@@ -863,6 +885,10 @@
       else if (view === "report") renderReport();
       else if (view === "audit") renderAudit();
       else renderModule(view);
+    }
+
+    function contentLoading() {
+      el.content.innerHTML = '<div class="empty" style="padding:40px;">Carregando…</div>';
     }
 
     function subtitleFor(view) {
@@ -940,6 +966,11 @@
           ${stat("Bloqueios", k.bloqueios_abertos, "leitos indisponíveis")}
           ${stat("Altas UTI", k.altas_uti_aguardando_leito, "aguardando leito")}
         </section>
+        <section class="grid grid-3">
+          ${stat("Tempo médio até reserva", k.tempo_medio_reserva_horas || 0, "horas (vaga → reserva)")}
+          ${stat("Tempo médio de chegada", k.tempo_medio_chegada_horas || 0, "horas (reserva → chegada)")}
+          ${stat("Permanência média", k.permanencia_media_dias || 0, "dias em UIB")}
+        </section>
         <section class="split">
           <div class="grid">
             ${renderChartSurface("Regulações por especialidade", d.bySpecialty)}
@@ -979,9 +1010,15 @@
     }
 
     async function renderModule(moduleKey) {
+      if (state.busy) return;
       const meta = MODULES[moduleKey];
+      contentLoading();
+      state.busy = true;
       const res = await server("listRecords", { module: meta.server, filters: compactFilters() });
+      state.busy = false;
+      if (state.view !== moduleKey) return;
       const rows = res.ok ? res.data.rows : [];
+      if (!res.ok) toast(res.error.message || "Erro ao carregar módulo.");
       state.tableRows[moduleKey] = rows;
       el.content.innerHTML = `
         ${renderFilterBand()}
@@ -993,7 +1030,10 @@
 
     function renderTableSurface(title, rows, columns, moduleKey, includeAdd = false) {
       const meta = MODULES[moduleKey];
-      const addButton = includeAdd ? `<button class="btn btn-primary" data-add="${moduleKey}" type="button">Novo registro</button>` : "";
+      const addButton = includeAdd
+        ? `<button class="btn" data-export="${moduleKey}" type="button" ${rows && rows.length ? "" : "disabled"}>Exportar CSV</button>
+           <button class="btn btn-primary" data-add="${moduleKey}" type="button">Novo registro</button>`
+        : "";
       const body = rows && rows.length ? `
         <div class="table-wrap">
           <table>
@@ -1002,7 +1042,10 @@
               ${rows.map(row => `
                 <tr>
                   ${columns.map(c => `<td>${formatCell(c, row[c])}</td>`).join("")}
-                  <td><button class="btn btn-small" data-edit="${moduleKey}" data-id="${esc(row.id)}" type="button">Editar</button></td>
+                  <td style="white-space: nowrap;">
+                    <button class="btn btn-small" data-edit="${moduleKey}" data-id="${esc(row.id)}" type="button">Editar</button>
+                    ${includeAdd ? `<button class="btn btn-small btn-ghost" data-del="${moduleKey}" data-id="${esc(row.id)}" type="button" title="Arquivar registro">Arquivar</button>` : ""}
+                  </td>
                 </tr>
               `).join("")}
             </tbody>
@@ -1025,11 +1068,58 @@
         btn.addEventListener("click", () => openRecordDrawer(btn.dataset.add));
       });
       document.querySelectorAll("[data-edit]").forEach(btn => {
-        const moduleKey = btn.dataset.edit;
-        const row = (state.tableRows[moduleKey] || state.app.dashboard.latestRegulations || []).find(r => r.id === btn.dataset.id)
-          || Object.values(state.tableRows).flat().find(r => r.id === btn.dataset.id);
-        btn.addEventListener("click", () => openRecordDrawer(moduleKey, row));
+        btn.addEventListener("click", () => openRecordDrawer(btn.dataset.edit, findRow(btn.dataset.id)));
       });
+      document.querySelectorAll("[data-del]").forEach(btn => {
+        btn.addEventListener("click", () => archiveRecord(btn.dataset.del, btn.dataset.id));
+      });
+      document.querySelectorAll("[data-export]").forEach(btn => {
+        btn.addEventListener("click", () => exportModuleCsv(btn.dataset.export));
+      });
+    }
+
+    function findRow(id) {
+      const dash = state.app && state.app.dashboard ? state.app.dashboard : {};
+      const dashboardRows = [].concat(
+        dash.latestRegulations || [], dash.pendingBeds || [], dash.pendingProcedures || [],
+        dash.icu || [], dash.blocks || []
+      );
+      const tableRows = Object.values(state.tableRows).reduce((all, list) => all.concat(list || []), []);
+      return tableRows.find(r => r.id === id) || dashboardRows.find(r => r.id === id) || {};
+    }
+
+    async function archiveRecord(moduleKey, id) {
+      if (!id) return;
+      if (!confirm("Arquivar este registro? Ele sai das listas mas fica no histórico de auditoria.")) return;
+      const meta = MODULES[moduleKey];
+      const res = await server("deleteRecord", { module: meta.server, id });
+      if (!res.ok) return toast(res.error.message || "Erro ao arquivar.");
+      toast("Registro arquivado.");
+      await loadState();
+      if (state.view !== "dashboard") renderModule(state.view);
+    }
+
+    function exportModuleCsv(moduleKey) {
+      const meta = MODULES[moduleKey];
+      const rows = state.tableRows[moduleKey] || [];
+      if (!rows.length) return toast("Nada para exportar.");
+      const cols = meta.columns;
+      const head = cols.map(label).join(";");
+      const body = rows.map(row => cols.map(c => csvCell(row[c])).join(";")).join("\n");
+      const csv = "﻿" + head + "\n" + body;
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `nir-${moduleKey}-${today()}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast("CSV exportado.");
+    }
+
+    function csvCell(value) {
+      const text = String(value ?? "").replace(/"/g, '""');
+      return /[";\n]/.test(text) ? `"${text}"` : text;
     }
 
     function renderReport() {
@@ -1040,7 +1130,7 @@
             <label>Módulo</label>
             <select class="select" id="reportModule">
               <option value="">Todos</option>
-              ${Object.keys(MODULES).map(key => `<option value="${key}">${esc(MODULES[key].title)}</option>`).join("")}
+              ${Object.keys(MODULES).map(key => `<option value="${key}" ${state.filters.reportModule === key ? "selected" : ""}>${esc(MODULES[key].title)}</option>`).join("")}
             </select>
           </div>
         `)}
@@ -1068,6 +1158,8 @@
     }
 
     async function generateReport() {
+      const moduleSelect = document.getElementById("reportModule");
+      state.filters.reportModule = moduleSelect ? moduleSelect.value : "";
       const res = await server("generateReport", { filters: compactFilters() });
       if (!res.ok) return toast(res.error.message || "Erro ao gerar relatório.");
       state.report = res.data;
@@ -1081,7 +1173,8 @@
       toast("Texto copiado.");
     }
 
-    function renderAudit() {
+    async function renderAudit() {
+      if (state.busy) return;
       const active = state.app.activeShift;
       el.content.innerHTML = `
         <section class="surface">
@@ -1109,7 +1202,48 @@
             </div>
           </div>
         </section>
+        <section class="surface">
+          <div class="surface-header">
+            <div class="surface-title"><h2>Histórico de alterações</h2><span>Últimos eventos registrados em NIR_LOG</span></div>
+          </div>
+          <div class="surface-body" id="auditLog"><div class="empty">Carregando histórico…</div></div>
+        </section>
       `;
+      state.busy = true;
+      const res = await server("listLog", { limit: 100 });
+      state.busy = false;
+      if (state.view !== "audit") return;
+      const rows = res.ok && res.data.rows ? res.data.rows : [];
+      const target = document.getElementById("auditLog");
+      if (!target) return;
+      if (!rows.length) {
+        target.innerHTML = '<div class="empty">Nenhum evento registrado ainda.</div>';
+        return;
+      }
+      target.innerHTML = `
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Data/hora</th><th>Usuário</th><th>Módulo</th><th>Ação</th><th>Registro</th></tr></thead>
+            <tbody>
+              ${rows.map(row => `
+                <tr>
+                  <td>${esc(formatDateTimeBr(row.data_hora))}</td>
+                  <td>${esc(row.usuario || "-")}</td>
+                  <td>${esc(row.modulo || "-")}</td>
+                  <td>${formatCell("status", row.acao)}</td>
+                  <td>${esc(row.registro_id || "-")}</td>
+                </tr>
+              `).join("")}
+            </tbody>
+          </table>
+        </div>
+      `;
+    }
+
+    function formatDateTimeBr(value) {
+      if (!value) return "";
+      const date = new Date(String(value).replace(" ", "T"));
+      return isNaN(date) ? String(value) : date.toLocaleString("pt-BR");
     }
 
     function openRecordDrawer(moduleKey, row = {}) {
@@ -1175,14 +1309,20 @@
 
     async function submitDrawer(event) {
       event.preventDefault();
-      if (!state.editing) return;
+      if (!state.editing || state.busy) return;
       const formData = new FormData(el.drawerForm);
       const data = Object.fromEntries(formData.entries());
       if (state.editing.row && state.editing.row.id) data.id = state.editing.row.id;
 
+      const saveBtn = el.drawerForm.querySelector('[type="submit"]');
+      if (saveBtn) saveBtn.textContent = "Salvando…";
+      state.busy = true;
+
       if (state.editing.type === "shift") {
         const fn = state.app && state.app.activeShift ? "updateShift" : "startShift";
         const res = await server(fn, data);
+        state.busy = false;
+        if (saveBtn) saveBtn.textContent = "Salvar";
         if (!res.ok) return toast(res.error.message || "Erro no plantão.");
         closeDrawer();
         toast("Plantão salvo.");
@@ -1191,6 +1331,8 @@
       }
 
       const res = await server("saveRecord", { module: state.editing.moduleKey, record: data });
+      state.busy = false;
+      if (saveBtn) saveBtn.textContent = "Salvar";
       if (!res.ok) return toast(res.error.message || "Erro ao salvar.");
       closeDrawer();
       toast("Registro salvo.");
@@ -1200,8 +1342,11 @@
 
     async function closeShift() {
       if (!state.app || !state.app.activeShift) return toast("Nenhum plantão ativo.");
+      if (state.busy) return;
       if (!confirm("Encerrar o plantão e salvar snapshot do relatório?")) return;
+      setBusy(true);
       const res = await server("closeShift", { filters: compactFilters() });
+      setBusy(false);
       if (!res.ok) return toast(res.error.message || "Erro ao encerrar.");
       state.report = res.data.report;
       toast("Plantão encerrado e relatório salvo.");
@@ -1297,20 +1442,49 @@
         saveRecord() {
           const list = store[payload.module] || [];
           const record = Object.assign({}, payload.record);
+          const isNew = !record.id;
           record.id = record.id || `${payload.module.toUpperCase()}-${Math.random().toString(16).slice(2, 8).toUpperCase()}`;
           record.updated_at = new Date().toISOString();
           const index = list.findIndex(item => item.id === record.id);
           if (index >= 0) list[index] = Object.assign({}, list[index], record);
           else list.push(record);
           store[payload.module] = list;
+          mockLog(store, payload.module, isNew ? "REGISTRO_CRIADO" : "REGISTRO_ATUALIZADO", record.id);
           saveStore(store);
           return { ok: true, data: { record } };
+        },
+        deleteRecord() {
+          const list = store[payload.module] || [];
+          const item = list.find(r => r.id === payload.id);
+          if (item) {
+            item.deleted_at = new Date().toISOString();
+            mockLog(store, payload.module, "REGISTRO_ARQUIVADO", payload.id);
+            saveStore(store);
+          }
+          return { ok: true, data: { deleted: !!item } };
+        },
+        listLog() {
+          const rows = (store.log || []).slice().reverse().slice(0, payload.limit || 100);
+          return { ok: true, data: { rows, total: (store.log || []).length } };
         },
         generateReport() {
           return { ok: true, data: buildMockReport(store, payload.filters || {}) };
         }
       };
       return api[fn] ? api[fn]() : { ok: false, error: { message: `Função não encontrada: ${fn}` } };
+    }
+
+    function mockLog(store, moduleKey, action, recordId) {
+      store.log = store.log || [];
+      store.log.push({
+        id: `LOG-${Math.random().toString(16).slice(2, 8).toUpperCase()}`,
+        data_hora: new Date().toISOString(),
+        usuario: "modo-demo@local",
+        plantao_id: store.activeShift ? store.activeShift.id : "",
+        modulo: moduleKey,
+        acao: action,
+        registro_id: recordId || ""
+      });
     }
 
     function getStore() {
@@ -1389,25 +1563,39 @@
     function buildMockReport(store, filters) {
       const app = buildMockState(store, filters);
       const d = app.dashboard;
+      const only = filters.reportModule || "";
+      const show = key => !only || only === key;
       const lines = [
         "RELATORIO DE PASSAGEM DE PLANTAO - NIR",
         `Gerado em: ${new Date().toLocaleString("pt-BR")}`,
+        ...(only ? [`Modulo: ${only}`] : []),
         "",
         "RESUMO",
         `- Regulacoes no filtro: ${d.kpis.regulacoes}`,
         `- Reservados: ${d.kpis.reservados} | Internados: ${d.kpis.internados} | Negados: ${d.kpis.negados} | Cancelados: ${d.kpis.cancelados}`,
         `- Pendencias abertas: ${d.kpis.pendentes} | Procedimentos pendentes: ${d.kpis.procedimentos_pendentes}`,
-        `- Leitos ocupados/reservados em UIB: ${d.kpis.leitos_ocupados_ou_reservados} | Bloqueios abertos: ${d.kpis.bloqueios_abertos}`,
-        "",
-        "PENDENCIAS DE REGULACAO",
-        ...filterMock(store.regulations, filters).filter(row => !isFinal(row.status)).map(row => `- ${row.paciente_alias || row.fastmedic} | ${row.especialidade || "-"} | ${row.status || "-"} | ${row.observacao || ""}`),
-        "",
-        "UIB / LEITOS",
-        ...filterMock(store.beds, filters).map(row => `- ${row.unidade || "-"} ${row.leito || "-"} | ${row.paciente_alias || "-"} | ${row.status_leito || "-"} | ${row.pendencia || ""}`),
-        "",
-        "PROCEDIMENTOS E EXAMES",
-        ...filterMock(store.procedures, filters).filter(row => !isFinal(row.status)).map(row => `- ${row.tipo || "-"} | ${row.paciente_alias || "-"} | ${row.procedimento || "-"} | ${row.data_programacao || "-"} ${row.hora_programacao || ""} | ${row.status || "-"}`)
+        `- Leitos ocupados/reservados em UIB: ${d.kpis.leitos_ocupados_ou_reservados} | Bloqueios abertos: ${d.kpis.bloqueios_abertos}`
       ];
+      if (show("regulations")) {
+        lines.push("", "PENDENCIAS DE REGULACAO",
+          ...filterMock(store.regulations, filters).filter(row => !isFinal(row.status)).map(row => `- ${row.paciente_alias || row.fastmedic} | ${row.especialidade || "-"} | ${row.status || "-"} | ${row.observacao || ""}`));
+      }
+      if (show("beds")) {
+        lines.push("", "UIB / LEITOS",
+          ...filterMock(store.beds, filters).map(row => `- ${row.unidade || "-"} ${row.leito || "-"} | ${row.paciente_alias || "-"} | ${row.status_leito || "-"} | ${row.pendencia || ""}`));
+      }
+      if (show("procedures")) {
+        lines.push("", "PROCEDIMENTOS E EXAMES",
+          ...filterMock(store.procedures, filters).filter(row => !isFinal(row.status)).map(row => `- ${row.tipo || "-"} | ${row.paciente_alias || "-"} | ${row.procedimento || "-"} | ${row.data_programacao || "-"} ${row.hora_programacao || ""} | ${row.status || "-"}`));
+      }
+      if (show("icu")) {
+        lines.push("", "UTI / SRPA",
+          ...filterMock(store.icu, filters).map(row => `- ${row.tipo || "-"} | ${row.paciente_alias || "-"} | ${row.leito_atual || "-"} -> ${row.destino || "-"} | ${row.status || "-"}`));
+      }
+      if (show("blocks")) {
+        lines.push("", "BLOQUEIOS",
+          ...filterMock(store.blocks, filters).filter(row => row.status !== "ENCERRADO").map(row => `- ${row.tipo_bloqueio || "-"} | ${row.unidade || "-"} ${row.leito || "-"} | ${row.motivo || row.observacao || ""}`));
+      }
       return { id: "REL-DEMO", text: lines.join("\n"), kpis: d.kpis, generatedAt: new Date().toISOString() };
     }
 
@@ -1415,6 +1603,7 @@
       const f = filters || {};
       const term = (f.search || "").toLowerCase();
       return (rows || []).filter(row => {
+        if (row.deleted_at) return false;
         if (f.turno && f.turno !== "TODOS" && row.turno && row.turno !== f.turno) return false;
         if (f.onlyPending && isFinal(row.status || row.status_leito || row.desfecho)) return false;
         if (term && JSON.stringify(row).toLowerCase().indexOf(term) === -1) return false;
@@ -1438,8 +1627,28 @@
         leitos_ocupados_ou_reservados: beds.filter(r => r.status_leito !== "LIVRE").length,
         procedimentos_pendentes: procedures.filter(r => !isFinal(r.status)).length,
         altas_uti_aguardando_leito: icu.filter(r => r.tipo === "ALTA_UTI_AGUARDANDO_LEITO").length,
-        bloqueios_abertos: blocks.filter(r => r.status !== "ENCERRADO").length
+        bloqueios_abertos: blocks.filter(r => r.status !== "ENCERRADO").length,
+        tempo_medio_reserva_horas: avgHours(regulations, "vaga_dada_em", "reservado_em"),
+        tempo_medio_chegada_horas: avgHours(regulations, "reservado_em", "chegou_em"),
+        permanencia_media_dias: avgNumber(beds, "permanencia_dias")
       };
+    }
+
+    function avgHours(rows, startKey, endKey) {
+      const values = (rows || []).map(row => {
+        const start = new Date(String(row[startKey] || "").replace(" ", "T"));
+        const end = new Date(String(row[endKey] || "").replace(" ", "T"));
+        if (isNaN(start) || isNaN(end)) return null;
+        return (end.getTime() - start.getTime()) / 36e5;
+      }).filter(v => v !== null && !isNaN(v) && v >= 0);
+      if (!values.length) return 0;
+      return Math.round((values.reduce((a, b) => a + b, 0) / values.length) * 10) / 10;
+    }
+
+    function avgNumber(rows, key) {
+      const values = (rows || []).map(row => Number(row[key])).filter(v => !isNaN(v));
+      if (!values.length) return 0;
+      return Math.round((values.reduce((a, b) => a + b, 0) / values.length) * 10) / 10;
     }
 
     function group(rows, key) {

@@ -21,6 +21,14 @@ O foco principal e gerar relatorios diarios de troca de plantao a partir de filt
 - `docs/RELATORIO_DIARIO.md`: formato do relatorio de passagem de plantao.
 - `docs/IMPLANTACAO.md`: como publicar e operar o MVP.
 
+## Funcionalidades
+
+- **Painel** com KPIs operacionais (regulacoes, reservados, internados, bloqueios, altas UTI) e indicadores de tempo medio (reserva, chegada e permanencia).
+- **Relatorio diario** filtravel por periodo, turno, busca e modulo, com copia para area de transferencia e impressao/PDF.
+- **Modulos CRUD**: regulacao, UIB/leitos, procedimentos, UTI/SRPA e bloqueios, com arquivamento (soft delete) e exportacao CSV.
+- **Auditoria**: aba com historico real de alteracoes (NIR_LOG), alem da governanca de privacidade.
+- **Modo demo local**: roda sem backend usando `localStorage`, util para testes e demonstracoes.
+
 ## Abas criadas no Google Sheets
 
 - `NIR_CONFIG`

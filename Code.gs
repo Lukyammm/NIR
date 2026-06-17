@@ -275,6 +275,19 @@ function generateReport(payload) {
   });
 }
 
+function listLog(payload) {
+  return runNir_(function () {
+    ensureAllSheets_();
+    const opts = payload || {};
+    const limit = opts.limit && opts.limit > 0 ? opts.limit : 100;
+    let rows = readObjects_("log", { includeDeleted: true });
+    if (opts.module) rows = rows.filter(function (row) { return row.modulo === opts.module; });
+    if (opts.plantao_id) rows = rows.filter(function (row) { return row.plantao_id === opts.plantao_id; });
+    rows.sort(function (a, b) { return String(b.data_hora).localeCompare(String(a.data_hora)); });
+    return { rows: rows.slice(0, limit), total: rows.length };
+  });
+}
+
 function seedDemoDataNIR() {
   return runNir_(function () {
     ensureAllSheets_();
@@ -632,44 +645,57 @@ function buildSummaryLines_(kpis) {
 }
 
 function buildReportText_(report) {
+  const only = report.filters && report.filters.reportModule ? report.filters.reportModule : "";
+  const show = function (moduleKey) { return !only || only === moduleKey; };
   const lines = [];
   lines.push("RELATORIO DE PASSAGEM DE PLANTAO - NIR");
   lines.push("Gerado em: " + formatDateTime_(report.generatedAt));
   if (report.plantao_id) lines.push("Plantao: " + report.plantao_id);
+  if (only) lines.push("Modulo: " + only);
   lines.push("");
   lines.push("RESUMO");
   report.sections.resumo.forEach(function (line) { lines.push("- " + line); });
-  lines.push("");
-  lines.push("REGULACOES POR STATUS");
-  report.sections.status.forEach(function (item) { lines.push("- " + item.label + ": " + item.count); });
-  lines.push("");
-  lines.push("REGULACOES POR ESPECIALIDADE");
-  report.sections.especialidades.forEach(function (item) { lines.push("- " + item.label + ": " + item.count); });
-  lines.push("");
-  lines.push("PENDENCIAS DE REGULACAO");
-  report.sections.regulacoes.filter(function (row) { return !isFinalStatus_(row.status); }).slice(0, 40).forEach(function (row) {
-    lines.push("- " + compactPatient_(row) + " | " + (row.especialidade || "-") + " | " + (row.status || "-") + " | " + (row.observacao || ""));
-  });
-  lines.push("");
-  lines.push("UIB / LEITOS");
-  report.sections.leitos.filter(function (row) { return row.status_leito !== "LIVRE"; }).slice(0, 40).forEach(function (row) {
-    lines.push("- " + (row.unidade || "-") + " " + (row.leito || "-") + " | " + compactPatient_(row) + " | " + (row.status_leito || "-") + " | " + (row.pendencia || row.observacao || ""));
-  });
-  lines.push("");
-  lines.push("PROCEDIMENTOS E EXAMES");
-  report.sections.procedimentos.filter(function (row) { return !isFinalStatus_(row.status); }).slice(0, 40).forEach(function (row) {
-    lines.push("- " + (row.tipo || "-") + " | " + compactPatient_(row) + " | " + (row.procedimento || "-") + " | " + (row.data_programacao || "-") + " " + (row.hora_programacao || "") + " | " + (row.status || "-"));
-  });
-  lines.push("");
-  lines.push("UTI / SRPA");
-  report.sections.uti.slice(0, 40).forEach(function (row) {
-    lines.push("- " + (row.tipo || "-") + " | " + compactPatient_(row) + " | " + (row.leito_atual || "-") + " -> " + (row.destino || "-") + " | " + (row.status || "-"));
-  });
-  lines.push("");
-  lines.push("BLOQUEIOS");
-  report.sections.bloqueios.filter(function (row) { return row.status !== "ENCERRADO"; }).slice(0, 40).forEach(function (row) {
-    lines.push("- " + (row.tipo_bloqueio || "-") + " | " + (row.unidade || "-") + " " + (row.leito || "-") + " | " + (row.motivo || row.observacao || ""));
-  });
+  if (show("regulations")) {
+    lines.push("");
+    lines.push("REGULACOES POR STATUS");
+    report.sections.status.forEach(function (item) { lines.push("- " + item.label + ": " + item.count); });
+    lines.push("");
+    lines.push("REGULACOES POR ESPECIALIDADE");
+    report.sections.especialidades.forEach(function (item) { lines.push("- " + item.label + ": " + item.count); });
+    lines.push("");
+    lines.push("PENDENCIAS DE REGULACAO");
+    report.sections.regulacoes.filter(function (row) { return !isFinalStatus_(row.status); }).slice(0, 40).forEach(function (row) {
+      lines.push("- " + compactPatient_(row) + " | " + (row.especialidade || "-") + " | " + (row.status || "-") + " | " + (row.observacao || ""));
+    });
+  }
+  if (show("beds")) {
+    lines.push("");
+    lines.push("UIB / LEITOS");
+    report.sections.leitos.filter(function (row) { return row.status_leito !== "LIVRE"; }).slice(0, 40).forEach(function (row) {
+      lines.push("- " + (row.unidade || "-") + " " + (row.leito || "-") + " | " + compactPatient_(row) + " | " + (row.status_leito || "-") + " | " + (row.pendencia || row.observacao || ""));
+    });
+  }
+  if (show("procedures")) {
+    lines.push("");
+    lines.push("PROCEDIMENTOS E EXAMES");
+    report.sections.procedimentos.filter(function (row) { return !isFinalStatus_(row.status); }).slice(0, 40).forEach(function (row) {
+      lines.push("- " + (row.tipo || "-") + " | " + compactPatient_(row) + " | " + (row.procedimento || "-") + " | " + (row.data_programacao || "-") + " " + (row.hora_programacao || "") + " | " + (row.status || "-"));
+    });
+  }
+  if (show("icu")) {
+    lines.push("");
+    lines.push("UTI / SRPA");
+    report.sections.uti.slice(0, 40).forEach(function (row) {
+      lines.push("- " + (row.tipo || "-") + " | " + compactPatient_(row) + " | " + (row.leito_atual || "-") + " -> " + (row.destino || "-") + " | " + (row.status || "-"));
+    });
+  }
+  if (show("blocks")) {
+    lines.push("");
+    lines.push("BLOQUEIOS");
+    report.sections.bloqueios.filter(function (row) { return row.status !== "ENCERRADO"; }).slice(0, 40).forEach(function (row) {
+      lines.push("- " + (row.tipo_bloqueio || "-") + " | " + (row.unidade || "-") + " " + (row.leito || "-") + " | " + (row.motivo || row.observacao || ""));
+    });
+  }
   return lines.join("\n");
 }
 
