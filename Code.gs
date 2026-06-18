@@ -205,10 +205,6 @@ function closeShift(payload) {
     const active = getActiveShift_();
     if (!active) return { activeShift: null, alreadyClosed: true };
 
-    const report = generateReportInternal_({
-      filters: Object.assign({}, payload && payload.filters ? payload.filters : {}, { plantao_id: active.id }),
-      save: true
-    });
     const closed = Object.assign({}, active, {
       status: "ENCERRADO",
       encerrado_em: nowIso_(),
@@ -216,6 +212,17 @@ function closeShift(payload) {
     });
     updateObject_("shifts", active.id, closed);
     setConfig_(NIR_ACTIVE_SHIFT_KEY, "");
+    const report = buildCloseShiftSnapshotReport_(closed, payload || {});
+    appendObject_("reports", {
+      id: report.id,
+      plantao_id: report.plantao_id,
+      gerado_em: report.generatedAt,
+      gerado_por: report.generatedBy,
+      filtros_json: jsonStringify_(report.filters),
+      kpis_json: jsonStringify_(report.kpis),
+      relatorio_texto: report.text,
+      snapshot_json: jsonStringify_(report.sections)
+    });
     writeLog_("plantao", "PLANTAO_ENCERRADO", active.id, active, closed, "Relatorio salvo: " + report.id);
     return { activeShift: null, report: report };
   });
@@ -633,6 +640,38 @@ function generateReportInternal_(payload) {
   return report;
 }
 
+function buildCloseShiftSnapshotReport_(closedShift, payload) {
+  const filters = Object.assign({}, payload && payload.filters ? payload.filters : {}, { plantao_id: closedShift.id });
+  const generatedAt = nowIso_();
+  const report = {
+    id: generateId_("REL"),
+    plantao_id: closedShift.id,
+    generatedAt: generatedAt,
+    generatedBy: getUser_().email,
+    filters: filters,
+    kpis: {},
+    sections: {
+      plantao: closedShift,
+      resumo: [
+        "Plantao encerrado em " + formatDateTime_(closedShift.encerrado_em),
+        "Snapshot leve salvo para nao bloquear o encerramento."
+      ]
+    }
+  };
+  report.text = [
+    "RELATORIO DE ENCERRAMENTO DE PLANTAO - NIR",
+    "Gerado em: " + formatDateTime_(generatedAt),
+    "Plantao: " + formatShiftIdForReport_(closedShift.id),
+    "Data: " + formatDateOnly_(closedShift.data),
+    "Turno: " + (closedShift.turno || "-"),
+    "Encerrado por: " + (closedShift.encerrado_por || "-"),
+    "Encerrado em: " + formatDateTime_(closedShift.encerrado_em),
+    "",
+    "O relatorio operacional detalhado pode ser gerado na aba Relatorio."
+  ].join("\n");
+  return report;
+}
+
 function calculateKpis_(regulations, beds, procedures, icu, blocks) {
   const reserved = regulations.filter(function (row) { return row.status === "RESERVADO"; }).length;
   const admitted = regulations.filter(function (row) { return row.status === "INTERNADO"; }).length;
@@ -842,6 +881,13 @@ function formatDateTime_(value) {
   const date = new Date(String(value).replace(" ", "T"));
   if (isNaN(date)) return String(value);
   return Utilities.formatDate(date, NIR_TIMEZONE, "dd/MM/yyyy HH:mm");
+}
+
+function formatDateOnly_(value) {
+  const normalized = normalizeDate_(value);
+  if (!normalized) return value ? String(value) : "";
+  const parts = normalized.split("-");
+  return parts.length === 3 ? [parts[2], parts[1], parts[0]].join("/") : normalized;
 }
 
 function pad2_(value) {
