@@ -130,7 +130,9 @@ function criarEstruturaNIR() {
 
 function getAppState(payload) {
   return runNir_(function () {
-    ensureAllSheets_();
+    // Caminho de abertura: nao garantimos as 10 abas aqui. Cada readObjects_
+    // garante sua propria aba (lazy), evitando tocar abas nao usadas no painel
+    // (contatos, relatorios, log) e cortando varias idas a planilha.
     const filters = payload && payload.filters ? payload.filters : {};
     const activeShift = getActiveShift_();
     const options = getOptions_();
@@ -230,7 +232,6 @@ function closeShift(payload) {
 
 function listRecords(payload) {
   return runNir_(function () {
-    ensureAllSheets_();
     const moduleKey = payload && payload.module ? payload.module : "regulations";
     const filters = payload && payload.filters ? payload.filters : {};
     return { rows: filterRows_(readObjects_(moduleKey), filters), module: moduleKey };
@@ -277,7 +278,6 @@ function deleteRecord(payload) {
 
 function generateReport(payload) {
   return runNir_(function () {
-    ensureAllSheets_();
     return generateReportInternal_(payload || {});
   });
 }
@@ -379,12 +379,24 @@ function runNir_(fn) {
   }
 }
 
+// Caches por execucao: evitam reabrir a planilha e re-garantir abas a cada
+// chamada interna. Em Apps Script o estado global vive durante uma execucao,
+// entao isso elimina dezenas de openById/getSheetByName redundantes por request.
+let NIR_SPREADSHEET_CACHE_ = null;
+const NIR_SHEET_CACHE_ = {};
+const NIR_ENSURED_SHEETS_ = {};
+
 function getSpreadsheet_() {
+  if (NIR_SPREADSHEET_CACHE_) return NIR_SPREADSHEET_CACHE_;
   const configuredId = PropertiesService.getScriptProperties().getProperty(NIR_SPREADSHEET_PROPERTY);
-  if (configuredId) return SpreadsheetApp.openById(configuredId);
+  if (configuredId) {
+    NIR_SPREADSHEET_CACHE_ = SpreadsheetApp.openById(configuredId);
+    return NIR_SPREADSHEET_CACHE_;
+  }
   const active = SpreadsheetApp.getActiveSpreadsheet();
   if (!active) throw new Error("Configure PLANILHA_ID nas propriedades do script.");
-  return active;
+  NIR_SPREADSHEET_CACHE_ = active;
+  return NIR_SPREADSHEET_CACHE_;
 }
 
 function ensureAllSheets_() {
@@ -394,18 +406,30 @@ function ensureAllSheets_() {
 }
 
 function ensureSheet_(key) {
+  if (NIR_ENSURED_SHEETS_[key]) return NIR_SHEET_CACHE_[key];
+
   const spec = NIR_SHEETS[key];
   const ss = getSpreadsheet_();
   let sheet = ss.getSheetByName(spec.name);
-  if (!sheet) sheet = ss.insertSheet(spec.name);
+  let isNew = false;
+  if (!sheet) {
+    sheet = ss.insertSheet(spec.name);
+    isNew = true;
+  }
   if (sheet.getLastRow() === 0) {
-    sheet.appendRow(spec.headers);
+    sheet.getRange(1, 1, 1, spec.headers.length).setValues([spec.headers]);
+    sheet.setFrozenRows(1);
   } else {
     const current = sheet.getRange(1, 1, 1, Math.max(spec.headers.length, sheet.getLastColumn())).getValues()[0];
     const changed = spec.headers.some(function (h, i) { return current[i] !== h; });
     if (changed) sheet.getRange(1, 1, 1, spec.headers.length).setValues([spec.headers]);
+    // Congelar linha e escrita/formatacao cara: so aplica quando necessario,
+    // nunca em todo caminho de leitura como antes.
+    if (isNew || sheet.getFrozenRows() < 1) sheet.setFrozenRows(1);
   }
-  sheet.setFrozenRows(1);
+
+  NIR_ENSURED_SHEETS_[key] = true;
+  NIR_SHEET_CACHE_[key] = sheet;
   return sheet;
 }
 
