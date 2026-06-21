@@ -53,18 +53,21 @@ O app evita a logica de "varias abas" como ponto de trabalho. A interface concen
 - `NIR_RELATORIOS`
 - `NIR_LOG`
 
+
+
+
 ## Guia visual do sistema
 
-> Mockups demonstrativos do sistema, com dados ficticios e sem informacoes reais de pacientes ou da instituicao.
+> Telas demonstrativas baseadas nos componentes, textos, cores e fluxos encontrados no código deste repositório. Os dados exibidos são fictícios e não representam pacientes, profissionais ou instituições reais.
 
-### Sala de situacao
-![Sala de situacao](./docs/screenshots/situation-room.svg)
+### NIR - sala de situação
+![NIR - sala de situação](./docs/screenshots/situation-room.svg)
 
-### Mapa de leitos
-![Mapa de leitos](./docs/screenshots/bed-map.svg)
+### NIR - mapa de leitos
+![NIR - mapa de leitos](./docs/screenshots/bed-map.svg)
 
-### Relatorio diario
-![Relatorio diario](./docs/screenshots/daily-report.svg)
+### NIR - relatório diário
+![NIR - relatório diário](./docs/screenshots/daily-report.svg)
 
 ## Como rodar
 
